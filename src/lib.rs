@@ -30,6 +30,9 @@ impl Key {
     pub fn as_bytes(&self) -> &[u8] {
         self.0.as_bytes()
     }
+    pub fn as_string(&self) -> String {
+        self.0.as_string()
+    }
     pub const fn from_arr(arr: [u8; 32]) -> Key {
         Key(ByteArr(arr))
     }
@@ -114,6 +117,9 @@ struct ByteArr(pub [u8; 32]);
 impl ByteArr {
     pub fn as_bytes(&self) -> &[u8] {
         &self.0
+    }
+    pub fn as_string(&self) -> String {
+        hex::encode(self.0)
     }
     fn num_bytes(&self) -> usize {
         self.0.len()

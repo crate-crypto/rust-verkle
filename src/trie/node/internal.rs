@@ -226,10 +226,8 @@ impl InternalNode {
         sm: &mut NodeSlotMap,
         key: &Key,
         ck: &CommitKey<Bls12_381>,
-    ) -> VerklePath {
-        let (mut key_path, path_bit, mut node_indices) =
-            self.find_termination_path(sm, key).unwrap();
-
+    ) -> Result<VerklePath, NodeError> {
+        let (mut key_path, path_bit, mut node_indices) = self.find_termination_path(sm, key)?;
         // If there are no errors, then it means:
         // - There is at least one node, which is the leaf
         // - The other nodes are branches
@@ -307,12 +305,12 @@ impl InternalNode {
             sm[index] = Node::Internal(branch_node)
         }
 
-        VerklePath {
+        Ok(VerklePath {
             omega_path_indices: path_indices_as_fr,
             node_roots: evaluation_points,
             commitments,
             polynomials,
-        }
+        })
     }
 
     // Collect all of the nodes along the path to the key
@@ -336,7 +334,15 @@ impl InternalNode {
                 Node::Internal(internal) => {
                     curr_node = internal;
                 }
-                Node::Leaf(_) => return Ok((nodes, path_bits, node_indices)),
+                Node::Leaf(leaf) => {
+                    // A key has been found, however it may not be the key we are looking for
+                    if &leaf.key != key {
+                        return Err(NodeError::WrongLeafNode {
+                            leaf_found: leaf.key,
+                        });
+                    }
+                    return Ok((nodes, path_bits, node_indices));
+                }
                 Node::Hashed(_) => return Err(NodeError::UnexpectedHashNode),
                 Node::Empty(_) => return Err(NodeError::UnexpectedEmptyNode),
             }
