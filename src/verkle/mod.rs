@@ -6,16 +6,16 @@ use crate::{
     kzg10::{self, CommitKey, OpeningKey},
     VerkleCommitment,
 };
-// This module is used to create and verify proofs, given a Verkle path or a Verkle proof
+// This module is used to create and verify proofs, given a Verkle path or a Verkle proof respectively
 //
-/// This is the path that will be used to prove that a specific value exists
+/// The VerklePath is used to indirectly prove that a specific value exists
 /// at a specific key.
 ///
 /// When finding the path to a leaf node
 // At each level in the trie, there will either be a
 /// an inner/branch node or the leaf node.
 ///
-/// In order to save the path for proving later on,
+/// In order to prove that a value is present at a particular key
 /// we need three things:
 ///
 /// Lets imagine we are at the termination node and we have a `Key`.
@@ -36,15 +36,15 @@ use crate::{
 ///
 /// This path index is included in the Verkle path.
 ///
-/// 2) We are still at N_t, we take the Hash of this node and also save it. H_t
+/// 2) We are still at N_t, we take the Hash of this node and also save it as H_t
 ///
 /// 3) We now look at N_{t-1} which is necessarily a branch node, and we compute the
 /// commitment for N_{t-1}
 ///
-/// In this case, the node we were on N_t, was a leaf node and the node before it was a branch node
+/// In the above case,  N_t was a leaf node and the node before it was a branch node
 /// Lets see how things are when N_{t-1} is a branch node and N_{t-2} is also a branch node
 ///
-/// 1) The path index is stored again.
+/// 1) The path index is stored again. There is necessarily a path from this N_{t-1} to N_{t-2}
 ///
 /// 2) We are at N_{t-1} which is a branch node, we need to take the hash of this
 /// The hash of a branch node is the hash of it's children's Hash
@@ -57,12 +57,12 @@ use crate::{
 ///
 /// Notice that LeafNodes cannot be committed to in the algorithm, only branch nodes!
 ///
-/// Also concatenating all of the indices together, gives the `Key`
+/// Also concatenating all of the path indices together, gives the `Key`
 ///
 pub struct VerklePath {
     pub omega_path_indices: Vec<Fr>,
     pub node_roots: Vec<Fr>,
-    /// For a branch node to make a commitment, it first creates an array 1024 Field elements
+    /// For a branch node to make a commitment, it first creates an array 2^{width} Field elements
     /// all initialised to be zero. Let's call this array A, and A[i] indicates the ith element in the array
     ///
     /// We iterate each of its 1024 children, there are three cases:
@@ -75,24 +75,24 @@ pub struct VerklePath {
     //
     // The child is a leaf:
     //
-    // In this case, we hash the leaf and convert it to a field element by reducing modulo the order.
+    // In this case, we hash the leaf and convert it to a field element by reducing modulo the field order.
     // We then replace the corresponding entry in the array with this value.
     // For example, if the fifth entry in the array was a leaf, we would compute k = HashToFr(leaf)
-    // Then do A[6] = k (I use 6 because the array index starts at 0)
+    // Then do A[4] = k (I use 4 because the array index starts at 0)
     //
     // The child is a branch node:
     //
-    // First note that we cannot have an unlimited amount of branch nodes. We eventually need
-    // to get to a leaf or an empty node.
-    // If we have a branch node, then we need to compute the commitment of that branch node, which calls
-    // the above algorithm.
+    // First I note that we cannot have an unlimited amount of branch nodes. We eventually need
+    // to get to a leaf or an empty node. This is necessarily true as soon as we set the width and key size.
+    // If we have a branch node, then we need to compute the commitment of that branch node,
+    // which recursively calls this algorithm again.
+    //
     // BUT this algorithm produces a Commitment and not a FieldElement.So once we get the commitment from
-    // the child branch, we compress it incase it was in Affine form, call HashToFr on the compressed point.
+    // the child branch, we compress and encode it in byte format, then call HashToFr on the byte representation.
     //
     // One thing to note: In the golang impl HashToFr takes the output of a Hash and reduces it,
     // While the explanation here assumes the data is hashed inside of HashToFr.
     pub commitments: Vec<VerkleCommitment>,
-    //
     pub polynomials: Vec<Polynomial<Fr>>,
 }
 
@@ -104,6 +104,9 @@ impl VerklePath {
             self.polynomials.len() > 0,
             "to create a verkle proof, you must have at least one polynomial"
         );
+
+        // XXX: open_multipoint should take an optional vector of commitments
+        // Currently, the polynomials are being committed to inside of KZG10 also.
 
         let proof = ck
             .open_multipoint(
