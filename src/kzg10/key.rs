@@ -238,7 +238,7 @@ impl<E: PairingEngine> CommitKey<E> {
             });
 
         // Commit to to this poly_sum witness
-        let D = self.commit(&g_x)?;
+        let d_comm = self.commit(&g_x)?;
 
         // Compute new point to evaluate g_x at
         let t = TranscriptProtocol::<E>::challenge_scalar(transcript, b"t");
@@ -272,7 +272,7 @@ impl<E: PairingEngine> CommitKey<E> {
         TranscriptProtocol::<E>::append_scalar(transcript, b"g_t", &g_t);
         TranscriptProtocol::<E>::append_scalar(transcript, b"h_t", &h_t);
 
-        let sum_quotient = D;
+        let sum_quotient = d_comm;
         let helper_evaluation = h_t;
         let aggregated_witness_poly = self.compute_aggregate_witness(&[g_x, h_x], &t, transcript);
         let aggregated_witness = self.commit(&aggregated_witness_poly)?;
@@ -384,12 +384,12 @@ impl<E: PairingEngine> OpeningKey<E> {
             .sum();
 
         // Compute E
-        let E_point: E::G1Projective = ri_di
+        let e_point: E::G1Projective = ri_di
             .into_iter()
             .zip(commitments)
             .map(|(rd, ci)| ci.0.mul(rd.into_repr()))
             .sum();
-        let E_comm = Commitment::<E>::from_projective(E_point);
+        let e_comm = Commitment::<E>::from_projective(e_point);
 
         // Compute y and w
         // y = h(t) -> prover provided
@@ -404,7 +404,7 @@ impl<E: PairingEngine> OpeningKey<E> {
         // Compute aggregate proof. `q` is computed internally
         let mut agg_proof = AggregateProof::with_witness(proof.aggregated_witness);
         agg_proof.add_part((w, proof.sum_quotient));
-        agg_proof.add_part((y, E_comm));
+        agg_proof.add_part((y, e_comm));
         let proof = agg_proof.flatten(transcript);
 
         self.check(t, proof)
