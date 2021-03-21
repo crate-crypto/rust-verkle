@@ -36,15 +36,12 @@ use verkle_trie::{dummy_setup, Key, Value, VerkleTrie};
     trie.insert(Key::one(), Value::one());
     trie.insert(Key::zero(), Value::one());
 
-    // Create a VerklePath for the leaf node where the key is 1
-    // This contains all of the information needed to prove the leaf value 
-    // at key = 1
+    // Create a VerklePath for key
     let verkle_path = trie.create_path(&Key::one(), &commit_key).unwrap();
 
     // Create a VerkleProof
     let verkle_proof = verkle_path.create_proof(&commit_key);
 
-    // Verify
     // Verification here means that the KZG10 proof passed
     //
     // To "finish" the proof, the verifier should check the hash of leaf node themselves
