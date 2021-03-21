@@ -430,7 +430,7 @@ fn check_degree_is_within_bounds(max_degree: usize, poly_degree: usize) -> Resul
 mod test {
     use super::super::srs::*;
     use super::*;
-    use ark_bls12_381::{Bls12_381, Fr, G1Projective};
+    use ark_bls12_381::{Bls12_381, Fr};
     use rand_core::OsRng;
 
     use merlin::Transcript;

@@ -4,8 +4,8 @@ use super::{
 };
 use crate::util;
 use ark_ec::{AffineCurve, PairingEngine, ProjectiveCurve};
+use ark_ff::UniformRand;
 use rand_core::RngCore;
-
 /// The Public Parameters can also be referred to as the Structured Reference String (SRS).
 /// It is available to both the prover and verifier and allows the verifier to
 /// efficiently verify and make claims about polynomials up to and including a configured degree.
@@ -34,13 +34,14 @@ impl<E: PairingEngine> PublicParameters<E> {
         }
 
         // Generate the secret scalar beta
-        let beta = util::random_scalar::<E::Fr, _>(&mut rng);
+        let beta = E::Fr::rand(&mut rng);
 
         // Compute powers of beta up to and including beta^max_degree
         let powers_of_beta = util::powers_of(&beta, max_degree);
 
         // Powers of G1 that will be used to commit to a specified polynomial
-        let g = util::random_g1_point::<E, _>(&mut rng);
+        let g = E::G1Projective::rand(&mut rng);
+
         let powers_of_g: Vec<E::G1Projective> =
             util::slow_multiscalar_mul_single_base::<E>(&powers_of_beta, g);
         assert_eq!(powers_of_g.len(), max_degree + 1);
@@ -49,7 +50,7 @@ impl<E: PairingEngine> PublicParameters<E> {
         let normalised_g = E::G1Projective::batch_normalization_into_affine(&powers_of_g);
 
         // Compute beta*G2 element and stored cached elements for verifying multiple proofs.
-        let h: E::G2Affine = util::random_g2_point::<E, _>(&mut rng).into();
+        let h: E::G2Affine = E::G2Projective::rand(&mut rng).into();
         let beta_h: E::G2Affine = (h.mul(beta)).into();
         let prepared_h: E::G2Prepared = E::G2Prepared::from(h);
         let prepared_beta_h = E::G2Prepared::from(beta_h);
@@ -66,6 +67,12 @@ impl<E: PairingEngine> PublicParameters<E> {
                 prepared_beta_h,
             },
         })
+    }
+
+    pub fn dummy_setup(degree: usize) -> Result<(CommitKey<E>, OpeningKey<E>), KZG10Error> {
+        use rand_core::OsRng;
+        let srs = PublicParameters::setup(degree, &mut OsRng).unwrap();
+        srs.trim(degree)
     }
 
     /// Trim truncates the prover key to allow the prover to commit to polynomials up to the
