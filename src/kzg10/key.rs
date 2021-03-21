@@ -200,8 +200,8 @@ impl<E: PairingEngine> CommitKey<E> {
     pub fn open_multipoint(
         &self,
         polynomials: &[Polynomial<E::Fr>],
-        evaluations: Vec<E::Fr>,
-        points: Vec<E::Fr>,
+        evaluations: &[E::Fr],
+        points: &[E::Fr],
         transcript: &mut Transcript,
     ) -> Result<AggregateProofMultiPoint<E>, KZG10Error> {
         // Commit to polynomials
@@ -217,7 +217,7 @@ impl<E: PairingEngine> CommitKey<E> {
         // compute the witness for each polynomial at their respective points
         let mut each_witness = Vec::new();
 
-        for (poly, point, evaluation) in izip!(polynomials, &points, &evaluations) {
+        for (poly, point, evaluation) in izip!(polynomials, points, evaluations) {
             let poly = poly - &Polynomial::from_coefficients_slice(&[*evaluation]); // XXX: Is this needed? It's not in single KZG
             let witness_poly = self.compute_single_witness(&poly, point);
             each_witness.push(witness_poly);
@@ -355,9 +355,9 @@ impl<E: PairingEngine> OpeningKey<E> {
         &self,
         proof: AggregateProofMultiPoint<E>,
         transcript: &mut Transcript,
-        commitments: Vec<Commitment<E>>,
-        evaluation_points: Vec<E::Fr>, // the `z` in y=p(z)
-        evaluated_points: Vec<E::Fr>,  // the `y` in y=p(z)
+        commitments: &[Commitment<E>],
+        evaluation_points: &[E::Fr], // the `z` in y=p(z)
+        evaluated_points: &[E::Fr],  // the `y` in y=p(z)
     ) -> bool {
         // Add all commitments to the transcript
         for comm in commitments.iter() {
@@ -476,8 +476,8 @@ mod test {
         let proof = proving_key
             .open_multipoint(
                 &[poly_a, poly_b],
-                vec![value_a, value_b],
-                vec![point_a, point_b],
+                &[value_a, value_b],
+                &[point_a, point_b],
                 &mut transcript,
             )
             .unwrap();
@@ -488,9 +488,9 @@ mod test {
         let ok = opening_key.check_multi_point(
             proof,
             &mut transcript,
-            vec![commit_poly_a, commit_poly_b],
-            vec![point_a, point_b],
-            vec![value_a, value_b],
+            &[commit_poly_a, commit_poly_b],
+            &[point_a, point_b],
+            &[value_a, value_b],
         );
         assert!(ok);
     }
