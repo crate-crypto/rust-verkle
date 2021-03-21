@@ -3,6 +3,8 @@ use ark_bls12_381::Bls12_381;
 use node::internal::InternalNode;
 use slotmap::{new_key_type, SlotMap};
 
+use self::node::errors::NodeError;
+
 pub mod node;
 
 // NodeIndex is used to refer to Nodes in the arena allocator.
@@ -26,7 +28,11 @@ impl VerkleTrie {
         self.root.insert(key, value, &mut self.slot_map).unwrap();
     }
     // Creates a verkle path for the given key
-    pub fn create_path(&mut self, key: &Key, commit_key: &CommitKey<Bls12_381>) -> VerklePath {
+    pub fn create_path(
+        &mut self,
+        key: &Key,
+        commit_key: &CommitKey<Bls12_381>,
+    ) -> Result<VerklePath, NodeError> {
         self.root
             .find_commitment_path(&mut self.slot_map, &key, commit_key)
     }
@@ -486,7 +492,8 @@ mod test {
 
         let verkle_path = tree
             .root
-            .find_commitment_path(&mut tree.slot_map, &first_key, &ck);
+            .find_commitment_path(&mut tree.slot_map, &first_key, &ck)
+            .unwrap();
 
         // Check consistency with manual checks
         let domain = ark_poly::GeneralEvaluationDomain::<Fr>::new(NUM_CHILDREN).unwrap();
@@ -494,13 +501,13 @@ mod test {
         assert_eq!(verkle_path.omega_path_indices.len(), 3);
         let expected_indices = vec![domain.element(320), domain.element(0), domain.element(0)];
         assert_eq!(expected_indices, verkle_path.omega_path_indices);
-        let verkle_proof = verkle_path.create_proof(ck);
+        let verkle_proof = verkle_path.create_proof(&ck);
 
         assert!(verkle_proof.verify(
             &vk,
-            &verkle_path.commitment,
+            &verkle_path.commitments,
             &expected_indices,
-            &verkle_path.children_hashes,
+            &verkle_path.node_roots,
         ));
     }
 }
