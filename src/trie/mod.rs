@@ -1,4 +1,4 @@
-use crate::{kzg10::CommitKey, trie::node::Node, verkle::VerklePath, Key, Value};
+use crate::{kzg10::CommitKey, trie::node::Node, verkle::VerklePath, Key, Value, VerkleCommitment};
 use ark_bls12_381::Bls12_381;
 use node::internal::InternalNode;
 use slotmap::{new_key_type, SlotMap};
@@ -26,6 +26,13 @@ impl VerkleTrie {
 
     pub fn insert(&mut self, key: Key, value: Value) {
         self.root.insert(key, value, &mut self.slot_map).unwrap();
+    }
+
+    pub fn compute_root_commitment(
+        &mut self,
+        commit_key: &CommitKey<Bls12_381>,
+    ) -> VerkleCommitment {
+        self.root.commitment(&self.slot_map, commit_key)
     }
     // Creates a verkle path for the given key
     pub fn create_path(
@@ -118,8 +125,20 @@ mod test {
 
     // Creates a proving key and verifier key based on a specified degree
     fn setup_test() -> (CommitKey<Bls12_381>, OpeningKey<Bls12_381>) {
-        let degree = NUM_CHILDREN;
+        let degree = NUM_CHILDREN - 1;
         let srs = PublicParameters::setup(degree, &mut OsRng).unwrap();
+        srs.trim(degree).unwrap()
+    }
+
+    // Creates a proving key and verifier key based on a specified degree
+    // using golang secret
+    fn setup_test_golang() -> (CommitKey<Bls12_381>, OpeningKey<Bls12_381>) {
+        let degree = NUM_CHILDREN - 1;
+        let srs = PublicParameters::setup_from_secret(
+            degree,
+            Fr::from(1927409816240961209460912649124u128),
+        )
+        .unwrap();
         srs.trim(degree).unwrap()
     }
 
@@ -311,7 +330,9 @@ mod test {
 
         // So the world view is that two keys have been inserted.
         // The prover and verifier both know the root commitment
-        let root_poly = tree.root.compute_polynomial(&tree.slot_map, &ck);
+        let root_poly = tree
+            .root
+            .compute_polynomial_evaluations(&tree.slot_map, &ck);
 
         let domain = ark_poly::GeneralEvaluationDomain::<Fr>::new(NUM_CHILDREN).unwrap();
 
@@ -341,7 +362,7 @@ mod test {
         // In Dankrad's diagram, this is inner node a
         //
         let proof_a = ck
-            .open_single(&root_poly, None, &root_inner_node_a, &domain.element(320))
+            .open_single_lagrange(&root_poly, None, &root_inner_node_a, &domain.element(320))
             .unwrap();
         let ok = vk.check(domain.element(320), proof_a);
         assert!(ok);
@@ -369,7 +390,7 @@ mod test {
                 )
             };
 
-        let n_1_poly = branch_node_level_2.compute_polynomial(&tree.slot_map, &ck);
+        let n_1_poly = branch_node_level_2.compute_polynomial_evaluations(&tree.slot_map, &ck);
         let branch_node_level_3 = if let Node::Leaf(leaf) = tree.get_child(&branch_node_level_2, 0)
         {
             leaf
@@ -381,7 +402,7 @@ mod test {
         };
         let c_fr = branch_node_level_3.hash().to_fr();
         let proof_a = ck
-            .open_single(&n_1_poly, None, &c_fr, &domain.element(0))
+            .open_single_lagrange(&n_1_poly, None, &c_fr, &domain.element(0))
             .unwrap();
         let ok = vk.check(domain.element(0), proof_a);
         assert!(ok);

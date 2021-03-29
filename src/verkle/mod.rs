@@ -1,5 +1,5 @@
 use ark_bls12_381::{Bls12_381, Fr};
-use ark_poly::univariate::DensePolynomial as Polynomial;
+use ark_poly::Evaluations;
 use merlin::Transcript;
 
 use crate::{
@@ -93,7 +93,7 @@ pub struct VerklePath {
     // One thing to note: In the golang impl HashToFr takes the output of a Hash and reduces it,
     // While the explanation here assumes the data is hashed inside of HashToFr.
     pub commitments: Vec<VerkleCommitment>,
-    pub polynomials: Vec<Polynomial<Fr>>,
+    pub polynomials: Vec<Evaluations<Fr>>,
 }
 
 impl VerklePath {
@@ -109,7 +109,7 @@ impl VerklePath {
         // Currently, the polynomials are being committed to inside of KZG10 also.
 
         let proof = ck
-            .open_multipoint(
+            .open_multipoint_lagrange(
                 &self.polynomials,
                 &self.node_roots,
                 &self.omega_path_indices,

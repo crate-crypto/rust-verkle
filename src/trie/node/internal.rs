@@ -7,7 +7,6 @@ use crate::{
 };
 use ark_bls12_381::{Bls12_381, Fr};
 use ark_ff::Zero;
-use ark_poly::univariate::DensePolynomial as Polynomial;
 use ark_poly::EvaluationDomain;
 use ark_poly::{Evaluations, GeneralEvaluationDomain};
 use std::{convert::TryInto, usize};
@@ -246,7 +245,7 @@ impl InternalNode {
         let mut commitments = Vec::with_capacity(key_path.len());
         let mut polynomials = Vec::with_capacity(key_path.len());
 
-        let root_branch_poly = self.compute_polynomial(sm, ck);
+        let root_branch_poly = self.compute_polynomial_evaluations(sm, ck);
         let root_commitment = self.commitment_from_poly(&root_branch_poly, ck);
         self.commitment = root_commitment;
 
@@ -259,7 +258,7 @@ impl InternalNode {
         let mut branch_nodes: Vec<_> = key_path.into_iter().map(|node| node.internal()).collect();
 
         for branch in branch_nodes.iter_mut() {
-            let branch_poly = branch.compute_polynomial(sm, ck);
+            let branch_poly = branch.compute_polynomial_evaluations(sm, ck);
             let branch_commitment = branch.commitment_from_poly(&branch_poly, ck);
 
             polynomials.push(branch_poly);
@@ -360,8 +359,8 @@ impl InternalNode {
         if let VerkleCommitment::Computed(_) = self.commitment {
             return self.commitment;
         }
-        let poly = self.compute_polynomial(sm, ck);
-        let kzg10_commitment = ck.commit(&poly).unwrap();
+        let poly = self.compute_polynomial_evaluations(sm, ck);
+        let kzg10_commitment = ck.commit_lagrange(&poly.evals).unwrap();
         self.commitment = VerkleCommitment::Computed(kzg10_commitment);
         self.commitment
     }
@@ -372,10 +371,10 @@ impl InternalNode {
         // we can commit to it and save the commitment.
         // This must be the corresponding polynomial for the branch node
         // or the proof will fail.
-        precomputed_polynomial: &Polynomial<Fr>,
+        precomputed_polynomial: &Evaluations<Fr>,
         ck: &CommitKey<Bls12_381>,
     ) -> VerkleCommitment {
-        let kzg10_commitment = ck.commit(precomputed_polynomial).unwrap();
+        let kzg10_commitment = ck.commit_lagrange(&precomputed_polynomial.evals).unwrap();
         self.commitment = VerkleCommitment::Computed(kzg10_commitment);
         self.commitment
     }
@@ -419,19 +418,18 @@ impl InternalNode {
         polynomial_eval
     }
 
-    pub fn compute_polynomial(
+    pub fn compute_polynomial_evaluations(
         &self,
         sm: &NodeSlotMap,
         ck: &CommitKey<Bls12_381>,
-    ) -> Polynomial<Fr> {
+    ) -> Evaluations<Fr> {
         let evaluations = self.compute_evaluations(sm, ck);
 
         // Do IFFT since we need these in coefficient form
         // for the inefficient version
         // Then commit to the polynomial using the SRS
         let d = GeneralEvaluationDomain::<Fr>::new(NUM_CHILDREN).unwrap();
-        let eval = Evaluations::from_vec_and_domain(evaluations.to_vec(), d);
-        eval.interpolate()
+        Evaluations::from_vec_and_domain(evaluations.to_vec(), d)
     }
 }
 
