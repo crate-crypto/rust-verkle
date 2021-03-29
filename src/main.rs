@@ -3,7 +3,7 @@ fn main() {
     let mut trie = VerkleTrie::new();
 
     println!("creating trusted setup");
-    let (commit_key, opening_key) = dummy_setup(1024);
+    let (commit_key, opening_key) = dummy_setup(1023);
 
     println!("creating inserting values");
     trie.insert(Key::one(), Value::one());
