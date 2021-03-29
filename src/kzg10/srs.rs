@@ -35,12 +35,23 @@ impl<E: PairingEngine> PublicParameters<E> {
 
         // Generate the secret scalar beta
         let beta = E::Fr::rand(&mut rng);
+        PublicParameters::setup_from_secret(max_degree, beta)
+    }
+
+    pub fn setup_from_secret(
+        max_degree: usize,
+        beta: E::Fr,
+    ) -> Result<PublicParameters<E>, KZG10Error> {
+        // Cannot commit to constants
+        if max_degree < 1 {
+            return Err(KZG10Error::DegreeIsZero.into());
+        }
 
         // Compute powers of beta up to and including beta^max_degree
         let powers_of_beta = util::powers_of(&beta, max_degree);
 
         // Powers of G1 that will be used to commit to a specified polynomial
-        let g = E::G1Projective::rand(&mut rng);
+        let g = E::G1Projective::prime_subgroup_generator();
 
         let powers_of_g: Vec<E::G1Projective> =
             util::slow_multiscalar_mul_single_base::<E>(&powers_of_beta, g);
@@ -50,14 +61,17 @@ impl<E: PairingEngine> PublicParameters<E> {
         let normalised_g = E::G1Projective::batch_normalization_into_affine(&powers_of_g);
 
         // Compute beta*G2 element and stored cached elements for verifying multiple proofs.
-        let h: E::G2Affine = E::G2Projective::rand(&mut rng).into();
+        let h: E::G2Affine = E::G2Projective::prime_subgroup_generator().into();
         let beta_h: E::G2Affine = (h.mul(beta)).into();
         let prepared_h: E::G2Prepared = E::G2Prepared::from(h);
         let prepared_beta_h = E::G2Prepared::from(beta_h);
 
+        let lagrange_srs = PublicParameters::<E>::compute_lagrange_srs(max_degree, beta, g);
+
         Ok(PublicParameters {
             commit_key: CommitKey {
                 powers_of_g: normalised_g,
+                lagrange_powers_of_g: lagrange_srs,
             },
             opening_key: OpeningKey::<E> {
                 g: g.into(),
@@ -69,9 +83,31 @@ impl<E: PairingEngine> PublicParameters<E> {
         })
     }
 
+    // This is _a_ quick way to _effectively_ compute the fft of the srs
+    // Note that this method forces the committed polynomial to be of this exact degree.
+    fn compute_lagrange_srs(
+        max_degree: usize,
+        beta: E::Fr,
+        g: E::G1Projective,
+    ) -> Vec<E::G1Affine> {
+        use ark_ff::PrimeField;
+        use ark_poly::{EvaluationDomain, GeneralEvaluationDomain};
+        let domain: GeneralEvaluationDomain<E::Fr> =
+            GeneralEvaluationDomain::new(max_degree).unwrap();
+
+        // evaluate lagrange at the secret scalar
+        let lagrange_coeffs = domain.evaluate_all_lagrange_coefficients(beta);
+
+        // commit to each lagrange coefficient
+        lagrange_coeffs
+            .into_iter()
+            .map(|l_s| g.mul(l_s.into_repr()).into())
+            .collect()
+    }
+
     pub fn dummy_setup(degree: usize) -> Result<(CommitKey<E>, OpeningKey<E>), KZG10Error> {
         use rand_core::OsRng;
-        let srs = PublicParameters::setup(degree, &mut OsRng).unwrap();
+        let srs = PublicParameters::setup(degree.next_power_of_two(), &mut OsRng).unwrap();
         srs.trim(degree)
     }
 

@@ -31,6 +31,7 @@ pub struct OpeningKey<E: PairingEngine> {
 pub struct CommitKey<E: PairingEngine> {
     /// Group elements of the form `{ \beta^i G }`, where `i` ranges from 0 to `degree`.
     pub powers_of_g: Vec<E::G1Affine>,
+    pub lagrange_powers_of_g: Vec<E::G1Affine>,
 }
 
 impl<E: PairingEngine> CommitKey<E> {
@@ -58,12 +59,16 @@ impl<E: PairingEngine> CommitKey<E> {
 
         let truncated_powers = Self {
             powers_of_g: self.powers_of_g[..=truncated_degree].to_vec(),
+            lagrange_powers_of_g: self.lagrange_powers_of_g[..=truncated_degree].to_vec(),
         };
 
         Ok(truncated_powers)
     }
 
-    fn check_commit_degree_is_within_bounds(&self, poly_degree: usize) -> Result<(), KZG10Error> {
+    pub(crate) fn check_commit_degree_is_within_bounds(
+        &self,
+        poly_degree: usize,
+    ) -> Result<(), KZG10Error> {
         check_degree_is_within_bounds(self.max_degree(), poly_degree)
     }
 
@@ -111,6 +116,7 @@ impl<E: PairingEngine> CommitKey<E> {
         transcript: &mut Transcript,
     ) -> Polynomial<E::Fr> {
         let challenge = TranscriptProtocol::<E>::challenge_scalar(transcript, b"aggregate_witness");
+
         let powers = util::powers_of::<E::Fr>(&challenge, polynomials.len() - 1);
 
         assert_eq!(powers.len(), polynomials.len());
@@ -152,6 +158,7 @@ impl<E: PairingEngine> CommitKey<E> {
             commitment_to_polynomial: commitment_to_poly,
         })
     }
+
     pub fn open_single_from_commitment(
         &self,
         polynomial: &Polynomial<E::Fr>,
@@ -195,6 +202,7 @@ impl<E: PairingEngine> CommitKey<E> {
         };
         Ok(aggregate_proof)
     }
+
     /// Creates an opening proof that multiple polynomials were evaluated at the different points
     /// XXX: bikeshed names
     pub fn open_multipoint(
@@ -426,6 +434,7 @@ fn check_degree_is_within_bounds(max_degree: usize, poly_degree: usize) -> Resul
     }
     Ok(())
 }
+
 #[cfg(test)]
 mod test {
     use super::super::srs::*;
@@ -437,7 +446,7 @@ mod test {
 
     // Creates a proving key and verifier key based on a specified degree
     fn setup_test(degree: usize) -> (CommitKey<Bls12_381>, OpeningKey<Bls12_381>) {
-        let srs = PublicParameters::setup(degree, &mut OsRng).unwrap();
+        let srs = PublicParameters::setup(degree.next_power_of_two(), &mut OsRng).unwrap();
         srs.trim(degree).unwrap()
     }
     #[test]
