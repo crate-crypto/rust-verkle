@@ -123,6 +123,44 @@ mod test {
         }
     }
 
+    #[test]
+    fn interop_with_golang() {
+        let zeroKey =
+            hex::decode("0000000000000000000000000000000000000000000000000000000000000000")
+                .unwrap();
+        let fourtyKey =
+            hex::decode("4000000000000000000000000000000000000000000000000000000000000000")
+                .unwrap();
+        let ffx32KeyTest =
+            hex::decode("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")
+                .unwrap();
+        let value = Value::zero();
+
+        use std::convert::TryInto;
+        let mut tree = VerkleTrie::new();
+        tree.insert(Key::from_arr(zeroKey.try_into().unwrap()), value);
+        tree.insert(Key::from_arr(fourtyKey.try_into().unwrap()), value);
+        tree.insert(Key::from_arr(ffx32KeyTest.try_into().unwrap()), value);
+
+        let (ck, _) = setup_test_golang();
+
+        use ark_ec::AffineCurve;
+        use ark_serialize::CanonicalSerialize;
+
+        let commitment = tree.compute_root_commitment(&ck);
+        match commitment {
+            crate::VerkleCommitment::NotComputed => unreachable!(),
+            crate::VerkleCommitment::Computed(comm) => {
+                let mut ser = vec![0u8; 48];
+                comm.0.serialize(&mut ser[..]).unwrap();
+
+                let got = hex::encode(ser);
+                let expected = "b3617d95044b11516daa1630ed91fc1a9f12be71ad3877ade5e6ef192bc355c0ae8eedb0c2af97e1c814099785b367d0";
+                assert_eq!(expected, got)
+            }
+        }
+    }
+
     // Creates a proving key and verifier key based on a specified degree
     fn setup_test() -> (CommitKey<Bls12_381>, OpeningKey<Bls12_381>) {
         let degree = NUM_CHILDREN - 1;

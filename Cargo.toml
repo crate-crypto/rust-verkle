@@ -11,6 +11,7 @@ itertools = "0.10.0"
 bitvec = "0.21.1"
 ark-ff = { git = "https://github.com/arkworks-rs/algebra", default-features = false }
 ark-poly = { git = "https://github.com/arkworks-rs/algebra", default-features = false }
+ark-serialize = { git = "https://github.com/arkworks-rs/algebra", default-features = false }
 ark-bls12-381 = { git = "https://github.com/arkworks-rs/curves", default-features = false, features = ["curve"] }
 thiserror = "1.0.24"
 rand_core = { version = "0.5", features = ["getrandom"] }
@@ -25,3 +26,21 @@ hex = "0.4.3"
 slotmap = { version = "1.0", features = ["serde"] }
 
 [dev-dependencies]
+criterion = { version = "0.3", features = ["html_reports"] }
+
+[[bench]]
+name = "my_benchmark"
+harness = false
+required-features = ["default"]
+
+[profile.bench]
+opt-level = 3
+debug = false
+rpath = false
+lto = "thin"
+incremental = true
+debug-assertions = false
+
+[features]
+default = ["parallel"]
+parallel = ["ark-ff/parallel", "ark-poly/parallel"]
