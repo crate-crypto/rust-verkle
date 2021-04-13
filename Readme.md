@@ -35,7 +35,8 @@ use verkle_trie::{dummy_setup, Key, Value, VerkleTrie};
     let (commit_key, opening_key) = dummy_setup(srs_poly_degree);
 
     // Create a trie and insert two values
-    let mut trie = VerkleTrie::new();
+    let width = 10;
+    let mut trie = VerkleTrie::new(width);
     trie.insert(Key::one(), Value::one());
     trie.insert(Key::zero(), Value::one());
 
