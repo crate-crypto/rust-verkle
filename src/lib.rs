@@ -1,3 +1,7 @@
+#![feature(test)]
+extern crate test;
+
+mod bench;
 pub mod commitment;
 pub mod hash;
 pub mod kzg10;
@@ -14,7 +18,7 @@ pub use trie::VerkleTrie;
 pub use verkle::{VerklePath, VerkleProof};
 
 use sha2::Digest;
-use trie::node::internal::{bit_extraction, WIDTH};
+use trie::node::internal::bit_extraction;
 type HashFunction = sha2::Sha256;
 
 /// create a dummy srs
@@ -45,9 +49,8 @@ impl Key {
     pub const fn max() -> Key {
         Key(ByteArr::max())
     }
-    pub fn path_indices(&self) -> Vec<usize> {
+    pub fn path_indices(&self, width: usize) -> Vec<usize> {
         let key_length: usize = self.0.num_bytes() * 8;
-        let width: usize = WIDTH;
 
         let num_of_path_indices = ceil_div(key_length, width);
         let mut indices: Vec<usize> = Vec::with_capacity(num_of_path_indices);
@@ -65,11 +68,15 @@ impl Key {
     // Returns a list of all of the path indices where the two keys
     // are the same and the next path index where they both differ for each
     // key.
-    pub fn path_difference(key_a: &Key, key_b: &Key) -> (Vec<usize>, Option<usize>, Option<usize>) {
+    pub fn path_difference(
+        key_a: &Key,
+        key_b: &Key,
+        width: usize,
+    ) -> (Vec<usize>, Option<usize>, Option<usize>) {
         const AVERAGE_NUMBER_OF_SHARED_INDICES: usize = 3;
 
-        let path_indice_a = key_a.path_indices();
-        let path_indice_b = key_b.path_indices();
+        let path_indice_a = key_a.path_indices(width);
+        let path_indice_b = key_b.path_indices(width);
 
         let mut same_path_indices = Vec::with_capacity(AVERAGE_NUMBER_OF_SHARED_INDICES);
 
@@ -149,8 +156,9 @@ impl ByteArr {
 fn path_diff() {
     let zero = Key::zero();
     let one = Key::one();
+    let width = 10;
 
-    let (shared_path, path_diff_a, path_diff_b) = Key::path_difference(&zero, &one);
+    let (shared_path, path_diff_a, path_diff_b) = Key::path_difference(&zero, &one, width);
 
     // Note: this is for width = 10 bits and key_size is 256 bits.
     //
@@ -167,11 +175,12 @@ fn path_diff() {
 }
 #[test]
 fn ten_bit_path_index() {
+    let width = 10;
     let key = Key::from_arr([
         1, 0, 2, 0, 3, 0, 4, 0, 5, 0, 6, 0, 7, 0, 8, 0, 7, 0, 6, 0, 5, 0, 4, 0, 3, 0, 2, 0, 1, 0,
         0, 1,
     ]);
-    let path_indices = key.path_indices();
+    let path_indices = key.path_indices(width);
 
     // These are all of the numbers we use:
     // 0 -> 0000_0000
