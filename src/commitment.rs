@@ -34,6 +34,13 @@ impl VerkleCommitment {
         }
         unreachable!("point is not computed")
     }
+    // This function panics, if the commitment is empty
+    pub fn into_repr(&self) -> G1Affine {
+        if let VerkleCommitment::Computed(comm) = self {
+            return comm.0;
+        }
+        unreachable!("point is not computed")
+    }
 
     pub fn mul_generator(x: Fr) -> VerkleCommitment {
         let result = VerkleCommitment::generator().mul(x);
