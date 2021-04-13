@@ -30,10 +30,10 @@ impl<E: PairingEngine> TranscriptProtocol<E> for Transcript {
     }
 
     fn challenge_scalar(&mut self, label: &'static [u8]) -> E::Fr {
-        let mut buf = vec![0u8; E::Fr::size_in_bits() / 8 - 1];
+        let mut buf = vec![0u8; E::Fr::size_in_bits()];
         self.challenge_bytes(label, &mut buf);
 
-        E::Fr::from_random_bytes(&buf).unwrap()
+        E::Fr::from_be_bytes_mod_order(&buf)
     }
 
     fn circuit_domain_sep(&mut self, n: u64) {
