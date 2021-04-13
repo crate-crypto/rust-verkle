@@ -108,9 +108,16 @@ impl VerklePath {
         // XXX: open_multipoint should take an optional vector of commitments
         // Currently, the polynomials are being committed to inside of KZG10 also.
 
+        let commitments: Vec<_> = self
+            .commitments
+            .iter()
+            .map(|comm| kzg10::Commitment::from_affine(comm.into_repr()))
+            .collect();
+
         let proof = ck
             .open_multipoint_lagrange(
                 &self.polynomials,
+                Some(commitments),
                 &self.node_roots,
                 &self.omega_path_indices,
                 &mut transcript,
