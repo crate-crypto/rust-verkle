@@ -109,4 +109,29 @@ mod tests {
         dbg!(verkle_path.omega_path_indices.len());
         b.iter(|| verkle_path.create_proof(&SRS.0))
     }
+    #[bench]
+    fn bench_create_proof_224(b: &mut Bencher) {
+        // benchmark the time it takes to create a proof where we have inserted 2^24 leaves
+        let mut trie = VerkleTrie::new(10);
+        let n = 2usize.pow(24);
+        let keys = generate_set_of_keys(n);
+        for key in keys.iter() {
+            trie.insert(key.clone(), Value::zero());
+        }
+        trie.compute_root_commitment(&SRS.0);
+
+        // Create the verkle paths
+        let mut verkle_paths = Vec::new();
+        for key in keys.into_iter().take(1000) {
+            let verkle_path = trie.create_path(&key, &SRS.0).unwrap();
+            verkle_paths.push(verkle_path);
+        }
+
+        // benchmark creation of 1K verkle proofs
+        b.iter(|| {
+            for verkle_path in verkle_paths.iter() {
+                test::black_box(verkle_path.create_proof(&SRS.0));
+            }
+        })
+    }
 }
