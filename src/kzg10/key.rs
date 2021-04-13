@@ -374,17 +374,13 @@ impl<E: PairingEngine> OpeningKey<E> {
 
         // Compute challenges
         let r = TranscriptProtocol::<E>::challenge_scalar(transcript, b"r");
-        let r_i = crate::util::powers_of(&r, commitments.len());
+        let r_i = crate::util::powers_of_iter(r, commitments.len());
         let t = TranscriptProtocol::<E>::challenge_scalar(transcript, b"t");
 
         // compute g_2(t)
         let mut denominator: Vec<_> = evaluation_points.iter().map(|z_i| t - z_i).collect();
         ark_ff::batch_inversion(&mut denominator);
-        let ri_di: Vec<_> = r_i
-            .into_iter()
-            .zip(denominator)
-            .map(|(r_i, d_i)| r_i * d_i)
-            .collect();
+        let ri_di: Vec<_> = r_i.zip(denominator).map(|(r_i, d_i)| r_i * d_i).collect();
         let g_2_t: E::Fr = ri_di
             .iter()
             .zip(evaluated_points)
