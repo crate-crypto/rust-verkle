@@ -9,7 +9,6 @@ use crate::util::powers_of;
 use ark_ec::{AffineCurve, PairingEngine};
 use ark_ff::{PrimeField, Zero};
 pub use key::{CommitKey, OpeningKey};
-use merlin::Transcript;
 pub use srs::PublicParameters;
 
 #[derive(Copy, Clone, Debug)]
@@ -72,7 +71,7 @@ impl<E: PairingEngine> AggregateProof<E> {
 
     /// Flattens an `AggregateProof` into a `Proof`.
     /// The transcript must have the same view as the transcript that was used to aggregate the witness in the proving stage.
-    pub fn flatten(&self, transcript: &mut Transcript) -> Proof<E> {
+    pub fn flatten<T: TranscriptProtocol<E>>(&self, transcript: &mut T) -> Proof<E> {
         let challenge = TranscriptProtocol::<E>::challenge_scalar(transcript, b"aggregate_witness");
 
         let powers = powers_of::<E::Fr>(&challenge, self.commitments_to_polynomials.len() - 1);

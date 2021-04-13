@@ -26,11 +26,11 @@ impl<E: PairingEngine> CommitKey<E> {
         Ok(Commitment::from_projective(commitment))
     }
 
-    pub(crate) fn compute_aggregate_witness_lagrange(
+    pub(crate) fn compute_aggregate_witness_lagrange<T: TranscriptProtocol<E>>(
         &self,
         polynomials: &[Evaluations<E::Fr>],
         point: &E::Fr,
-        transcript: &mut Transcript,
+        transcript: &mut T,
     ) -> LagrangeBasis<E> {
         let domain = polynomials.first().unwrap().domain();
         let domain_size = domain.size();
@@ -105,7 +105,6 @@ impl<E: PairingEngine> CommitKey<E> {
     pub fn open_multiple_lagrange(
         &self,
         polynomials: &[Evaluations<E::Fr>],
-        poly_commitments: Option<Vec<Commitment<E>>>,
         evaluations: Vec<E::Fr>,
         point: &E::Fr,
         transcript: &mut Transcript,
@@ -130,13 +129,13 @@ impl<E: PairingEngine> CommitKey<E> {
         Ok(aggregate_proof)
     }
 
-    pub fn open_multipoint_lagrange(
+    pub fn open_multipoint_lagrange<T: TranscriptProtocol<E>>(
         &self,
         lagrange_polynomials: &[Evaluations<E::Fr>],
         poly_commitments: Option<Vec<Commitment<E>>>,
         evaluations: &[E::Fr],
         points: &[E::Fr], // These will be roots of unity
-        transcript: &mut Transcript,
+        transcript: &mut T,
     ) -> Result<AggregateProofMultiPoint<E>, KZG10Error> {
         let domain_size = lagrange_polynomials.first().unwrap().domain().size();
         // Commit to polynomials, if not done so already
@@ -153,7 +152,7 @@ impl<E: PairingEngine> CommitKey<E> {
         };
 
         for poly_commit in polynomial_commitments.iter() {
-            TranscriptProtocol::<E>::append_point(transcript, b"f_x", &poly_commit.0);
+            transcript.append_point(b"f_x", &poly_commit.0);
         }
 
         // compute the witness for each polynomial at their respective points
@@ -168,7 +167,7 @@ impl<E: PairingEngine> CommitKey<E> {
 
         // Compute a new polynomial which sums together all of the witnesses for each polynomial
         // aggregate the witness polynomials to form the new polynomial that we want to run KZG10 on
-        let challenge = TranscriptProtocol::<E>::challenge_scalar(transcript, b"r");
+        let challenge = transcript.challenge_scalar(b"r");
         let r_i = powers_of::<E::Fr>(&challenge, each_witness.len() - 1);
 
         let g_x: LagrangeBasis<E> = each_witness
@@ -184,7 +183,7 @@ impl<E: PairingEngine> CommitKey<E> {
         let d_comm = self.commit_lagrange(g_x.values())?;
 
         // Compute new point to evaluate g_x at
-        let t = TranscriptProtocol::<E>::challenge_scalar(transcript, b"t");
+        let t = transcript.challenge_scalar(b"t");
         // compute the helper polynomial which will help the verifier compute g(t)
         //
         let mut denominator: Vec<_> = points.iter().map(|z_i| t - z_i).collect();
@@ -210,8 +209,8 @@ impl<E: PairingEngine> CommitKey<E> {
 
         // We can now aggregate both proofs into an aggregate proof
 
-        TranscriptProtocol::<E>::append_scalar(transcript, b"g_t", &g_t);
-        TranscriptProtocol::<E>::append_scalar(transcript, b"h_t", &h_t);
+        transcript.append_scalar(b"g_t", &g_t);
+        transcript.append_scalar(b"h_t", &h_t);
 
         let sum_quotient = d_comm;
         let helper_evaluation = h_t;
@@ -415,7 +414,6 @@ mod test {
             let l_proof = proving_key
                 .open_multiple_lagrange(
                     &[evaluations_a, evaluations_b, evaluations_c],
-                    None,
                     vec![poly_a_eval, poly_b_eval, poly_c_eval],
                     &point,
                     &mut Transcript::new(b"agg_flatten"),

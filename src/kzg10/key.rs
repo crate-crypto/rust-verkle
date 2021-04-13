@@ -359,17 +359,17 @@ impl<E: PairingEngine> OpeningKey<E> {
 
     /// Takes the commitments to the polynomials
     /// and their evaluated points
-    pub fn check_multi_point(
+    pub fn check_multi_point<T: TranscriptProtocol<E>>(
         &self,
         proof: AggregateProofMultiPoint<E>,
-        transcript: &mut Transcript,
+        transcript: &mut T,
         commitments: &[Commitment<E>],
         evaluation_points: &[E::Fr], // the `z` in y=p(z)
         evaluated_points: &[E::Fr],  // the `y` in y=p(z)
     ) -> bool {
         // Add all commitments to the transcript
         for comm in commitments.iter() {
-            TranscriptProtocol::<E>::append_point(transcript, b"f_x", &comm.0);
+            transcript.append_point(b"f_x", &comm.0);
         }
 
         // Compute challenges
