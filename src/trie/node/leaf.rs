@@ -13,11 +13,11 @@ pub struct LeafNode {
 }
 
 impl LeafNode {
-    pub fn get(&self, key: &Key) -> Result<Value, NodeError> {
+    pub fn get(&self, key: &Key) -> Result<&Value, NodeError> {
         if &self.key != key {
             Err(NodeError::LeafNodeKeyMismatch)
         } else {
-            Ok(self.value)
+            Ok(&self.value)
         }
     }
 
