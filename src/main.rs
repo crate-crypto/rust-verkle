@@ -1,6 +1,6 @@
 use verkle_trie::{dummy_setup, Key, Value, VerkleTrie};
 fn main() {
-    let mut trie = VerkleTrie::new();
+    let mut trie = VerkleTrie::new(10);
 
     println!("creating trusted setup");
     let (commit_key, opening_key) = dummy_setup(1023);
