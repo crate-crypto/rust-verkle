@@ -46,7 +46,7 @@ static SRS: Lazy<(CommitKey<Bls12_381>, OpeningKey<Bls12_381>)> = Lazy::new(|| d
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test::Bencher;
+    use crate::{test::Bencher, verkle};
 
     #[bench]
     fn bench_insert_10k_from_1_million(b: &mut Bencher) {
@@ -74,8 +74,10 @@ mod tests {
         trie.insert(x, Value::max());
         trie.insert(zero, Value::max());
 
-        let verkle_path = trie.create_path(&x, &SRS.0).unwrap();
+        let mut verkle_path = trie.create_path(&x, &SRS.0).unwrap();
+        let verkle_path2 = trie.create_path(&zero, &SRS.0).unwrap();
 
+        verkle_path = verkle_path.merge(verkle_path2);
         let verkle_proof = verkle_path.create_proof(&SRS.0);
 
         b.iter(|| {
@@ -127,11 +129,14 @@ mod tests {
             verkle_paths.push(verkle_path);
         }
 
+        let mut merged_path = verkle_paths.pop().unwrap();
+        for path in verkle_paths {
+            merged_path = merged_path.merge(path);
+        }
+
         // benchmark creation of 1K verkle proofs
         b.iter(|| {
-            for verkle_path in verkle_paths.iter() {
-                test::black_box(verkle_path.create_proof(&SRS.0));
-            }
+            merged_path.create_proof(&SRS.0);
         })
     }
 }
