@@ -74,7 +74,7 @@ mod tests {
         trie.insert(one, Value::max());
         trie.insert(zero, Value::max());
 
-        let verkle_path = trie.create_path(&Key::one(), &SRS.0).unwrap();
+        let verkle_path = trie.create_path(&one, &SRS.0).unwrap();
 
         let verkle_proof = verkle_path.create_proof(&SRS.0);
 
