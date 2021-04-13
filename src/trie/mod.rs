@@ -1,188 +1,166 @@
 use crate::{kzg10::CommitKey, trie::node::Node, verkle::VerklePath, Key, Value, VerkleCommitment};
 use ark_bls12_381::Bls12_381;
 use node::internal::InternalNode;
-use slotmap::{new_key_type, SlotMap};
 
 use self::node::errors::NodeError;
 
+pub mod indexer;
 pub mod node;
-
-// NodeIndex is used to refer to Nodes in the arena allocator.
-// A better name might be DataIndex.
-new_key_type! {pub struct NodeIndex;}
-pub type NodeSlotMap = slotmap::SlotMap<crate::trie::NodeIndex, node::Node>;
+use indexer::DataIndex;
+use indexer::NodeSlotMap;
 
 pub struct VerkleTrie {
-    pub root: InternalNode,
-    slot_map: SlotMap<NodeIndex, Node>,
+    root_index: DataIndex,
+    data_indexer: NodeSlotMap,
 }
 
 impl VerkleTrie {
-    pub fn new() -> VerkleTrie {
-        let mut slot_map = SlotMap::with_key();
-        let root = InternalNode::new(0, &mut slot_map);
-        VerkleTrie { root, slot_map }
+    pub fn new(width: usize) -> VerkleTrie {
+        let mut data_indexer = NodeSlotMap::new();
+        let root = InternalNode::new(0, width);
+        let root_index = data_indexer.index(Node::Internal(root));
+        VerkleTrie {
+            root_index,
+            data_indexer,
+        }
     }
-
     pub fn insert(&mut self, key: Key, value: Value) {
-        self.root.insert(key, value, &mut self.slot_map).unwrap();
+        InternalNode::insert2(self.root_index, key, value, &mut self.data_indexer).unwrap();
+    }
+    pub fn get(&mut self, key: &Key) -> Result<&Value, NodeError> {
+        let root = self.data_indexer.get(&self.root_index).as_internal();
+        root.get(key, &self.data_indexer)
     }
 
     pub fn compute_root_commitment(
         &mut self,
         commit_key: &CommitKey<Bls12_381>,
     ) -> VerkleCommitment {
-        self.root.commitment(&self.slot_map, commit_key)
+        InternalNode::commitment(self.root_index, &mut self.data_indexer, commit_key)
     }
+
     // Creates a verkle path for the given key
     pub fn create_path(
         &mut self,
         key: &Key,
         commit_key: &CommitKey<Bls12_381>,
     ) -> Result<VerklePath, NodeError> {
-        self.root
-            .find_commitment_path(&mut self.slot_map, &key, commit_key)
+        InternalNode::find_commitment_path(
+            self.root_index,
+            &mut self.data_indexer,
+            &key,
+            commit_key,
+        )
+    }
+
+    #[cfg(test)]
+    fn find_node_with_path(
+        &mut self,
+        key: &Key,
+    ) -> Result<node::internal::TerminationPath, NodeError> {
+        let root = self.data_indexer.get(&self.root_index).as_internal();
+        root.find_termination_path(&self.data_indexer, key)
+    }
+
+    #[cfg(test)]
+    fn root_node(&self) -> InternalNode {
+        self.data_indexer.get(&self.root_index).clone().internal()
+    }
+    #[cfg(test)]
+    fn root_children_types(&self) -> Vec<u8> {
+        let root = self.data_indexer.get(&self.root_index).as_internal();
+        self.children_types(root)
+    }
+    #[cfg(test)]
+    fn children_types(&self, internal: &InternalNode) -> Vec<u8> {
+        internal.children_types(&self.data_indexer)
     }
 
     #[cfg(test)]
     fn root_children(&self, index: usize) -> Node {
-        self.get_child(&self.root, index)
+        let root = self.data_indexer.get(&self.root_index).as_internal();
+        self.get_child(root, index)
     }
+
     #[cfg(test)]
     fn get_child(&self, internal_node: &InternalNode, index: usize) -> Node {
-        let first_child_node_idx = internal_node.children[index];
-        self.slot_map[first_child_node_idx].clone()
-    }
-    #[cfg(test)]
-    fn root_children_types(&self) -> Vec<u8> {
-        self.children_types(&self.root)
-    }
-    #[cfg(test)]
-    fn children_types(&self, internal: &InternalNode) -> Vec<u8> {
-        internal.children_types(&self.slot_map)
+        let first_child_node_idx = internal_node.children.get_child(index).unwrap();
+        self.data_indexer.get(&first_child_node_idx).clone()
     }
 }
 
 #[cfg(test)]
 mod test {
-    use crate::trie::node::internal::NUM_CHILDREN;
     use crate::trie::node::{EMPTY_NODE_TYPE, INTERNAL_NODE_TYPE, LEAF_NODE_TYPE};
 
     use super::VerkleTrie;
     use crate::kzg10::{CommitKey, OpeningKey, PublicParameters};
-    use crate::trie::node::Node;
+    use crate::trie::node::{internal::InternalNode, Node};
     use crate::{Key, Value};
     use ark_bls12_381::{Bls12_381, Fr};
     use ark_poly::EvaluationDomain;
+    use rand::Rng;
     use rand_core::OsRng;
 
     #[test]
-    fn insert_first_last() {
-        let mut tree = VerkleTrie::new();
-
-        let first_value = Value::from_arr([1u8; 32]);
-        let last_value = Value::from_arr([2u8; 32]);
-
-        tree.insert(Key::zero(), first_value);
-        tree.insert(Key::max(), last_value);
-
-        let first_child_node = tree.root_children(0);
-        if let Node::Leaf(leaf_node) = first_child_node {
-            assert_eq!(leaf_node.value, first_value);
-        } else {
-            panic!(
-                "there should be a leaf node in the first position, found {:?}",
-                first_child_node
-            )
-        }
-
-        let num_children = tree.root.children.len();
-        let last_child_node = tree.root_children(num_children - 1);
-        if let Node::Leaf(leaf_node) = last_child_node {
-            assert_eq!(leaf_node.value, last_value);
-        } else {
-            panic!(
-                "there should be a leaf node in the last position, found {:?}",
-                last_child_node
-            )
+    fn basic_same_insert() {
+        let mut tree = VerkleTrie::new(10);
+        for _ in 0..100 {
+            tree.insert(Key::zero(), Value::zero());
         }
     }
 
     #[test]
-    fn insert_one() {
-        let mut tree = VerkleTrie::new();
+    fn basic_insert_key() {
+        let mut tree = VerkleTrie::new(8);
 
         let value = Value::from_arr([1u8; 32]);
         tree.insert(Key::zero(), value);
 
         let child_node = tree.root_children(0);
-        if let Node::Leaf(leaf_node) = child_node {
-            assert_eq!(leaf_node.value, value);
-        } else {
-            panic!("this should be a leaf node, found {:?}", child_node)
-        }
+        let leaf_node = child_node.as_leaf();
+
+        assert_eq!(leaf_node.key, Key::zero());
+        assert_eq!(leaf_node.value, value);
+    }
+    #[test]
+    fn basic_get() {
+        let mut tree = VerkleTrie::new(10);
+
+        tree.insert(Key::zero(), Value::zero());
+        let val = tree.get(&Key::zero()).unwrap();
+        assert_eq!(val, &Value::zero());
+
+        assert!(tree.get(&Key::one()).is_err());
+
+        tree.insert(Key::one(), Value::one());
+        let val = tree.get(&Key::one()).unwrap();
+        assert_eq!(val, &Value::one());
+    }
+    #[test]
+    fn longest_path_insert() {
+        let mut tree = VerkleTrie::new(10);
+        let zero = Key::from_arr([
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0,
+        ]);
+
+        let first_value = Value::from_arr([1u8; 32]);
+
+        let one = Key::from_arr([
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 1,
+        ]);
+        let second_value = Value::from_arr([2u8; 32]);
+
+        tree.insert(zero, first_value);
+        tree.insert(one, second_value);
     }
 
     #[test]
-    fn interop_with_golang() {
-        let zeroKey =
-            hex::decode("0000000000000000000000000000000000000000000000000000000000000000")
-                .unwrap();
-        let fourtyKey =
-            hex::decode("4000000000000000000000000000000000000000000000000000000000000000")
-                .unwrap();
-        let ffx32KeyTest =
-            hex::decode("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")
-                .unwrap();
-        let value = Value::zero();
-
-        use std::convert::TryInto;
-        let mut tree = VerkleTrie::new();
-        tree.insert(Key::from_arr(zeroKey.try_into().unwrap()), value);
-        tree.insert(Key::from_arr(fourtyKey.try_into().unwrap()), value);
-        tree.insert(Key::from_arr(ffx32KeyTest.try_into().unwrap()), value);
-
-        let (ck, _) = setup_test_golang();
-
-        use ark_ec::AffineCurve;
-        use ark_serialize::CanonicalSerialize;
-
-        let commitment = tree.compute_root_commitment(&ck);
-        match commitment {
-            crate::VerkleCommitment::NotComputed => unreachable!(),
-            crate::VerkleCommitment::Computed(comm) => {
-                let mut ser = vec![0u8; 48];
-                comm.0.serialize(&mut ser[..]).unwrap();
-
-                let got = hex::encode(ser);
-                let expected = "b3617d95044b11516daa1630ed91fc1a9f12be71ad3877ade5e6ef192bc355c0ae8eedb0c2af97e1c814099785b367d0";
-                assert_eq!(expected, got)
-            }
-        }
-    }
-
-    // Creates a proving key and verifier key based on a specified degree
-    fn setup_test() -> (CommitKey<Bls12_381>, OpeningKey<Bls12_381>) {
-        let degree = NUM_CHILDREN - 1;
-        let srs = PublicParameters::setup(degree, &mut OsRng).unwrap();
-        srs.trim(degree).unwrap()
-    }
-
-    // Creates a proving key and verifier key based on a specified degree
-    // using golang secret
-    fn setup_test_golang() -> (CommitKey<Bls12_381>, OpeningKey<Bls12_381>) {
-        let degree = NUM_CHILDREN - 1;
-        let srs = PublicParameters::setup_from_secret(
-            degree,
-            Fr::from(1927409816240961209460912649124u128),
-        )
-        .unwrap();
-        srs.trim(degree).unwrap()
-    }
-
-    #[test]
-    fn insert_long_path() {
-        let mut tree = VerkleTrie::new();
+    fn check_longest_path_insert() {
+        let width = 10;
+        let mut tree = VerkleTrie::new(width);
         let zero = Key::from_arr([
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0,
@@ -204,254 +182,130 @@ mod test {
         // Since we are offsetting by 10 bits, and the key is 256 bits.
         // We should have 26 children altogether.
 
-        let mut vec = vec![EMPTY_NODE_TYPE; NUM_CHILDREN];
+        let mut vec = vec![EMPTY_NODE_TYPE; 1 << width];
         vec[0] = INTERNAL_NODE_TYPE;
         let mut depth = 0;
-        assert_eq!(tree.root_children_types(), vec);
-        assert_eq!(tree.root.depth, depth);
+
+        assert_eq!(tree.root_children_types()[0], INTERNAL_NODE_TYPE);
 
         // Now extract the internal node at position 0
         // First child
-        let mut internal = if let Node::Internal(internal) = tree.root_children(0) {
-            internal
-        } else {
-            panic!("first node should be internal")
-        };
+        let mut internal = tree.root_children(0).internal();
 
         // All of the other nodes are exactly the same, except for the last child
         // Repeat the same check we did for first node 24 times.
         for i in 1..=24 {
             depth = depth + 10;
             assert_eq!(internal.depth, depth, "i is {}", i);
-            assert_eq!(internal.children_types(&tree.slot_map), vec);
+            assert_eq!(internal.children_types(&tree.data_indexer), vec);
 
             // extract the first child as the new internal
-            internal = if let Node::Internal(internal) = tree.get_child(&internal, 0) {
-                internal
-            } else {
-                panic!("first node should be internal")
-            };
+            internal = tree.get_child(&internal, 0).internal();
         }
 
         // The last child should have two leaves
-        let mut vec = vec![EMPTY_NODE_TYPE; NUM_CHILDREN];
+        let mut vec = vec![EMPTY_NODE_TYPE; 1 << width];
         vec[0] = LEAF_NODE_TYPE;
         vec[1] = LEAF_NODE_TYPE;
 
         let first_child = tree.get_child(&internal, 0);
         let second_child = tree.get_child(&internal, 1);
 
-        if let Node::Leaf(leaf_node) = first_child {
-            assert_eq!(leaf_node.key, Key::zero());
-            assert_eq!(leaf_node.value, first_value);
-        } else {
-            panic!("expected a leaf node at the first position")
-        }
+        let leaf_node = first_child.as_leaf();
+        assert_eq!(leaf_node.key, Key::zero());
+        assert_eq!(leaf_node.value, first_value);
 
-        if let Node::Leaf(leaf_node) = second_child {
-            assert_eq!(leaf_node.key, Key::one());
-            assert_eq!(leaf_node.value, second_value);
-        } else {
-            panic!("expected a leaf node at the first position")
-        }
+        let leaf_node = second_child.as_leaf();
+        assert_eq!(leaf_node.key, Key::one());
+        assert_eq!(leaf_node.value, second_value);
 
         assert_eq!(tree.children_types(&internal), vec);
     }
 
     #[test]
-    fn dankrads_example_with_32_bits_manual() {
-        // This example is similar to dankrads example
-        // In dankrads example, the width was 4 bits, while in this example, the width is 10
-        //
-        // To simulate similar conditions, we need to have a path with two branch nodes,
-        // which means that the chosen leaf node needs to share 20 bits with another node
-
-        let (ck, vk) = setup_test();
-
-        let mut tree = VerkleTrie::new();
-
-        // This first key is the leaf I am trying to create a proof for
-        let first_key = Key::from_arr([
-            80, 0, 0, 0, //
-            0, 1, 1, 1, //
-            1, 0, 1, 0, //
-            1, 1, 1, 1, //
-            0, 0, 0, 0, //
-            0, 0, 0, 0, //
-            0, 0, 0, 0, //
-            0, 0, 0, 0, //
-        ]);
-        let first_value = Value::from_arr([
-            1, 2, 1, 3, //
-            0, 0, 0, 0, //
-            0, 0, 0, 0, //
-            0, 0, 0, 0, //
-            0, 0, 0, 0, //
-            0, 0, 0, 0, //
-            0, 0, 0, 0, //
-            0, 0, 0, 0, //
+    fn check_width_8_termination_path() {
+        let mut tree = VerkleTrie::new(8);
+        let a = Key::from_arr([
+            1, 2, 3, 4, 5, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0,
         ]);
 
-        // This key shares 20 bits with the first key
-        let second_key = Key::from_arr([
-            80, 0, 8, 1, //
-            0, 1, 1, 1, //
-            0, 0, 0, 1, //
-            0, 0, 0, 0, //
-            0, 0, 0, 0, //
-            0, 0, 0, 0, //
-            0, 0, 0, 0, //
-            0, 0, 0, 0, //
+        let b = Key::from_arr([
+            1, 2, 3, 4, 5, 7, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0,
         ]);
 
-        let (shared_path, _, _) = Key::path_difference(&first_key, &second_key);
-        assert_eq!(shared_path.len(), 2);
-        let second_value = Value::from_arr([
-            4, 4, 4, 4, //
-            0, 0, 0, 0, //
-            0, 0, 0, 0, //
-            0, 0, 0, 0, //
-            0, 0, 0, 0, //
-            0, 0, 0, 0, //
-            0, 0, 0, 0, //
-            0, 0, 0, 0, //
-        ]);
+        tree.insert(a, Value::zero());
+        tree.insert(b, Value::zero());
 
-        // this key shares 10 bits with the first
-        let third_key = Key::from_arr([
-            80, 32, 48, 1, //
-            0, 0, 0, 1, //
-            1, 1, 1, 1, //
-            0, 0, 1, 0, //
-            0, 0, 0, 0, //
-            0, 0, 0, 0, //
-            0, 0, 0, 0, //
-            0, 0, 0, 0, //
-        ]);
-        let third_value = Value::from_arr([
-            1, 3, 5, 4, //
-            0, 0, 0, 0, //
-            0, 0, 0, 0, //
-            0, 0, 0, 0, //
-            0, 0, 0, 0, //
-            0, 0, 0, 0, //
-            0, 0, 0, 0, //
-            0, 0, 0, 0, //
-        ]);
-        // this key shares 10 bits with the first
+        let mut term_path = tree.find_node_with_path(&b).unwrap();
 
-        let fourth_key = Key::from_arr([
-            80, 48, 0, 1, //
-            1, 1, 0, 1, //
-            0, 1, 1, 1, //
-            0, 1, 1, 0, //
-            0, 0, 0, 0, //
-            0, 0, 0, 0, //
-            0, 0, 0, 0, //
-            0, 0, 0, 0, //
-        ]);
-        let fourth_value = Value::from_arr([
-            6, 6, 6, 6, //
-            0, 0, 0, 0, //
-            0, 0, 0, 0, //
-            0, 0, 0, 0, //
-            0, 0, 0, 0, //
-            0, 0, 0, 0, //
-            0, 0, 0, 0, //
-            0, 0, 0, 0, //
-        ]);
+        assert_eq!(term_path.path_bits.len(), 6);
+        assert_eq!(term_path.path_bits, vec![1, 2, 3, 4, 5, 7]);
 
-        tree.insert(fourth_key, fourth_value);
-        tree.insert(first_key, first_value);
-        tree.insert(second_key, second_value);
-        tree.insert(third_key, third_value);
+        assert_eq!(term_path.node_indices.len(), 6);
 
-        // So the world view is that two keys have been inserted.
-        // The prover and verifier both know the root commitment
-        let root_poly = tree
-            .root
-            .compute_polynomial_evaluations(&tree.slot_map, &ck);
+        // The last node will be the leaf node containing the value
+        let leaf_data_index = term_path.node_indices.pop().unwrap();
+        let path_to_last_node = term_path.path_bits.pop().unwrap();
 
-        let domain = ark_poly::GeneralEvaluationDomain::<Fr>::new(NUM_CHILDREN).unwrap();
-
-        // All of the keys start with 80,0
-        // in binary this is 0101 0000 0000 which is 320 2^6 + 2^8
-        //
-        //
-        let mut branch_node_level_1 = if let Node::Internal(internal) = tree.root_children(320) {
-            internal
-        } else {
-            panic!(
-                "expected inner node A, to be at the index 320, got {:?}",
-                tree.root.children[320]
-            )
-        };
-        let root_inner_node_a = branch_node_level_1
-            .commitment(&tree.slot_map, &ck)
-            .to_hash()
-            .to_fr();
-
-        // Lets manually traverse the trie from the top and check each commitment is correct
-        //
-        // This is level 0, where the root is.
-        //
-        // The first check is that root_poly(0101_0000_00) = H(N_1)
-        // N_1 here means the branch node that is on the first level.
-        // In Dankrad's diagram, this is inner node a
-        //
-        let proof_a = ck
-            .open_single_lagrange(&root_poly, None, &root_inner_node_a, &domain.element(320))
-            .unwrap();
-        let ok = vk.check(domain.element(320), proof_a);
-        assert!(ok);
-
-        // Lets move to level 1.
-        //
-        // We are now looking for the next 10 bits that are shared
-        //
-        // Remember Key1 = 80,0,0 = 0101_0000 , 0000_0000, 0000_0000 = [0101000000], [0000000000] , [0000,...]
-        // Remember Key2 = 80,0,8 = 0101_0000 , 0000_0000, 0000_1000 = [0101000000], [0000000000], [1000,...]
-        //
-        // As you can see, the keys differ after the second group of 10 bits.
-        // The second group of 10 bits, also tells us where the child branch node is located in N_1
-        // at 0
-        //
-        // The next check is to check that N_1_poly(0000_0000_00) = H(N_2)
-
-        let branch_node_level_2 =
-            if let Node::Internal(internal) = tree.get_child(&branch_node_level_1, 0) {
-                internal
-            } else {
-                panic!(
-                    "expected inner node B, to be at the index 0, got {:?}",
-                    branch_node_level_1.children[0],
-                )
-            };
-
-        let n_1_poly = branch_node_level_2.compute_polynomial_evaluations(&tree.slot_map, &ck);
-        let branch_node_level_3 = if let Node::Leaf(leaf) = tree.get_child(&branch_node_level_2, 0)
+        // The other nodes should be internal nodes
+        let mut current_internal_node = tree.root_node();
+        for (path_index, node_index) in term_path
+            .path_bits
+            .iter()
+            .zip(term_path.node_indices.iter())
         {
-            leaf
-        } else {
-            panic!(
-                "expected leaf node, to be at the index 0, got {:?}",
-                branch_node_level_2.children[0]
-            )
-        };
-        let c_fr = branch_node_level_3.hash().to_fr();
-        let proof_a = ck
-            .open_single_lagrange(&n_1_poly, None, &c_fr, &domain.element(0))
+            let child_data_index = current_internal_node
+                .children
+                .get_child(*path_index)
+                .unwrap();
+            assert_eq!(&child_data_index, node_index);
+            current_internal_node = tree.data_indexer.get(&child_data_index).clone().internal();
+        }
+
+        let last_node_data_index = current_internal_node
+            .children
+            .get_child(path_to_last_node)
             .unwrap();
-        let ok = vk.check(domain.element(0), proof_a);
-        assert!(ok);
+        assert_eq!(last_node_data_index, leaf_data_index);
+
+        let leaf_node = tree.data_indexer.get(&last_node_data_index).as_leaf();
+
+        assert_eq!(leaf_node.key, b);
+        assert_eq!(leaf_node.value, Value::zero());
     }
+
+    #[test]
+    fn insert_first_last_child() {
+        let mut tree = VerkleTrie::new(10);
+
+        let first_value = Value::from_arr([1u8; 32]);
+        let last_value = Value::from_arr([2u8; 32]);
+
+        tree.insert(Key::zero(), first_value);
+        tree.insert(Key::max(), last_value);
+
+        let first_child_node = tree.root_children(0);
+        let leaf_node = first_child_node.as_leaf();
+        assert_eq!(leaf_node.key, Key::zero());
+        assert_eq!(leaf_node.value, first_value);
+
+        let num_children = tree.root_node().children.len();
+        let last_child_node = tree.root_children(num_children - 1);
+        let leaf_node = last_child_node.as_leaf();
+        assert_eq!(leaf_node.key, Key::max());
+        assert_eq!(leaf_node.value, last_value);
+    }
+
     #[test]
     fn dankrads_example_with_32_bits_automatic() {
         // This is the same example as above, however we use an algorithm to collect the verkle path
         // for the first key instead of manually checking and testing
-        let (ck, vk) = setup_test();
+        let width = 10;
+        let (ck, vk) = setup_test(1 << width);
 
-        let mut tree = VerkleTrie::new();
+        let mut tree = VerkleTrie::new(width);
 
         // This first key is the leaf I am trying to create a proof for
         let first_key = Key::from_arr([
@@ -487,7 +341,7 @@ mod test {
             0, 0, 0, 0, //
         ]);
 
-        let (shared_path, _, _) = Key::path_difference(&first_key, &second_key);
+        let (shared_path, _, _) = Key::path_difference(&first_key, &second_key, width);
         assert_eq!(shared_path.len(), 2);
         let second_value = Value::from_arr([
             4, 4, 4, 4, //
@@ -548,14 +402,16 @@ mod test {
         tree.insert(first_key, first_value);
         tree.insert(second_key, second_value);
         tree.insert(third_key, third_value);
-
-        let verkle_path = tree
-            .root
-            .find_commitment_path(&mut tree.slot_map, &first_key, &ck)
-            .unwrap();
+        let verkle_path = InternalNode::find_commitment_path(
+            tree.root_index,
+            &mut tree.data_indexer,
+            &first_key,
+            &ck,
+        )
+        .unwrap();
 
         // Check consistency with manual checks
-        let domain = ark_poly::GeneralEvaluationDomain::<Fr>::new(NUM_CHILDREN).unwrap();
+        let domain = ark_poly::GeneralEvaluationDomain::<Fr>::new(1 << width).unwrap();
 
         assert_eq!(verkle_path.omega_path_indices.len(), 3);
         let expected_indices = vec![domain.element(320), domain.element(0), domain.element(0)];
@@ -568,5 +424,13 @@ mod test {
             &expected_indices,
             &verkle_path.node_roots,
         ));
+    }
+
+    // use crate::kzg10::{CommitKey, OpeningKey, PublicParameters};
+    // Creates a proving key and verifier key based on a specified degree
+    fn setup_test(num_children: usize) -> (CommitKey<Bls12_381>, OpeningKey<Bls12_381>) {
+        let degree = num_children - 1;
+        let srs = PublicParameters::setup(degree, &mut OsRng).unwrap();
+        srs.trim(degree).unwrap()
     }
 }
