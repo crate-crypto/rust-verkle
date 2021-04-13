@@ -97,6 +97,17 @@ pub struct VerklePath {
 }
 
 impl VerklePath {
+    pub fn merge(mut self, other: VerklePath) -> VerklePath {
+        self.commitments.extend(other.commitments);
+        self.node_roots.extend(other.node_roots);
+        self.omega_path_indices.extend(other.omega_path_indices);
+        self.polynomials.extend(other.polynomials);
+
+        self
+    }
+}
+
+impl VerklePath {
     pub fn create_proof(&self, ck: &CommitKey<Bls12_381>) -> VerkleProof {
         let mut transcript = BasicTranscript::new(b"verkle_proof");
 
@@ -104,9 +115,6 @@ impl VerklePath {
             self.polynomials.len() > 0,
             "to create a verkle proof, you must have at least one polynomial"
         );
-
-        // XXX: open_multipoint should take an optional vector of commitments
-        // Currently, the polynomials are being committed to inside of KZG10 also.
 
         let commitments: Vec<_> = self
             .commitments
