@@ -6,7 +6,10 @@ This is a proof of concept implementation of Verkle Tries. Any and all mistakes 
 
 ## Note on Performance
 
-This implementation will be magnitudes times slow as currently we are committing to the polynomials in coefficient form, so each branch node in the path requires an 2^10 IFFT .
+There are still a few places in the code where performance can be improved:
+
+- Upon inserting a single leaf, a multi scalar is currently being done
+- Parallelism is not currently being used, in places where it could be.
 
 ## Note on Differences with reference
 
