@@ -1,6 +1,6 @@
+use crate::transcript::BasicTranscript;
 use ark_bls12_381::{Bls12_381, Fr};
 use ark_poly::Evaluations;
-use merlin::Transcript;
 
 use crate::{
     kzg10::{self, CommitKey, OpeningKey},
@@ -98,7 +98,7 @@ pub struct VerklePath {
 
 impl VerklePath {
     pub fn create_proof(&self, ck: &CommitKey<Bls12_381>) -> VerkleProof {
-        let mut transcript = Transcript::new(b"verkle_proof");
+        let mut transcript = BasicTranscript::new(b"verkle_proof");
 
         assert!(
             self.polynomials.len() > 0,
@@ -140,7 +140,7 @@ impl VerkleProof {
         path_indices: &[Fr],
         children_hashes: &[Fr],
     ) -> bool {
-        let mut transcript = Transcript::new(b"verkle_proof");
+        let mut transcript = BasicTranscript::new(b"verkle_proof");
 
         let commitments: Vec<kzg10::Commitment<ark_bls12_381::Bls12_381>> = commitments
             .into_iter()
