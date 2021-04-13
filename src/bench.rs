@@ -66,15 +66,15 @@ mod tests {
             0, 0, 0,
         ]);
 
-        let one = Key::from_arr([
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 1,
+        let x = Key::from_arr([
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0,
         ]);
 
-        trie.insert(one, Value::max());
+        trie.insert(x, Value::max());
         trie.insert(zero, Value::max());
 
-        let verkle_path = trie.create_path(&one, &SRS.0).unwrap();
+        let verkle_path = trie.create_path(&x, &SRS.0).unwrap();
 
         let verkle_proof = verkle_path.create_proof(&SRS.0);
 
@@ -97,16 +97,16 @@ mod tests {
             0, 0, 0,
         ]);
 
-        let one = Key::from_arr([
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 1,
+        let x = Key::from_arr([
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0,
         ]);
 
-        trie.insert(one, Value::max());
+        trie.insert(x, Value::max());
         trie.insert(zero, Value::max());
 
-        let verkle_path = trie.create_path(&Key::one(), &SRS.0).unwrap();
-
+        let verkle_path = trie.create_path(&x, &SRS.0).unwrap();
+        dbg!(verkle_path.omega_path_indices.len());
         b.iter(|| verkle_path.create_proof(&SRS.0))
     }
 }
