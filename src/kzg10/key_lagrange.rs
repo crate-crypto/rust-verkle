@@ -105,6 +105,7 @@ impl<E: PairingEngine> CommitKey<E> {
     pub fn open_multiple_lagrange(
         &self,
         polynomials: &[Evaluations<E::Fr>],
+        poly_commitments: Option<Vec<Commitment<E>>>,
         evaluations: Vec<E::Fr>,
         point: &E::Fr,
         transcript: &mut Transcript,
@@ -132,19 +133,27 @@ impl<E: PairingEngine> CommitKey<E> {
     pub fn open_multipoint_lagrange(
         &self,
         lagrange_polynomials: &[Evaluations<E::Fr>],
+        poly_commitments: Option<Vec<Commitment<E>>>,
         evaluations: &[E::Fr],
         points: &[E::Fr], // These will be roots of unity
         transcript: &mut Transcript,
     ) -> Result<AggregateProofMultiPoint<E>, KZG10Error> {
         let domain_size = lagrange_polynomials.first().unwrap().domain().size();
-        // Commit to polynomials
-        let mut polynomial_commitments = Vec::with_capacity(lagrange_polynomials.len());
-        for poly in lagrange_polynomials.iter() {
-            let poly_commit = self.commit_lagrange(&poly.evals)?;
+        // Commit to polynomials, if not done so already
+        let polynomial_commitments = match poly_commitments {
+            None => {
+                let mut commitments = Vec::with_capacity(lagrange_polynomials.len());
+                for poly in lagrange_polynomials.iter() {
+                    let poly_commit = self.commit_lagrange(&poly.evals)?;
+                    commitments.push(poly_commit);
+                }
+                commitments
+            }
+            Some(commitments) => commitments,
+        };
 
+        for poly_commit in polynomial_commitments.iter() {
             TranscriptProtocol::<E>::append_point(transcript, b"f_x", &poly_commit.0);
-
-            polynomial_commitments.push(poly_commit);
         }
 
         // compute the witness for each polynomial at their respective points
@@ -342,6 +351,7 @@ mod test {
         let proof_l = proving_key
             .open_multipoint_lagrange(
                 &[evaluations_a, evaluations_b],
+                None,
                 &[value_a, value_b],
                 &[point_a, point_b],
                 &mut transcript,
@@ -405,6 +415,7 @@ mod test {
             let l_proof = proving_key
                 .open_multiple_lagrange(
                     &[evaluations_a, evaluations_b, evaluations_c],
+                    None,
                     vec![poly_a_eval, poly_b_eval, poly_c_eval],
                     &point,
                     &mut Transcript::new(b"agg_flatten"),
