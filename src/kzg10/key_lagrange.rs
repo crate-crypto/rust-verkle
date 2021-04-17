@@ -182,13 +182,20 @@ impl<E: PairingEngine> CommitKey<E> {
         // compute the witness for each polynomial at their respective points
         use rayon::prelude::*;
 
+        use std::time::Instant;
+
+        let now = Instant::now();
         let inv = Self::compute_inv(&domain);
+        println!("compute inverse {}", now.elapsed().as_nanos());
 
         // Compute a new polynomial which sums together all of the witnesses for each polynomial
         // aggregate the witness polynomials to form the new polynomial that we want to run KZG10 on
+        let now = Instant::now();
         let challenge = transcript.challenge_scalar(b"r");
         let r_i = powers_of::<E::Fr>(&challenge, num_polynomials - 1);
+        println!("compute r_i {}", now.elapsed().as_nanos());
 
+        let now = Instant::now();
         let each_witness = lagrange_polynomials
             .into_par_iter()
             .zip(points)
@@ -217,14 +224,18 @@ impl<E: PairingEngine> CommitKey<E> {
                     res
                 },
             );
+        println!("compute g_x {}", now.elapsed().as_nanos());
 
+        let now = Instant::now();
         // Commit to to this poly_sum witness
         let d_comm = self.commit_lagrange(g_x.values())?;
+        println!("commit g_x {}", now.elapsed().as_nanos());
 
         // Compute new point to evaluate g_x at
         let t = transcript.challenge_scalar(b"t");
         // compute the helper polynomial which will help the verifier compute g(t)
         //
+        let now = Instant::now();
         let mut denominator: Vec<_> = points.iter().map(|z_i| t - z_i).collect();
         ark_ff::batch_inversion(&mut denominator);
         let helper_coefficients: Vec<_> = r_i
@@ -241,21 +252,26 @@ impl<E: PairingEngine> CommitKey<E> {
                 res = &res + &val;
                 res
             });
+        println!("commit h_x {}", now.elapsed().as_nanos());
 
+        let now = Instant::now();
         // Evaluate both polynomials at the point `t`
         let h_t = h_x.evaluate_point_outside_domain(&t);
         let g_t = g_x.evaluate_point_outside_domain(&t);
+        println!("compute h_t, g_t {}", now.elapsed().as_nanos());
 
         // We can now aggregate both proofs into an aggregate proof
 
         transcript.append_scalar(b"g_t", &g_t);
         transcript.append_scalar(b"h_t", &h_t);
 
+        let now = Instant::now();
         let sum_quotient = d_comm;
         let helper_evaluation = h_t;
         let aggregated_witness_poly =
             self.compute_aggregate_witness_lagrange(&[g_x.0, h_x.0], &t, transcript);
-        let aggregated_witness = self.commit(&aggregated_witness_poly.interpolate())?;
+        let aggregated_witness = self.commit_lagrange(&aggregated_witness_poly.values())?;
+        println!("aggregrate to 1 proof {}", now.elapsed().as_nanos());
 
         Ok(AggregateProofMultiPoint {
             sum_quotient,
