@@ -252,7 +252,7 @@ impl<E: PairingEngine> CommitKey<E> {
                 res = &res + &val;
                 res
             });
-        println!("commit h_x {}", now.elapsed().as_nanos());
+        println!("compute h_x {}", now.elapsed().as_nanos());
 
         let now = Instant::now();
         // Evaluate both polynomials at the point `t`
