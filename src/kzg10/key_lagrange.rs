@@ -255,7 +255,7 @@ impl<E: PairingEngine> CommitKey<E> {
         let helper_evaluation = h_t;
         let aggregated_witness_poly =
             self.compute_aggregate_witness_lagrange(&[g_x.0, h_x.0], &t, transcript);
-        let aggregated_witness = self.commit(&aggregated_witness_poly.interpolate())?;
+        let aggregated_witness = self.commit_lagrange(&aggregated_witness_poly.values())?;
 
         Ok(AggregateProofMultiPoint {
             sum_quotient,
