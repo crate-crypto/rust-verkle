@@ -41,6 +41,7 @@ impl<E: PairingEngine> LagrangeBasis<E> {
     pub fn divide_by_linear_vanishing_from_point(
         point: &E::Fr,
         f_x: &LagrangeBasis<E>,
+        precomputed_inverses: &[E::Fr],
     ) -> LagrangeBasis<E> {
         // find index for this point
         let index = f_x
@@ -51,7 +52,7 @@ impl<E: PairingEngine> LagrangeBasis<E> {
             .position(|f| f == *point)
             .unwrap();
 
-        LagrangeBasis::<E>::divide_by_linear_vanishing(index, f_x)
+        LagrangeBasis::<E>::divide_by_linear_vanishing(index, f_x, precomputed_inverses)
     }
     // This function computes f(x) - f(omega^i) / x - omega^i
     //
@@ -59,26 +60,16 @@ impl<E: PairingEngine> LagrangeBasis<E> {
     // is a linear factor of the vanishing polynomial
     //
     // XXX: This function is general and so it is not optimised at the moment.
-    pub fn divide_by_linear_vanishing(index: usize, f_x: &LagrangeBasis<E>) -> LagrangeBasis<E> {
+    pub fn divide_by_linear_vanishing(
+        index: usize,
+        f_x: &LagrangeBasis<E>,
+        inv: &[E::Fr],
+    ) -> LagrangeBasis<E> {
         let domain = f_x.domain();
         let domain_size = domain.size();
 
-        let inv: Vec<_> = f_x
-            .domain()
-            .elements()
-            .into_iter()
-            .enumerate()
-            .map(|(index, x)| {
-                if index == 0 {
-                    return E::Fr::zero();
-                }
-                E::Fr::one() / (E::Fr::one() - x)
-            })
-            .collect();
-
         let mut quotient = vec![E::Fr::zero(); domain_size];
         let y = f_x[index];
-
         for i in 0..domain_size {
             if i != index {
                 quotient[i] = (f_x[i] - y)
