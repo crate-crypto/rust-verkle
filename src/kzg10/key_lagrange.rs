@@ -5,8 +5,7 @@ use super::{
 use crate::{transcript::TranscriptProtocol, util};
 use ark_ec::{msm::VariableBaseMSM, PairingEngine};
 use ark_ff::{PrimeField, Zero};
-use ark_poly::{EvaluationDomain, Evaluations};
-use itertools::izip;
+use ark_poly::{EvaluationDomain, Evaluations, GeneralEvaluationDomain};
 use merlin::Transcript;
 use util::powers_of;
 
@@ -65,8 +64,10 @@ impl<E: PairingEngine> CommitKey<E> {
             .into_iter()
             .position(|omega| omega == *point);
 
+        let inv = Self::compute_inv(&poly.domain());
+
         match index {
-            Some(index) => LagrangeBasis::divide_by_linear_vanishing(index, &poly),
+            Some(index) => LagrangeBasis::divide_by_linear_vanishing(index, &poly, &inv),
             None => {
                 let value = poly.evaluate_point_outside_domain(point);
                 let mut q = vec![E::Fr::zero(); domain_size];
@@ -79,6 +80,22 @@ impl<E: PairingEngine> CommitKey<E> {
         }
     }
 
+    fn compute_inv(domain: &GeneralEvaluationDomain<E::Fr>) -> Vec<E::Fr> {
+        use ark_ff::One;
+        let inv: Vec<_> = domain
+            .elements()
+            .into_iter()
+            .enumerate()
+            .map(|(index, x)| {
+                if index == 0 {
+                    return E::Fr::zero();
+                }
+                E::Fr::one() / (E::Fr::one() - x)
+            })
+            .collect();
+        inv
+    }
+
     pub fn open_single_lagrange(
         &self,
         polynomial: &Evaluations<E::Fr>,
@@ -87,8 +104,9 @@ impl<E: PairingEngine> CommitKey<E> {
         point: &E::Fr,
     ) -> Result<Proof<E>, KZG10Error> {
         let lagrange_poly = LagrangeBasis::<E>::from(polynomial);
+        let inv = Self::compute_inv(&lagrange_poly.domain());
         let witness_poly =
-            LagrangeBasis::divide_by_linear_vanishing_from_point(point, &lagrange_poly);
+            LagrangeBasis::divide_by_linear_vanishing_from_point(point, &lagrange_poly, &inv);
 
         let commitment_to_poly = match poly_commitment {
             Some(commitment) => commitment,
@@ -137,7 +155,13 @@ impl<E: PairingEngine> CommitKey<E> {
         points: &[E::Fr], // These will be roots of unity
         transcript: &mut T,
     ) -> Result<AggregateProofMultiPoint<E>, KZG10Error> {
-        let domain_size = lagrange_polynomials.first().unwrap().domain().size();
+        let num_polynomials = lagrange_polynomials.len();
+
+        let domain = lagrange_polynomials
+            .first()
+            .expect("expected at least one polynomial")
+            .domain();
+        let domain_size = domain.size();
         // Commit to polynomials, if not done so already
         let polynomial_commitments = match poly_commitments {
             None => {
@@ -156,28 +180,43 @@ impl<E: PairingEngine> CommitKey<E> {
         }
 
         // compute the witness for each polynomial at their respective points
-        let mut each_witness = Vec::new();
+        use rayon::prelude::*;
 
-        for (poly, point, evaluation) in izip!(lagrange_polynomials, points, evaluations) {
-            let lb = LagrangeBasis::<E>::from(poly).add_scalar(&-*evaluation); // XXX: Is this needed? It's not in single KZG
-            let witness_poly =
-                LagrangeBasis::<E>::divide_by_linear_vanishing_from_point(point, &lb);
-            each_witness.push(witness_poly);
-        }
+        let inv = Self::compute_inv(&domain);
 
         // Compute a new polynomial which sums together all of the witnesses for each polynomial
         // aggregate the witness polynomials to form the new polynomial that we want to run KZG10 on
         let challenge = transcript.challenge_scalar(b"r");
-        let r_i = powers_of::<E::Fr>(&challenge, each_witness.len() - 1);
+        let r_i = powers_of::<E::Fr>(&challenge, num_polynomials - 1);
+
+        let each_witness = lagrange_polynomials
+            .into_par_iter()
+            .zip(points)
+            .zip(evaluations)
+            .map(|((poly, point), evaluation)| {
+                let lb = LagrangeBasis::<E>::from(poly).add_scalar(&-*evaluation); // XXX: Is this needed? It's not in single KZG
+                let witness_poly =
+                    LagrangeBasis::<E>::divide_by_linear_vanishing_from_point(point, &lb, &inv);
+                witness_poly
+            });
 
         let g_x: LagrangeBasis<E> = each_witness
-            .iter()
-            .zip(r_i.iter())
-            .map(|(poly, challenge)| poly * challenge)
-            .fold(LagrangeBasis::zero(domain_size), |mut res, val| {
-                res = &res + &val;
-                res
-            });
+            .zip(r_i.par_iter())
+            .map(|(poly, challenge)| &poly * challenge)
+            .fold(
+                || LagrangeBasis::zero(domain_size),
+                |mut res, val| {
+                    res = &res + &val;
+                    res
+                },
+            )
+            .reduce(
+                || LagrangeBasis::zero(domain_size),
+                |mut res, val| {
+                    res = &res + &val;
+                    res
+                },
+            );
 
         // Commit to to this poly_sum witness
         let d_comm = self.commit_lagrange(g_x.values())?;
@@ -303,7 +342,9 @@ mod test {
         // eval form
         let evaluations = Evaluations::from_vec_and_domain(domain.fft(&poly.coeffs), domain);
         let lagrange_poly = LagrangeBasis::<Bls12_381>::from(evaluations);
-        let got_witness_lagrange = LagrangeBasis::divide_by_linear_vanishing(index, &lagrange_poly);
+        let inv = CommitKey::<Bls12_381>::compute_inv(&domain);
+        let got_witness_lagrange =
+            LagrangeBasis::divide_by_linear_vanishing(index, &lagrange_poly, &inv);
         let got_witness = got_witness_lagrange.interpolate();
 
         assert_eq!(got_witness, expected_witness);
