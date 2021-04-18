@@ -39,9 +39,11 @@ debug-assertions = false
 
 [profile.test]
 opt-level = 3
-debug-assertions = true
+debug = false
+rpath = false
+lto = "thin"
 incremental = true
-debug = true
+debug-assertions = false
 
 [features]
 default = ["parallel"]
