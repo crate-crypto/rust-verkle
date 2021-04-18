@@ -137,7 +137,7 @@ impl<E: PairingEngine> CommitKey<E> {
             polynomial_commitments.push(self.commit_lagrange(&poly.evals)?)
         }
 
-        let domain = GeneralEvaluationDomain::new(polynomials.len()).unwrap();
+        let domain = polynomials.first().unwrap().domain();
         let domain_elements: Vec<_> = domain.elements().collect();
         // Compute the aggregate witness for polynomials
         let witness_poly = self.compute_aggregate_witness_lagrange(
