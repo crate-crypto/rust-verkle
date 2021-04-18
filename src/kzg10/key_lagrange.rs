@@ -42,7 +42,7 @@ impl<E: PairingEngine> CommitKey<E> {
         let numerator: LagrangeBasis<E> = polynomials
             .iter()
             .zip(powers.iter())
-            .map(|(poly, challenge)| LagrangeBasis::from(poly) * *challenge)
+            .map(|(poly, challenge)| LagrangeBasis::from(poly) * challenge)
             .fold(LagrangeBasis::zero(domain_size), |mut res, val| {
                 res = &res + &val;
                 res
@@ -202,7 +202,7 @@ impl<E: PairingEngine> CommitKey<E> {
 
         let g_x: LagrangeBasis<E> = each_witness
             .zip(r_i.par_iter())
-            .map(|(poly, challenge)| &poly * challenge)
+            .map(|(poly, challenge)| poly * challenge)
             .fold(
                 || LagrangeBasis::zero(domain_size),
                 |mut res, val| {
@@ -236,7 +236,7 @@ impl<E: PairingEngine> CommitKey<E> {
         let h_x: LagrangeBasis<E> = helper_coefficients
             .iter()
             .zip(lagrange_polynomials.iter())
-            .map(|(helper_scalars, poly)| &LagrangeBasis::from(poly) * helper_scalars)
+            .map(|(helper_scalars, poly)| LagrangeBasis::from(poly) * helper_scalars)
             .fold(LagrangeBasis::zero(domain_size), |mut res, val| {
                 res = &res + &val;
                 res

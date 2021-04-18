@@ -5,6 +5,7 @@ use ark_ff::{One, Zero};
 use ark_poly::{
     univariate::DensePolynomial, EvaluationDomain, Evaluations, GeneralEvaluationDomain,
 };
+use rayon::prelude::*;
 
 // Wrapper around Evaluations with extra methods
 
@@ -15,12 +16,13 @@ impl<E: PairingEngine> LagrangeBasis<E> {
         self.0.interpolate_by_ref()
     }
     // XXX: cannot add as a trait due to Rust
-    pub fn add_scalar(&self, element: &E::Fr) -> Self {
-        let domain = self.0.domain();
-        let scaled_evals_points: Vec<_> =
-            self.0.evals.iter().map(|eval| *eval + *element).collect();
-        let evaluations = Evaluations::from_vec_and_domain(scaled_evals_points, domain);
-        LagrangeBasis::from(evaluations)
+    pub fn add_scalar(mut self, element: &E::Fr) -> Self {
+        use rayon::prelude::*;
+        self.0
+            .evals
+            .par_iter_mut()
+            .for_each(|eval| *eval = *eval + *element);
+        self
     }
 
     pub fn zero(num_points: usize) -> LagrangeBasis<E> {
@@ -172,22 +174,16 @@ impl<E: PairingEngine> From<&'_ Evaluations<E::Fr>> for LagrangeBasis<E> {
         LagrangeBasis(evals.clone())
     }
 }
-impl<E: PairingEngine> Mul<E::Fr> for LagrangeBasis<E> {
+
+impl<E: PairingEngine> Mul<&'_ E::Fr> for LagrangeBasis<E> {
     type Output = LagrangeBasis<E>;
 
-    fn mul(self, rhs: E::Fr) -> Self::Output {
-        &self * &rhs
-    }
-}
-
-impl<E: PairingEngine> Mul<&'_ E::Fr> for &LagrangeBasis<E> {
-    type Output = LagrangeBasis<E>;
-
-    fn mul(self, rhs: &E::Fr) -> Self::Output {
-        let domain = self.0.domain();
-        let scaled_evals_points: Vec<_> = self.0.evals.iter().map(|eval| *eval * *rhs).collect();
-        let evaluations = Evaluations::from_vec_and_domain(scaled_evals_points, domain);
-        LagrangeBasis::from(evaluations)
+    fn mul(mut self, rhs: &E::Fr) -> Self::Output {
+        self.0
+            .evals
+            .par_iter_mut()
+            .for_each(|eval| *eval = *eval * rhs);
+        self
     }
 }
 
