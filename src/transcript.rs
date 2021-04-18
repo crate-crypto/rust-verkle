@@ -1,5 +1,5 @@
 use ark_ec::PairingEngine;
-use ark_ff::{to_bytes, Field, PrimeField};
+use ark_ff::{to_bytes, PrimeField};
 use merlin::Transcript;
 
 /// Transcript adds an abstraction over the Merlin transcript
@@ -13,9 +13,6 @@ pub trait TranscriptProtocol<E: PairingEngine> {
 
     /// Compute a `label`ed challenge variable.
     fn challenge_scalar(&mut self, label: &'static [u8]) -> E::Fr;
-
-    /// Append domain separator for the circuit size.
-    fn circuit_domain_sep(&mut self, n: u64);
 }
 
 impl<E: PairingEngine> TranscriptProtocol<E> for Transcript {
@@ -34,11 +31,6 @@ impl<E: PairingEngine> TranscriptProtocol<E> for Transcript {
         self.challenge_bytes(label, &mut buf);
 
         E::Fr::from_be_bytes_mod_order(&buf)
-    }
-
-    fn circuit_domain_sep(&mut self, n: u64) {
-        self.append_message(b"dom-sep", b"circuit_size");
-        self.append_u64(b"n", n);
     }
 }
 
@@ -86,11 +78,9 @@ impl<E: PairingEngine> TranscriptProtocol<E> for BasicTranscript {
         hasher.update(&self.state);
         let bytes = hasher.finalize();
 
-        E::Fr::from_be_bytes_mod_order(&bytes)
-    }
+        //XXX: to be consistent with python, we need to clear the
+        // state after generating a challenge
 
-    fn circuit_domain_sep(&mut self, n: u64) {
-        self.append_message(b"dom-sep", b"circuit_size");
-        self.append_u64(b"n", n);
+        E::Fr::from_be_bytes_mod_order(&bytes)
     }
 }
