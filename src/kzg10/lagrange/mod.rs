@@ -187,11 +187,17 @@ impl<E: PairingEngine> Mul<&'_ E::Fr> for LagrangeBasis<E> {
     }
 }
 
-impl<E: PairingEngine> Add<&'_ LagrangeBasis<E>> for &LagrangeBasis<E> {
+impl<E: PairingEngine> Add<LagrangeBasis<E>> for LagrangeBasis<E> {
     type Output = LagrangeBasis<E>;
 
-    fn add(self, rhs: &LagrangeBasis<E>) -> Self::Output {
-        LagrangeBasis::from(&self.0 + &rhs.0)
+    fn add(mut self, rhs: LagrangeBasis<E>) -> Self::Output {
+        use rayon::prelude::*;
+        self.0
+            .evals
+            .par_iter_mut()
+            .zip(rhs.0.evals.into_par_iter())
+            .for_each(|(lhs, rhs)| *lhs = *lhs + rhs);
+        self
     }
 }
 

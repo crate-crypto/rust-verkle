@@ -44,7 +44,7 @@ impl<E: PairingEngine> CommitKey<E> {
             .zip(powers.iter())
             .map(|(poly, challenge)| LagrangeBasis::from(poly) * challenge)
             .fold(LagrangeBasis::zero(domain_size), |mut res, val| {
-                res = &res + &val;
+                res = res + val;
                 res
             });
 
@@ -206,14 +206,14 @@ impl<E: PairingEngine> CommitKey<E> {
             .fold(
                 || LagrangeBasis::zero(domain_size),
                 |mut res, val| {
-                    res = &res + &val;
+                    res = res + val;
                     res
                 },
             )
             .reduce(
                 || LagrangeBasis::zero(domain_size),
                 |mut res, val| {
-                    res = &res + &val;
+                    res = res + val;
                     res
                 },
             );
@@ -238,7 +238,7 @@ impl<E: PairingEngine> CommitKey<E> {
             .zip(lagrange_polynomials.iter())
             .map(|(helper_scalars, poly)| LagrangeBasis::from(poly) * helper_scalars)
             .fold(LagrangeBasis::zero(domain_size), |mut res, val| {
-                res = &res + &val;
+                res = res + val;
                 res
             });
 
