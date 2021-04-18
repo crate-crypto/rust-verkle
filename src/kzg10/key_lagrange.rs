@@ -5,7 +5,7 @@ use super::{
 use crate::{transcript::TranscriptProtocol, util};
 use ark_ec::{msm::VariableBaseMSM, PairingEngine};
 use ark_ff::{PrimeField, Zero};
-use ark_poly::{EvaluationDomain, Evaluations, GeneralEvaluationDomain};
+use ark_poly::{EvaluationDomain, Evaluations};
 use merlin::Transcript;
 use util::powers_of;
 
@@ -53,11 +53,9 @@ impl<E: PairingEngine> CommitKey<E> {
     pub(crate) fn compute_lagrange_quotient(
         &self,
         point: &E::Fr,
-        poly: LagrangeBasis<E>,
+        mut poly: LagrangeBasis<E>,
         domain_elements: &[E::Fr],
     ) -> LagrangeBasis<E> {
-        let domain_size = domain_elements.len();
-
         let index = domain_elements.iter().position(|omega| omega == point);
 
         let inv = Self::compute_inv(&domain_elements);
@@ -68,13 +66,16 @@ impl<E: PairingEngine> CommitKey<E> {
             }
             None => {
                 let value = poly.evaluate_point_outside_domain(point);
-                let mut q = vec![E::Fr::zero(); domain_size];
-                for i in 0..domain_size {
-                    q[i] = (poly.0.evals[i] - value) / (domain_elements[i] - point)
-                }
-                let domain = GeneralEvaluationDomain::new(domain_elements.len()).unwrap();
-                let evaluations = Evaluations::from_vec_and_domain(q, domain);
-                LagrangeBasis::from(evaluations)
+
+                use rayon::prelude::*;
+                // store the quotient in poly to save reallocation
+                poly.0
+                    .evals
+                    .par_iter_mut()
+                    .zip(domain_elements.into_par_iter())
+                    .for_each(|(eval, omega)| *eval = (*eval - value) / (*omega - point));
+
+                poly
             }
         }
     }
