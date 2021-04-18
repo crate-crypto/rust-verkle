@@ -60,7 +60,7 @@ impl<E: PairingEngine> LagrangeBasis<E> {
     // is a linear factor of the vanishing polynomial
     //
     // XXX: This function is general and so it is not optimised at the moment.
-    pub fn divide_by_linear_vanishing(
+    pub fn divide_by_linear_vanishing2(
         index: usize,
         f_x: &LagrangeBasis<E>,
         inv: &[E::Fr],
@@ -83,6 +83,55 @@ impl<E: PairingEngine> LagrangeBasis<E> {
             }
         }
 
+        LagrangeBasis::from(Evaluations::from_vec_and_domain(quotient, domain))
+    }
+
+    pub fn divide_by_linear_vanishing(
+        index: usize,
+        f_x: &LagrangeBasis<E>,
+        inv: &[E::Fr],
+    ) -> LagrangeBasis<E> {
+        use rayon::prelude::*;
+
+        let domain = f_x.domain();
+        let domain_size = domain.size();
+        let domain_elements: Vec<_> = domain.elements().collect();
+        let y = f_x[index];
+
+        let quot_i = f_x.values().into_par_iter().enumerate().map(|(i, elem)| {
+            if i == index {
+                return (i, E::Fr::zero());
+            }
+
+            let quot_i = (*elem - y)
+                * domain_elements[(domain_size - i) % domain_size]
+                * inv[index.wrapping_sub(i).rem_euclid(domain_size)];
+
+            (i, quot_i)
+        });
+
+        // compute the value at index
+        let quot_index: E::Fr = quot_i
+            .clone()
+            .map(|(i, quot_i)| {
+                if i == index {
+                    return E::Fr::zero();
+                }
+                -domain_elements[(i.wrapping_sub(index)).rem_euclid(domain_size)] * quot_i
+            })
+            .sum();
+
+        let quotient: Vec<_> = quot_i
+            .into_par_iter()
+            .map(|(i, elem)| {
+                if i == index {
+                    return quot_index;
+                }
+                return elem;
+            })
+            .collect();
+
+        let domain = GeneralEvaluationDomain::new(domain_size).unwrap();
         LagrangeBasis::from(Evaluations::from_vec_and_domain(quotient, domain))
     }
 
