@@ -7,6 +7,7 @@ use ark_ec::{msm::VariableBaseMSM, PairingEngine};
 use ark_ff::{PrimeField, Zero};
 use ark_poly::{EvaluationDomain, Evaluations, GeneralEvaluationDomain};
 use merlin::Transcript;
+use rayon::prelude::*;
 use util::powers_of;
 
 impl<E: PairingEngine> CommitKey<E> {
@@ -40,13 +41,11 @@ impl<E: PairingEngine> CommitKey<E> {
         assert_eq!(powers.len(), polynomials.len());
 
         let numerator: LagrangeBasis<E> = polynomials
-            .iter()
-            .zip(powers.iter())
-            .map(|(poly, challenge)| LagrangeBasis::from(poly) * challenge)
-            .fold(LagrangeBasis::zero(domain_size), |mut res, val| {
-                res = res + val;
-                res
-            });
+            .into_par_iter()
+            .zip(powers.into_par_iter())
+            .map(|(poly, challenge)| LagrangeBasis::from(poly) * &challenge)
+            .fold(|| LagrangeBasis::zero(domain_size), |res, val| res + val)
+            .reduce(|| LagrangeBasis::zero(domain_size), |res, val| res + val);
 
         self.compute_lagrange_quotient(point, numerator)
     }
@@ -54,10 +53,9 @@ impl<E: PairingEngine> CommitKey<E> {
     pub(crate) fn compute_lagrange_quotient(
         &self,
         point: &E::Fr,
-        poly: LagrangeBasis<E>,
+        mut poly: LagrangeBasis<E>,
     ) -> LagrangeBasis<E> {
         let domain = poly.0.domain();
-        let domain_size = domain.size();
 
         let index = domain
             .elements()
@@ -70,12 +68,14 @@ impl<E: PairingEngine> CommitKey<E> {
             Some(index) => LagrangeBasis::divide_by_linear_vanishing(index, &poly, &inv),
             None => {
                 let value = poly.evaluate_point_outside_domain(point);
-                let mut q = vec![E::Fr::zero(); domain_size];
-                for i in 0..domain_size {
-                    q[i] = (poly.0.evals[i] - value) / (domain.element(i) - point)
-                }
-                let evaluations = Evaluations::from_vec_and_domain(q, domain);
-                LagrangeBasis::from(evaluations)
+                // XXX: We can iterate the domain here instead, once we have it as &[E::Fr]
+                // mutate the poly to be the quotient, so we do not need to collect
+                poly.0
+                    .evals
+                    .par_iter_mut()
+                    .enumerate()
+                    .for_each(|(i, eval)| *eval = (*eval - value) / (domain.element(i) - point));
+                poly
             }
         }
     }
@@ -203,20 +203,8 @@ impl<E: PairingEngine> CommitKey<E> {
         let g_x: LagrangeBasis<E> = each_witness
             .zip(r_i.par_iter())
             .map(|(poly, challenge)| poly * challenge)
-            .fold(
-                || LagrangeBasis::zero(domain_size),
-                |mut res, val| {
-                    res = res + val;
-                    res
-                },
-            )
-            .reduce(
-                || LagrangeBasis::zero(domain_size),
-                |mut res, val| {
-                    res = res + val;
-                    res
-                },
-            );
+            .fold(|| LagrangeBasis::zero(domain_size), |res, val| res + val)
+            .reduce(|| LagrangeBasis::zero(domain_size), |res, val| res + val);
 
         // Commit to to this poly_sum witness
         let d_comm = self.commit_lagrange(g_x.values())?;
