@@ -62,32 +62,6 @@ impl<E: PairingEngine> LagrangeBasis<E> {
     // is a linear factor of the vanishing polynomial
     //
     // XXX: This function is general and so it is not optimised at the moment.
-    pub fn divide_by_linear_vanishing2(
-        index: usize,
-        f_x: &LagrangeBasis<E>,
-        inv: &[E::Fr],
-    ) -> LagrangeBasis<E> {
-        let domain = f_x.domain();
-        let domain_size = domain.size();
-
-        let mut quotient = vec![E::Fr::zero(); domain_size];
-        let y = f_x[index];
-        for i in 0..domain_size {
-            if i != index {
-                quotient[i] = (f_x[i] - y)
-                    * domain.element(domain_size - i)
-                    * inv[index.wrapping_sub(i).rem_euclid(domain_size)];
-
-                let quot_i = quotient[i].clone();
-
-                quotient[index] +=
-                    -domain.element((i.wrapping_sub(index)).rem_euclid(domain_size)) * quot_i;
-            }
-        }
-
-        LagrangeBasis::from(Evaluations::from_vec_and_domain(quotient, domain))
-    }
-
     pub fn divide_by_linear_vanishing(
         index: usize,
         f_x: &LagrangeBasis<E>,
