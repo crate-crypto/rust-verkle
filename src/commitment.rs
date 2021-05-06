@@ -1,4 +1,4 @@
-use crate::{hash::Hash, kzg10::Commitment};
+use crate::{hash::Hash, interop::hash_interop::serialize_g1, kzg10::Commitment};
 use crate::{HashFunction, *};
 use ark_bls12_381::{Bls12_381, Fr, G1Affine};
 use ark_ec::AffineCurve;
@@ -49,7 +49,7 @@ impl VerkleCommitment {
 
     /// Converts a Commitment to a Hash object
     pub fn to_hash(&self) -> Hash {
-        let compressed_commitment = self.to_bytes();
+        let compressed_commitment = serialize_g1(self.as_repr());
 
         let mut hasher = HashFunction::new();
         hasher.update(compressed_commitment);
