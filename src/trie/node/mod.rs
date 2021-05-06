@@ -1,12 +1,11 @@
 use self::{hashed::HashedNode, internal::InternalNode, leaf::LeafNode};
 
-pub(crate) mod children;
 pub mod empty;
 pub mod errors;
 pub mod hashed;
 pub mod internal;
 pub mod leaf;
-#[derive(Debug, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub enum Node {
     Internal(InternalNode),
     Hashed(HashedNode),

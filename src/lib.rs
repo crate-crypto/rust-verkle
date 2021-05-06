@@ -4,6 +4,7 @@ extern crate test;
 mod bench;
 pub mod commitment;
 pub mod hash;
+mod interop;
 pub mod kzg10;
 pub mod transcript;
 pub mod trie;
@@ -14,16 +15,39 @@ use ark_bls12_381::Bls12_381;
 pub use commitment::VerkleCommitment;
 use hash::Hash;
 use kzg10::{CommitKey, OpeningKey, PublicParameters};
-pub use trie::VerkleTrie;
+pub use trie::{VerkleTrait, VerkleTrie};
 pub use verkle::{VerklePath, VerkleProof};
 
 use sha2::Digest;
-use trie::node::internal::bit_extraction;
 type HashFunction = sha2::Sha256;
 
 /// create a dummy srs
-pub fn dummy_setup(degree: usize) -> (CommitKey<Bls12_381>, OpeningKey<Bls12_381>) {
-    PublicParameters::dummy_setup(degree).unwrap()
+pub fn dummy_setup(width: usize) -> (CommitKey<Bls12_381>, OpeningKey<Bls12_381>) {
+    let num_children = 1 << width;
+    let degree = num_children - 1;
+    let srs = PublicParameters::<Bls12_381>::setup_from_secret(
+        degree,
+        ark_bls12_381::Fr::from(8927347823478352432985u128),
+    )
+    .unwrap();
+    srs.trim(degree).unwrap()
+}
+
+/// Bit extraction interprets the bytes as bits
+/// It then Takes `WIDTH` number of bits
+/// starting from the offset position
+pub fn bit_extraction(bytes: &[u8], width: usize, offset: usize) -> usize {
+    use bitvec::prelude::*;
+
+    let bits = bytes.view_bits::<Msb0>();
+    // If the offset + width exceeds the number of bits,
+    // the function will return none. Check if this is the case, and
+    // truncate to the last position, if so.
+    let last_position = match offset + width >= bits.len() {
+        true => bits.len(),
+        false => offset + width,
+    };
+    bits.get(offset..last_position).unwrap().load_be::<usize>()
 }
 
 // Remove duplicate code below and move into trie module
@@ -49,20 +73,21 @@ impl Key {
     pub const fn max() -> Key {
         Key(ByteArr::max())
     }
-    pub fn path_indices(&self, width: usize) -> Vec<usize> {
+
+    pub fn path_indices(&self, width: usize) -> impl Iterator<Item = usize> + '_ {
         let key_length: usize = self.0.num_bytes() * 8;
 
         let num_of_path_indices = ceil_div(key_length, width);
-        let mut indices: Vec<usize> = Vec::with_capacity(num_of_path_indices);
 
+        let bytes = self.as_bytes();
         let mut depth = 0;
-        for _ in 0..num_of_path_indices {
-            let path_index = bit_extraction(&self.as_bytes(), width, depth);
-            indices.push(path_index);
+
+        (0..num_of_path_indices).into_iter().map(move |_| {
+            let path_index = bit_extraction(bytes, width, depth);
 
             depth = depth + width;
-        }
-        indices
+            path_index
+        })
     }
 
     // Returns a list of all of the path indices where the two keys
@@ -180,7 +205,7 @@ fn ten_bit_path_index() {
         1, 0, 2, 0, 3, 0, 4, 0, 5, 0, 6, 0, 7, 0, 8, 0, 7, 0, 6, 0, 5, 0, 4, 0, 3, 0, 2, 0, 1, 0,
         0, 1,
     ]);
-    let path_indices = key.path_indices(width);
+    let path_indices: Vec<_> = key.path_indices(width).collect();
 
     // These are all of the numbers we use:
     // 0 -> 0000_0000

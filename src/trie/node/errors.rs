@@ -7,6 +7,8 @@ pub enum NodeError {
     HashedNodeInsert,
     #[error("invalid child read")]
     InvalidChildRead,
+    #[error("leaf key not found")]
+    LeafKeyNotFound,
     #[error("leaf node key mismatch")]
     LeafNodeKeyMismatch,
     #[error("node is not a branch node")]
