@@ -40,7 +40,15 @@ impl Hash {
     pub fn to_fr(&self) -> Fr {
         match self {
             Hash::NotComputed => panic!("cannot call hash_to_fr if the hash value is not computed"),
-            Hash::Computed(bytes) => Fr::from_be_bytes_mod_order(bytes),
+            Hash::Computed(bytes) => Fr::from_le_bytes_mod_order(bytes),
+        }
+    }
+    // This panics if the hash is not computed
+    // This function is used for tests
+    pub fn to_hex(&self) -> String {
+        match self {
+            Hash::NotComputed => panic!("hash not computed, cannot convert to hex"),
+            Hash::Computed(bytes) => hex::encode(bytes),
         }
     }
 }
