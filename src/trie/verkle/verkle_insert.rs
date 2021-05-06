@@ -6,7 +6,7 @@ use crate::trie::{
     verkle::VerkleTrie,
 };
 
-impl VerkleTrie {
+impl<'a> VerkleTrie<'a> {
     pub fn _insert(&mut self, key: Key, value: Value) {
         let instructions = VerkleTrie::find_insert_position(
             self.root_index,
@@ -20,7 +20,7 @@ impl VerkleTrie {
     }
 }
 
-impl VerkleTrie {
+impl<'a> VerkleTrie<'a> {
     fn process_instructions(&mut self, instructions: Vec<Ins>) {
         for instruction in instructions {
             match instruction {
@@ -55,7 +55,7 @@ pub enum Ins {
     UpdateInternalChild { pointer: DataIndex, data: ChildData },
 }
 
-impl VerkleTrie {
+impl<'a> VerkleTrie<'a> {
     // Returns all the information needed to insert this key
     fn find_insert_position(
         root_index: ParentDataIndex,

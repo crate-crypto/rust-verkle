@@ -24,7 +24,7 @@ pub trait VerkleTrait {
     /// then one updates a different key.
     ///
     /// Update assumes that all commitments in the trie are updated
-    fn insert(&mut self, kv: Vec<(Key, Value)>) -> VerkleCommitment;
+    fn insert(&mut self, kv: impl Iterator<Item = (Key, Value)>) -> VerkleCommitment;
     /// Inserts a single value and computes it's root using pippenger.
     // XXX: Can we remove this and just use update? or use update under the hood
     // update should be cheaper since it is a single value
@@ -60,8 +60,8 @@ mod test {
 
     // use crate::kzg10::{CommitKey, OpeningKey, PublicParameters};
     // Creates a proving key and verifier key based on a specified degree
-    fn test_kzg(num_children: usize) -> (CommitKey<Bls12_381>, OpeningKey<Bls12_381>) {
-        let degree = num_children - 1;
+    fn test_kzg(width: usize) -> (CommitKey<Bls12_381>, OpeningKey<Bls12_381>) {
+        let degree = (1 << width) - 1;
         let srs = PublicParameters::<Bls12_381>::setup_from_secret(
             degree,
             Fr::from(8927347823478352432985u128),
@@ -70,14 +70,12 @@ mod test {
         srs.trim(degree).unwrap()
     }
 
-    fn test_trie(width: usize) -> VerkleTrie {
-        let (ck, _) = test_kzg(1 << width);
-        VerkleTrie::new(width, ck)
-    }
-
     #[test]
     fn basic_same_insert() {
-        let mut tree = test_trie(10);
+        let width = 10;
+        let (ck, vk) = test_kzg(width);
+        let mut tree = VerkleTrie::new(width, &ck);
+
         for _ in 0..100 {
             tree.insert_single(Key::one(), Value::zero());
         }
@@ -85,7 +83,9 @@ mod test {
 
     #[test]
     fn basic_insert_key() {
-        let mut tree = test_trie(8);
+        let width = 8;
+        let (ck, vk) = test_kzg(width);
+        let mut tree = VerkleTrie::new(width, &ck);
 
         let value = Value::from_arr([1u8; 32]);
         tree.insert_single(Key::zero(), value);
@@ -101,7 +101,9 @@ mod test {
 
     #[test]
     fn basic_get() {
-        let mut tree = test_trie(10);
+        let width = 10;
+        let (ck, vk) = test_kzg(width);
+        let mut tree = VerkleTrie::new(width, &ck);
 
         tree.insert_single(Key::zero(), Value::one());
         let val = tree.get(&Key::zero()).unwrap();
@@ -118,7 +120,10 @@ mod test {
     fn longest_path_insert() {
         // This solely tests whether we get an OOM error, this will not happen with
         // this implementation, but may happen if children are eagerly allocated.
-        let mut tree = test_trie(10);
+        let width = 10;
+        let (ck, vk) = test_kzg(width);
+        let mut tree = VerkleTrie::new(width, &ck);
+
         let zero = Key::from_arr([
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0,
@@ -139,7 +144,8 @@ mod test {
     #[test]
     fn check_longest_path_insert() {
         let width = 10;
-        let mut tree = test_trie(width);
+        let (ck, vk) = test_kzg(width);
+        let mut tree = VerkleTrie::new(width, &ck);
 
         let zero = Key::from_arr([
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,

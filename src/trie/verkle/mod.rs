@@ -14,16 +14,16 @@ mod verkle_find_path;
 mod verkle_get;
 mod verkle_insert;
 
-pub struct VerkleTrie {
+pub struct VerkleTrie<'a> {
     pub(crate) root_index: DataIndex,
     pub(crate) data_indexer: NodeSlotMap,
     pub(crate) child_map: ChildMap,
     pub(crate) width: usize,
-    pub(crate) ck: CommitKey<Bls12_381>,
+    pub(crate) ck: &'a CommitKey<Bls12_381>,
 }
 
-impl VerkleTrie {
-    pub fn new(width: usize, ck: CommitKey<Bls12_381>) -> VerkleTrie {
+impl<'a> VerkleTrie<'_> {
+    pub fn new(width: usize, ck: &'a CommitKey<Bls12_381>) -> VerkleTrie<'a> {
         // Initialise the slot map to store the node data
         let mut data_indexer = NodeSlotMap::new();
 
@@ -49,12 +49,12 @@ impl VerkleTrie {
     }
 }
 
-impl VerkleTrait for VerkleTrie {
+impl<'a> VerkleTrait for VerkleTrie<'a> {
     fn get(&self, key: &Key) -> Result<Value, NodeError> {
         self._get(key)
     }
 
-    fn insert(&mut self, key_values: Vec<(Key, Value)>) -> VerkleCommitment {
+    fn insert(&mut self, key_values: impl Iterator<Item = (Key, Value)>) -> VerkleCommitment {
         for kv in key_values {
             self._insert(kv.0, kv.1);
         }
@@ -62,7 +62,7 @@ impl VerkleTrait for VerkleTrie {
     }
 
     fn insert_single(&mut self, key: Key, value: Value) -> VerkleCommitment {
-        self.insert(vec![(key, value)])
+        self.insert(std::iter::once((key, value)))
     }
 
     fn compute_root(&mut self) -> VerkleCommitment {
@@ -80,7 +80,7 @@ impl VerkleTrait for VerkleTrie {
     }
 }
 
-impl VerkleTrie {
+impl<'a> VerkleTrie<'a> {
     pub fn debug_key_path() {
         // This should eventually return a vector of tuples showing the debug path to the key
         //

@@ -5,7 +5,7 @@ use crate::{
 
 use super::VerkleTrie;
 
-impl VerkleTrie {
+impl<'a> VerkleTrie<'a> {
     pub fn _get(&self, key: &Key) -> Result<Value, NodeError> {
         let path_indices = key.path_indices(self.width);
         let mut current_node_index = self.root_index;

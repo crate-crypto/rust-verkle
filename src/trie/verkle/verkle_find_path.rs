@@ -9,7 +9,7 @@ use crate::trie::{
     verkle::VerkleTrie,
 };
 
-impl VerkleTrie {
+impl<'a> VerkleTrie<'a> {
     pub fn _create_verkle_path(&mut self, key: &Key) -> Result<VerklePath, NodeError> {
         find_commitment_path(
             self.root_index,
