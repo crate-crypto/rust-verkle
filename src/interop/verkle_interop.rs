@@ -98,20 +98,23 @@ fn test_vector_4() {
     assert_eq!("adb36cefe99f0931b017eaffbf3fc58e785bd92181fba6d15b015f203c0cf73a8b5a14baf68d4ecd0151012bec70367c",hex::encode(root.compress()))
 }
 
-// root2 = {"node_type": "inner", "commitment": blst.G1().mult(0)}
-// add_node_hash(root2)
+// The following step test cases were generated from the following python code:
+//
+// root = {"node_type": "inner", "commitment": blst.G1().mult(0)}
+// add_node_hash(root)
 //    state = int(0).to_bytes(32, "little")
-//     for i in range(100):
+//     for i in range(N):
 //         new_state = hash(state)
 //         state = new_state
 //         key = state
 //         value = int(0).to_bytes(32, "big")
-//         insert_verkle_node(root2, key, value)
-//     # average_depth = get_average_depth(root)
-//     add_node_hash(root2)
-//     print("start", bytes(root2["commitment"].compress()).hex(), "end")
+//         insert_verkle_node(root, key, value)
+//     add_node_hash(root)
+//     print(bytes(root["commitment"].compress()).hex())
+//
 // Insert N keys from a prng, then compute the root.
-// N starts at 100 and we increment it by 100 each time
+// start at N and we increment by N
+
 #[test]
 fn test_vector_insert_100_step() {
     let width = 10;
