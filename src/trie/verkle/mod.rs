@@ -80,19 +80,6 @@ impl<'a> VerkleTrait for VerkleTrie<'a> {
     }
 }
 
-impl<'a> VerkleTrie<'a> {
-    pub fn debug_key_path() {
-        // This should eventually return a vector of tuples showing the debug path to the key
-        //
-        // An example:
-        // vec![(InnerNode, 0), (InnerNode, 1), (InnerNode, 0), (LeafNode, (key, val))]
-        //
-        // This will make it easier to do tests and also debug code
-        //
-        // Maybe also a more detailed debug too, where we show a nice way to display internal nodes
-    }
-}
-
 use ark_bls12_381::Fr;
 use ark_ff::Zero;
 
