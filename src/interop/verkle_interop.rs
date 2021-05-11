@@ -123,6 +123,43 @@ fn test_vector_insert_100_step() {
     step_test_helper(&ck, width, 200, "a91f655e75b85f2d60eaede73068af1061d32997c0651748d162a3a08ff6f6cdef9b0c6d8c843c50404e38c97351d7d3");
     // N = 300
     step_test_helper(&ck, width, 300, "b4b8b2b8e811f72e8b2a3522729356e2e7fa68decf1f75de4bbae19272be9f1b15d85cff1510a1f4a4c202f80aab8c73");
+    // N = 400
+    step_test_helper(&ck, width, 400, "b7801d52d642af27fb019547ea629fae0b87230e12067d2e13004a2d8c8205eea6a99345e2037ed960747fbaab596cf5");
+    // N = 500
+    step_test_helper(&ck, width, 500, "929cc832762aca99520552d170b6c5a0c2532778a1347d37d2c82ee0fe3e26f7503cad3f041667feb0128129d190000c");
+}
+#[test]
+fn test_vector_step_1k() {
+    let width = 10;
+    let (ck, _) = dummy_setup(width);
+
+    // N = 1_000
+    step_test_helper(&ck, width, 1_000, "809743aa087f81c8ec5c9c59640c9104c6399f48470da9438ae2707f9b9adf243b1be5c09ad98fbfb1683535ff02c1dd");
+    // N = 2_000
+    step_test_helper(&ck, width, 2_000, "abfbd9adfda7ee6a160cb9a1b1ab4066c0a6babad9589c2bc6c29c8e04e1abfb8505611686a1ea49f1ea89674a83d3d2");
+    // N = 3_000
+    step_test_helper(&ck, width, 3_000, "83d37aeb005a799f7a11794ed2416e371bc7bd538d98c7ed4913ef4d40c38c8f77d111442ede5a7a776639043aad64f8");
+    // N = 4_000
+    step_test_helper(&ck, width, 4_000, "b798afc162c04f0265af03fdec632a50a44c59a3209898cd5fdf63c1d1151e507a2c567aee9f402af2afb0d7a4d5871e");
+    // N = 5_000
+    step_test_helper(&ck, width, 5_000, "82cfe5eadbe2eee91abca654a35f8cbdb9cee97904cc063a8af28fe3a6de4bbbbeb9b759881633f9d0c03e21e81769dd");
+}
+
+#[test]
+fn test_vector_step_10k() {
+    let width = 10;
+    let (ck, _) = dummy_setup(width);
+
+    // N = 10_000
+    step_test_helper(&ck, width, 10_000, "ac6f80ecf262097837348a4170c4a6600d855ba02663859aceb1d3753f1228eef73d0a68be7df8b73d0509230c254c5c");
+    // N = 20_000
+    step_test_helper(&ck, width, 20_000, "8c218ca0347c459db9f66b3b795c52b94e0f93adb96e8f6e8e9201b07f870377d4c1286ac38f4cbc610f696cdb3cab05");
+    // N = 30_000
+    step_test_helper(&ck, width, 30_000, "92761241a3c6d1093a007c250ced3d57e5332be5d77b9060b8c68be70612677e8e43f21528a68730697e7d70ae3a5c01");
+    // N = 40_000
+    step_test_helper(&ck, width, 40_000, "a56b3c6a6c4f038e06f978fc2d5e278fba982a73cec0ee44b3210b11134a77f1ecf0fdf0625d1989b0d72ba78eb41148");
+    // N = 50_000
+    step_test_helper(&ck, width, 50_000, "a3518f182895d97a51ddaea8351e1f11a33439ff3bebeeb24241d1a8acc91030264c960d49232f40e031c8b5671c286e");
 }
 
 fn step_test_helper(ck: &CommitKey<Bls12_381>, width: usize, num_keys: usize, expected: &str) {
