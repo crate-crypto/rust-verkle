@@ -26,16 +26,34 @@ merlin = "3.0.0"
 hex = "0.4.3"
 slotmap = { version = "1.0.2", features = ["serde"] }
 once_cell = "1.7.2"
+num-bigint = "0.4"
+
+criterion = "0.3.4"
+
+[dependencies.num-traits]
+version = "0.2.11"
+default-features = false
+features = ["i128"]
 
 [dev-dependencies]
 
 [profile.bench]
+debug = true
+inline-threshold = 0
 opt-level = 3
-debug = false
-rpath = false
-lto = "thin"
+debug-assertions = true
 incremental = true
-debug-assertions = false
+[profile.release]
+opt-level = 3
+debug = true
+inline-threshold = 0
+debug-assertions = true
+incremental = true
+
+[[bench]]
+name = "my_benchmark"
+harness = false
+
 
 [profile.test]
 opt-level = 3
