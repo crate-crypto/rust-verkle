@@ -1,3 +1,5 @@
+// Create a new G1AffinePoint and G2AffinePoint which hides the encoding abstraction
+
 use ark_bls12_381::{G1Affine, G2Affine};
 use ark_ec::AffineCurve;
 use ark_ff::Fp384;
@@ -26,6 +28,7 @@ fn serialize_g1_x(p: &G1Affine) -> [u8; 48] {
     result.reverse();
     result
 }
+
 pub fn deserialize_g1(mut bytes: [u8; 48]) -> G1Affine {
     let is_inf = (bytes[0] >> 6) & 1 == 1;
     if is_inf {
