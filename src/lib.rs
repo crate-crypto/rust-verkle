@@ -19,7 +19,7 @@ pub use trie::{VerkleTrait, VerkleTrie};
 pub use verkle::{VerklePath, VerkleProof};
 
 use sha2::Digest;
-type HashFunction = sha2::Sha256;
+pub type HashFunction = sha2::Sha256;
 
 /// create a dummy srs
 pub fn dummy_setup(width: usize) -> (CommitKey<Bls12_381>, OpeningKey<Bls12_381>) {
@@ -34,20 +34,48 @@ pub fn dummy_setup(width: usize) -> (CommitKey<Bls12_381>, OpeningKey<Bls12_381>
 }
 
 /// Bit extraction interprets the bytes as bits
-/// It then Takes `WIDTH` number of bits
-/// starting from the offset position
-pub fn bit_extraction(bytes: &[u8], width: usize, offset: usize) -> usize {
+/// It then chunkifies  all of the bits with each chunk being `WIDTH` length
+/// or less. If it is less, we pad the bits with 0's to the right.
+/// This is so that we are interopable with the python implementation.
+/// ie, it is okay to not pad, but it will be a different number.
+/// XXX: Note that this method puts a limit on the trie width.
+/// since a usize is for the most part, at most 64 bits
+// XXX: Change name of method, it extracts all bits
+pub fn bit_extraction(bytes: &[u8], width: usize) -> Vec<usize> {
     use bitvec::prelude::*;
 
-    let bits = bytes.view_bits::<Msb0>();
-    // If the offset + width exceeds the number of bits,
-    // the function will return none. Check if this is the case, and
-    // truncate to the last position, if so.
-    let last_position = match offset + width >= bits.len() {
-        true => bits.len(),
-        false => offset + width,
-    };
-    bits.get(offset..last_position).unwrap().load_be::<usize>()
+    let bits = bytes.view_bits::<Msb0>().to_bitvec();
+
+    // let mut chunks = Vec::with_capacity(bytes.len() / width);
+
+    // for chunk in bits.chunks(width) {
+    //     if chunk.len() < width {
+    //         // Pad it with zeroes to the right
+    //         let mut chunk_alloc = chunk.to_bitvec();
+    //         for _ in 0..(width - chunk.len()) {
+    //             chunk_alloc.push(false)
+    //         }
+    //         chunks.push(chunk_alloc.load_be::<usize>());
+    //         continue;
+    //     }
+    //     chunks.push(chunk.load_be::<usize>());
+    // }
+
+    let s: Vec<_> = bits
+        .chunks(width)
+        .map(|chunk_bits| {
+            if chunk_bits.len() < width {
+                // Pad the last chunk with zeroes if it is less than
+                // the width
+                let mut bv = chunk_bits.to_bitvec();
+                bv.extend(bitvec![Msb0, usize; 0; width - chunk_bits.len()]);
+                return bv.load_be::<usize>();
+            }
+            chunk_bits.load_be::<usize>()
+        })
+        .collect();
+
+    s
 }
 
 // Remove duplicate code below and move into trie module
@@ -75,19 +103,8 @@ impl Key {
     }
 
     pub fn path_indices(&self, width: usize) -> impl Iterator<Item = usize> + '_ {
-        let key_length: usize = self.0.num_bytes() * 8;
-
-        let num_of_path_indices = ceil_div(key_length, width);
-
         let bytes = self.as_bytes();
-        let mut depth = 0;
-
-        (0..num_of_path_indices).into_iter().map(move |_| {
-            let path_index = bit_extraction(bytes, width, depth);
-
-            depth = depth + width;
-            path_index
-        })
+        bit_extraction(bytes, width).into_iter()
     }
 
     // Returns a list of all of the path indices where the two keys
@@ -116,13 +133,6 @@ impl Key {
     }
 }
 
-// Rust does not seem to have ceiling division for integers.
-// It's possible to use floats, but for large numbers, this may become
-// erroneous and a bug
-// This method is semantically the same as (x/y).ceil()
-fn ceil_div(x: usize, y: usize) -> usize {
-    (x / y) + (x % y != 0) as usize
-}
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct Value(ByteArr);
 
@@ -153,9 +163,7 @@ impl ByteArr {
     pub fn as_string(&self) -> String {
         hex::encode(self.0)
     }
-    fn num_bytes(&self) -> usize {
-        self.0.len()
-    }
+
     pub const fn zero() -> ByteArr {
         ByteArr([
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -278,7 +286,7 @@ fn ten_bit_path_index() {
         0000000000
         0100000000
         0000000000
-        000001
+        0000010000
     */
 
     // Now interpret the each number as a u16
@@ -317,16 +325,16 @@ fn ten_bit_path_index() {
     0000000000000000 -> 0
     0000000100000000 -> 256
     0000000000000000 -> 0
-    0000000000000001 -> 1
+    0000010000000000 -> 16
             */
 
-    // One thing to note here is that the last element was not padded to the right to make it 10 bits.
-    // Which would make us interpret it as 16.
+    // One thing to note here is that the last element was padded to the right to make it 10 bits.
+    // Which would make us interpret it as 16. If this was not done, then we would interpret it as 1.
 
-    // We now have 4,0,128,3,0,64,1,256,24,0,448,8,0,112,1,512,20,0,256,3,0,32,0,256,0,1
+    // We now have 4,0,128,3,0,64,1,256,24,0,448,8,0,112,1,512,20,0,256,3,0,32,0,256,0,16
     let expected = vec![
         4, 0, 128, 3, 0, 64, 1, 256, 24, 0, 448, 8, 0, 112, 1, 512, 20, 0, 256, 3, 0, 32, 0, 256,
-        0, 1,
+        0, 16,
     ];
 
     for (array_index, (got, expected)) in path_indices.into_iter().zip(expected).enumerate() {
