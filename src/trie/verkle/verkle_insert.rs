@@ -34,6 +34,10 @@ impl<'a> VerkleTrie<'a> {
                     self.child_map
                         .add_child(pointer, data.path_index, data.data_index);
                 }
+                Ins::ResetComm { pointer } => {
+                    let internal_node = self.data_indexer.get_mut(pointer).as_mut_internal();
+                    internal_node.commitment = VerkleCommitment::NotComputed;
+                }
             }
         }
     }
@@ -53,6 +57,10 @@ pub enum Ins {
     UpdateLeaf(DataIndex, LeafNode),
     // Instruction to update an internal node
     UpdateInternalChild { pointer: DataIndex, data: ChildData },
+    // Set the internal node's commitment to nil.
+    // so that it is recomputed
+    // We will include an UpdateComm instruction later on
+    ResetComm { pointer: DataIndex },
 }
 
 impl<'a> VerkleTrie<'a> {
@@ -76,6 +84,15 @@ impl<'a> VerkleTrie<'a> {
 
         loop {
             paths_passed += 1;
+
+            // Reset all of the cached commitments.
+            // XXX: Without this, it would cause a bug, if we
+            // used insert_single
+            let ins = Ins::ResetComm {
+                pointer: current_node_index,
+            };
+            instructions.push(ins);
+
             // orlp( can loop on iterator)
             let index = path_indices.next().unwrap();
 
@@ -127,6 +144,7 @@ impl<'a> VerkleTrie<'a> {
 
             // The keys are not the same, this means that they share `n` path indices
             // we need to create `n-1` internal nodes and link them together
+            // XXX: We can pass in an offset here to skip `n` path bits
             let (shared_path, p_diff_a, p_diff_b) = Key::path_difference(&leaf.key, &key, width);
 
             // path_difference returns all shared_paths.
