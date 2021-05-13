@@ -50,7 +50,7 @@ fn main() {
         .map(|(_, key)| (key, Value::zero()));
     trie.insert(key_vals);
 
-    println!("finished initial insertion of 10B Keys");
+    println!("finished initial insertion of 1B Keys");
 
     use std::time::Instant;
 
