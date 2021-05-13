@@ -4,6 +4,7 @@ use slotmap::{new_key_type, SlotMap};
 
 // ChildMap stores the relations for all of the InternalNode children in
 // this map.
+#[derive(Debug, Clone)]
 pub struct ChildMap {
     inner: BTreeMap<(ParentDataIndex, usize), ChildDataIndex>,
 }
@@ -104,7 +105,7 @@ impl NodeSlotMap {
 // NodeIndex is used to refer to Nodes in the arena allocator.
 // A better name might be DataIndex.
 new_key_type! {pub struct NodeIndex;}
-
+#[derive(Debug, Clone)]
 pub struct NodeSlotMap(slotmap::SlotMap<DataIndex, crate::trie::node::Node>);
 
 impl NodeSlotMap {

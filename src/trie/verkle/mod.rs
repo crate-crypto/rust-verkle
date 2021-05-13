@@ -14,6 +14,7 @@ mod verkle_find_path;
 mod verkle_get;
 mod verkle_insert;
 
+#[derive(Debug, Clone)]
 pub struct VerkleTrie<'a> {
     pub(crate) root_index: DataIndex,
     pub(crate) data_indexer: NodeSlotMap,
