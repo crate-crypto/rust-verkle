@@ -204,7 +204,7 @@ fn path_diff() {
     }
 
     assert_eq!(path_diff_a.unwrap(), 0);
-    assert_eq!(path_diff_b.unwrap(), 1);
+    assert_eq!(path_diff_b.unwrap(), 16);
 }
 #[test]
 fn ten_bit_path_index() {

@@ -194,7 +194,7 @@ mod test {
         // The last inner node should have two leaves
         let mut vec = vec![EMPTY_NODE_TYPE; 1 << width];
         vec[0] = LEAF_NODE_TYPE;
-        vec[1] = LEAF_NODE_TYPE;
+        vec[16] = LEAF_NODE_TYPE;
 
         let child_types = InternalNode::children_types(
             child_data_index,
@@ -205,7 +205,7 @@ mod test {
         assert_eq!(child_types, vec);
 
         let first_child = tree.child_map.child(child_data_index, 0).unwrap();
-        let second_child = tree.child_map.child(child_data_index, 1).unwrap();
+        let second_child = tree.child_map.child(child_data_index, 16).unwrap();
 
         let first_node = tree.data_indexer.get(first_child);
         let second_node = tree.data_indexer.get(second_child);
