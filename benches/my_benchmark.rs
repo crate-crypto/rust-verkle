@@ -1,39 +1,63 @@
 use ark_bls12_381::Bls12_381;
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{black_box, criterion_group, criterion_main, BatchSize, Criterion};
 use rand::rngs::StdRng;
 use rand::Rng;
 use rand::SeedableRng;
+use sha2::Digest;
 use verkle_trie::{
-    dummy_setup, kzg10::CommitKey, kzg10::OpeningKey, Key, Value, VerkleTrait, VerkleTrie,
+    dummy_setup, kzg10::CommitKey, kzg10::OpeningKey, HashFunction, Key, Value, VerkleTrait,
+    VerkleTrie,
 };
 
 use once_cell::sync::Lazy;
 
 static SRS: Lazy<(CommitKey<Bls12_381>, OpeningKey<Bls12_381>)> = Lazy::new(|| dummy_setup(10));
-static KEYS_11K: Lazy<Vec<Key>> = Lazy::new(|| generate_set_of_keys(11_000, 200).collect());
+static KEYS_10K: Lazy<Vec<Key>> = Lazy::new(|| generate_diff_set_of_keys(10_000).collect());
 
-fn generate_set_of_keys(n: usize, seed: u64) -> impl Iterator<Item = Key> {
-    let mut rng = StdRng::seed_from_u64(seed);
-    (0..n).map(move |i| rand_key(&mut rng))
+fn generate_set_of_keys(n: u32) -> impl Iterator<Item = Key> {
+    (0u32..n).map(|i| {
+        let mut arr = [0u8; 32];
+        let i_bytes = i.to_be_bytes();
+        arr[0] = i_bytes[0];
+        arr[1] = i_bytes[1];
+        arr[2] = i_bytes[2];
+        arr[3] = i_bytes[3];
+        Key::from_arr(arr)
+    })
 }
 
-fn rand_key(rng: &mut StdRng) -> Key {
-    let mut array = [0_u8; 32];
+fn generate_diff_set_of_keys(n: u32) -> impl Iterator<Item = Key> {
+    use std::convert::TryInto;
+    (0u32..n).map(|i| {
+        let mut hasher = HashFunction::new();
+        hasher.update(i.to_be_bytes());
 
-    rng.fill(&mut array);
-    Key::from_arr(array)
+        let res: [u8; 32] = hasher.finalize().try_into().unwrap();
+        Key::from_arr(res)
+    })
 }
 
 fn bench_create_proof_10K_keys(c: &mut Criterion) {
     let mut trie = VerkleTrie::new(10, &SRS.0);
+    let initial_keys = generate_set_of_keys(1_000_000);
+    let keys_values = initial_keys.map(|key| (key, Value::zero()));
+    trie.insert(keys_values);
 
     c.bench_function("insert trie", |b| {
-        b.iter(|| {
-            let keys_values = KEYS_11K.iter().map(|key| (*key, Value::zero()));
-            black_box(trie.insert(keys_values))
-        })
+        b.iter_batched(
+            || trie.clone(),
+            |mut trie| {
+                let keys_values = KEYS_10K.iter().map(|key| (*key, Value::zero()));
+                black_box(trie.insert(keys_values))
+            },
+            BatchSize::SmallInput,
+        )
     });
 }
 
-criterion_group!(benches, bench_create_proof_10K_keys);
+criterion_group!(
+    name = benches;
+    config = Criterion::default().significance_level(0.1).sample_size(10);
+    targets = bench_create_proof_10K_keys
+);
 criterion_main!(benches);
