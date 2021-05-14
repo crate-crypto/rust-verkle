@@ -68,5 +68,8 @@ fn bench_create_proof_10K_keys_group(c: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(benches, bench_create_proof_10K_keys_group);
+criterion_group!(
+    name = benches; 
+    config = Criterion::default().significance_level(0.1).sample_size(10);
+    targets = bench_create_proof_10K_keys_group);
 criterion_main!(benches);
