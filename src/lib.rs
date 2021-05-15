@@ -1,6 +1,7 @@
 #![feature(test)]
 extern crate test;
 
+// mod bench;
 pub mod commitment;
 pub mod hash;
 mod interop;

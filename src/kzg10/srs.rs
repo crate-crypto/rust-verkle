@@ -1,7 +1,4 @@
-use super::{
-    errors::KZG10Error,
-    key::{CommitKey, OpeningKey},
-};
+use super::{errors::KZG10Error, key::CommitKey, opening_key::OpeningKey};
 use crate::util;
 use ark_ec::{AffineCurve, PairingEngine, ProjectiveCurve};
 use ark_ff::UniformRand;

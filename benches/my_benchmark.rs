@@ -6,9 +6,9 @@ use rand::Rng;
 use rand::SeedableRng;
 use rayon::prelude::*;
 use sha2::Digest;
-use verkle_trie::HashFunction;
 use verkle_trie::{
-    dummy_setup, kzg10::CommitKey, kzg10::OpeningKey, Key, Value, VerkleTrait, VerkleTrie,
+    dummy_setup, kzg10::CommitKey, kzg10::OpeningKey, HashFunction, Key, Value, VerkleTrait,
+    VerkleTrie,
 };
 
 use once_cell::sync::Lazy;
