@@ -1,7 +1,7 @@
 /// This is the default implementation of the VerkleTrie trait
 ///
 use self::indexer::{ChildMap, DataIndex, NodeSlotMap};
-use crate::trie::node::errors::NodeError;
+use crate::{kzg10::VerkleCommitter, trie::node::errors::NodeError};
 
 use crate::trie::node::internal::InternalNode;
 use crate::trie::VerkleTrait;
@@ -14,13 +14,13 @@ mod verkle_find_path;
 mod verkle_get;
 mod verkle_insert;
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct VerkleTrie<'a> {
     pub(crate) root_index: DataIndex,
     pub(crate) data_indexer: NodeSlotMap,
     pub(crate) child_map: ChildMap,
     pub(crate) width: usize,
-    pub(crate) ck: &'a CommitKey<Bls12_381>,
+    pub(crate) ck: &'a dyn VerkleCommitter<Bls12_381>,
 }
 
 impl<'a> VerkleTrie<'_> {
@@ -45,8 +45,8 @@ impl<'a> VerkleTrie<'_> {
         }
     }
 
-    pub fn commit_key(&self) -> &CommitKey<Bls12_381> {
-        &self.ck
+    pub fn commit_key(&self) -> &dyn VerkleCommitter<Bls12_381> {
+        self.ck
     }
 }
 
@@ -72,7 +72,7 @@ impl<'a> VerkleTrait for VerkleTrie<'a> {
             self.width,
             &mut self.data_indexer,
             &self.child_map,
-            &self.ck,
+            self.ck,
         )
     }
 
@@ -89,7 +89,7 @@ pub fn compute_evaluations(
     width: usize,
     child_map: &ChildMap,
     sm: &mut NodeSlotMap,
-    ck: &CommitKey<Bls12_381>,
+    ck: &dyn VerkleCommitter<Bls12_381>,
 ) -> Vec<Fr> {
     let children = child_map.children(data_index);
     let mut polynomial_eval = vec![Fr::zero(); 1 << width];
@@ -131,7 +131,7 @@ pub fn commitment(
     width: usize,
     sm: &mut NodeSlotMap,
     child_map: &ChildMap,
-    ck: &CommitKey<Bls12_381>,
+    ck: &dyn VerkleCommitter<Bls12_381>,
 ) -> VerkleCommitment {
     // First get the internal node to check if it's commitment is cached
     let node = *sm.get(data_index).as_internal();
@@ -153,7 +153,7 @@ pub fn compute_polynomial_evaluations(
     width: usize,
     sm: &mut NodeSlotMap,
     child_map: &ChildMap,
-    ck: &CommitKey<Bls12_381>,
+    ck: &dyn VerkleCommitter<Bls12_381>,
 ) -> Evaluations<Fr> {
     let evaluations = compute_evaluations(data_index, width, child_map, sm, ck);
 

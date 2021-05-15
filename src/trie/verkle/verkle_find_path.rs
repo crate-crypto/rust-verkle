@@ -1,7 +1,10 @@
 use ark_bls12_381::{Bls12_381, Fr};
 use ark_poly::{EvaluationDomain, Evaluations};
 
-use crate::{kzg10::CommitKey, Key, VerkleCommitment, VerklePath};
+use crate::{
+    kzg10::{CommitKey, VerkleCommitter},
+    Key, VerkleCommitment, VerklePath,
+};
 
 use super::indexer::{ChildMap, DataIndex, NodeSlotMap};
 use crate::trie::{
@@ -17,7 +20,7 @@ impl<'a> VerkleTrie<'a> {
             &self.child_map,
             self.width,
             key,
-            &self.ck,
+            self.ck,
         )
     }
 }
@@ -30,7 +33,7 @@ pub fn commitment_from_poly(
     // This must be the corresponding polynomial for the branch node
     // or the proof will fail.
     precomputed_polynomial: &Evaluations<Fr>,
-    ck: &CommitKey<Bls12_381>,
+    ck: &dyn VerkleCommitter<Bls12_381>,
 ) -> VerkleCommitment {
     let kzg10_commitment = ck.commit_lagrange(&precomputed_polynomial.evals).unwrap();
 
@@ -45,7 +48,7 @@ pub fn find_commitment_path(
     child_map: &ChildMap,
     width: usize,
     key: &Key,
-    ck: &CommitKey<Bls12_381>,
+    ck: &dyn VerkleCommitter<Bls12_381>,
 ) -> Result<VerklePath, NodeError> {
     let termination_path = find_termination_path(data_index, sm, child_map, width, key)?;
 
