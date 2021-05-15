@@ -172,7 +172,7 @@ fn step_test_helper(ck: &CommitKey<Bls12_381>, width: usize, num_keys: usize, ex
         .into_iter()
         .map(|key_bytes| (Key::from_arr(key_bytes), Value::zero()));
 
-    let mut trie = VerkleTrie::new(width, &ck);
+    let mut trie = VerkleTrie::new(width, ck);
     let root = trie.insert(key_vals);
 
     let root_bytes = root.compress();
