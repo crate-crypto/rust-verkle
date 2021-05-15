@@ -3,7 +3,7 @@ pub mod key;
 pub mod key_lagrange;
 pub mod lagrange;
 pub mod opening_key;
-pub(crate) mod precomp_lagrange;
+pub mod precomp_lagrange;
 mod ruffini;
 pub mod srs;
 use crate::transcript::TranscriptProtocol;
