@@ -24,7 +24,7 @@ pub struct VerkleTrie<'a> {
 }
 
 impl<'a> VerkleTrie<'_> {
-    pub fn new(width: usize, ck: &'a CommitKey<Bls12_381>) -> VerkleTrie<'a> {
+    pub fn new(width: usize, ck: &'a dyn VerkleCommitter<Bls12_381>) -> VerkleTrie<'a> {
         // Initialise the slot map to store the node data
         let mut data_indexer = NodeSlotMap::new();
 
