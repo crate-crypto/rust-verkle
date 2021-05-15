@@ -2,14 +2,21 @@ pub mod errors;
 pub mod key;
 pub mod key_lagrange;
 pub mod lagrange;
+pub mod opening_key;
+pub(crate) mod precomp_lagrange;
 mod ruffini;
 pub mod srs;
 use crate::transcript::TranscriptProtocol;
 use crate::util::powers_of;
 use ark_ec::{AffineCurve, PairingEngine};
 use ark_ff::{PrimeField, Zero};
-pub use key::{CommitKey, OpeningKey};
+pub use key::CommitKey;
+pub use opening_key::OpeningKey;
 pub use srs::PublicParameters;
+
+pub trait VerkleCommitter<E: PairingEngine> {
+    fn commit_lagrange(&self, values: &[E::Fr]) -> Result<Commitment<E>, errors::KZG10Error>;
+}
 
 #[derive(Copy, Clone, Debug)]
 /// Proof that a polynomial `p` was correctly evaluated at a point `z`
