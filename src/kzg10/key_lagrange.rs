@@ -9,6 +9,23 @@ use ark_poly::{EvaluationDomain, Evaluations, GeneralEvaluationDomain};
 use merlin::Transcript;
 use util::powers_of;
 
+impl<E: PairingEngine> super::VerkleCommitter<E> for CommitKey<E> {
+    fn commit_lagrange(&self, evaluations: &[E::Fr]) -> Result<Commitment<E>, KZG10Error> {
+        // Check whether we can safely commit to this polynomial
+        self.check_commit_degree_is_within_bounds(evaluations.len() - 1)?;
+
+        // Compute commitment
+        let commitment = VariableBaseMSM::multi_scalar_mul(
+            &self.lagrange_powers_of_g[0..evaluations.len()],
+            &evaluations
+                .iter()
+                .map(|c| c.into_repr())
+                .collect::<Vec<_>>(),
+        );
+        Ok(Commitment::from_projective(commitment))
+    }
+}
+
 impl<E: PairingEngine> CommitKey<E> {
     pub fn commit_lagrange(&self, evaluations: &[E::Fr]) -> Result<Commitment<E>, KZG10Error> {
         // Check whether we can safely commit to this polynomial
