@@ -41,12 +41,11 @@ impl<E: PairingEngine> PrecomputeLagrange<E> {
     }
 
     fn precompute_lagrange_points(lagrange_points: &[E::G1Affine]) -> Vec<LagrangeTablePoints<E>> {
-        let mut table_of_points = Vec::with_capacity(lagrange_points.len());
-        for point in lagrange_points {
-            let table = LagrangeTablePoints::<E>::new(point);
-            table_of_points.push(table);
-        }
-        table_of_points
+        use rayon::prelude::*;
+        lagrange_points
+            .into_par_iter()
+            .map(|point| LagrangeTablePoints::<E>::new(point))
+            .collect()
     }
 }
 
