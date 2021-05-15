@@ -5,13 +5,18 @@ use rand::Rng;
 use rand::SeedableRng;
 use sha2::Digest;
 use verkle_trie::{
-    dummy_setup, kzg10::CommitKey, kzg10::OpeningKey, HashFunction, Key, Value, VerkleTrait,
-    VerkleTrie,
+    dummy_setup,
+    kzg10::OpeningKey,
+    kzg10::{precomp_lagrange::PrecomputeLagrange, CommitKey},
+    HashFunction, Key, Value, VerkleTrait, VerkleTrie,
 };
 
 use once_cell::sync::Lazy;
-
-static SRS: Lazy<(CommitKey<Bls12_381>, OpeningKey<Bls12_381>)> = Lazy::new(|| dummy_setup(10));
+const WIDTH: usize = 10;
+static PRECOMPUTED_TABLE_1024: Lazy<PrecomputeLagrange<Bls12_381>> = Lazy::new(|| {
+    let ck = dummy_setup(WIDTH).0;
+    PrecomputeLagrange::<Bls12_381>::precompute(&ck.lagrange_powers_of_g)
+});
 static KEYS_10K: Lazy<Vec<Key>> = Lazy::new(|| generate_diff_set_of_keys(10_000).collect());
 
 fn generate_set_of_keys(n: u32) -> impl Iterator<Item = Key> {
@@ -38,7 +43,7 @@ fn generate_diff_set_of_keys(n: u32) -> impl Iterator<Item = Key> {
 }
 
 fn bench_create_proof_10K_keys(c: &mut Criterion) {
-    let mut trie = VerkleTrie::new(10, &SRS.0);
+    let mut trie = VerkleTrie::new(WIDTH, &*PRECOMPUTED_TABLE_1024);
     let initial_keys = generate_set_of_keys(1_000_000);
     let keys_values = initial_keys.map(|key| (key, Value::zero()));
     trie.insert(keys_values);
