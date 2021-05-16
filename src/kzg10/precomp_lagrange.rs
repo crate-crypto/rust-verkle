@@ -1,5 +1,5 @@
 use super::{errors::KZG10Error, Commitment};
-use crate::kzg10::VerkleCommitter;
+use crate::kzg10::LagrangeCommitter;
 use ark_ec::{AffineCurve, PairingEngine};
 
 #[derive(Debug, Clone)]
@@ -8,7 +8,7 @@ pub struct PrecomputeLagrange<E: PairingEngine> {
     num_points: usize,
 }
 
-impl<E: PairingEngine> VerkleCommitter<E> for PrecomputeLagrange<E> {
+impl<E: PairingEngine> LagrangeCommitter<E> for PrecomputeLagrange<E> {
     fn commit_lagrange(&self, evaluations: &[E::Fr]) -> Result<Commitment<E>, KZG10Error> {
         if evaluations.len() != self.num_points {
             return Err(KZG10Error::PolynomialDegreeTooLarge);
@@ -23,6 +23,23 @@ impl<E: PairingEngine> VerkleCommitter<E> for PrecomputeLagrange<E> {
                 let point = table.point(row, byte);
                 result += E::G1Projective::from(*point);
             }
+        }
+        Ok(Commitment::from_projective(result))
+    }
+
+    fn commit_lagrange_single(
+        &self,
+        value: E::Fr,
+        lagrange_index: usize,
+    ) -> Result<Commitment<E>, KZG10Error> {
+        let table = &self.inner[lagrange_index];
+
+        let mut result = E::G1Projective::default();
+
+        let bytes = ark_ff::to_bytes!(value).unwrap();
+        for (row, byte) in bytes.into_iter().enumerate() {
+            let point = table.point(row, byte);
+            result += E::G1Projective::from(*point);
         }
         Ok(Commitment::from_projective(result))
     }
@@ -131,6 +148,31 @@ fn commit_lagrange_consistency() {
     let base_points =
         PrecomputeLagrange::<Bls12_381>::precompute(&srs.commit_key.lagrange_powers_of_g);
     let got_comm = base_points.commit_lagrange(&values).unwrap();
+
+    assert_eq!(expected_comm.0, got_comm.0)
+}
+#[test]
+fn commit_lagrange_single_consistency() {
+    use ark_bls12_381::{Bls12_381, Fr};
+    use ark_ff::UniformRand;
+    use ark_ff::Zero;
+    use rand::Rng;
+    let degree = 7;
+    let srs = setup_test(7);
+
+    let index = rand::thread_rng().gen_range(0..=degree);
+    let non_zero_scalar = Fr::rand(&mut rand_core::OsRng);
+
+    let mut values = vec![Fr::zero(); degree + 1];
+    values[index] = non_zero_scalar;
+
+    let base_points =
+        PrecomputeLagrange::<Bls12_381>::precompute(&srs.commit_key.lagrange_powers_of_g);
+    let expected_comm = base_points.commit_lagrange(&values).unwrap();
+
+    let got_comm = base_points
+        .commit_lagrange_single(non_zero_scalar, index)
+        .unwrap();
 
     assert_eq!(expected_comm.0, got_comm.0)
 }
