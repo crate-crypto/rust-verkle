@@ -125,59 +125,57 @@ impl<E: PairingEngine> LagrangeTablePoints<E> {
         scaled_row
     }
 }
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::kzg10::LagrangeCommitter;
+    #[test]
+    fn commit_lagrange_consistency() {
+        use ark_bls12_381::{Bls12_381, Fr};
+        use ark_ff::UniformRand;
+        let degree = 7;
+        let srs = setup_test(degree);
 
-#[test]
-fn commit_lagrange_consistency() {
-    use ark_bls12_381::{Bls12_381, Fr};
-    use ark_ff::UniformRand;
-    let srs = setup_test(7);
+        let values: Vec<_> = (1..=degree + 1)
+            .map(|_| Fr::rand(&mut rand_core::OsRng))
+            .collect();
 
-    let values = vec![
-        Fr::rand(&mut rand_core::OsRng),
-        Fr::rand(&mut rand_core::OsRng),
-        Fr::rand(&mut rand_core::OsRng),
-        Fr::rand(&mut rand_core::OsRng),
-        Fr::rand(&mut rand_core::OsRng),
-        Fr::rand(&mut rand_core::OsRng),
-        Fr::rand(&mut rand_core::OsRng),
-        Fr::rand(&mut rand_core::OsRng),
-    ];
+        let expected_comm = srs.commit_key().commit_lagrange(&values).unwrap();
 
-    let expected_comm = srs.commit_key().commit_lagrange(&values).unwrap();
+        let base_points =
+            PrecomputeLagrange::<Bls12_381>::precompute(&srs.commit_key.lagrange_powers_of_g);
+        let got_comm = base_points.commit_lagrange(&values).unwrap();
 
-    let base_points =
-        PrecomputeLagrange::<Bls12_381>::precompute(&srs.commit_key.lagrange_powers_of_g);
-    let got_comm = base_points.commit_lagrange(&values).unwrap();
+        assert_eq!(expected_comm.0, got_comm.0)
+    }
+    #[test]
+    fn commit_lagrange_single_consistency() {
+        use ark_bls12_381::{Bls12_381, Fr};
+        use ark_ff::UniformRand;
+        use ark_ff::Zero;
+        use rand::Rng;
+        let degree = 7;
+        let srs = setup_test(degree);
 
-    assert_eq!(expected_comm.0, got_comm.0)
-}
-#[test]
-fn commit_lagrange_single_consistency() {
-    use ark_bls12_381::{Bls12_381, Fr};
-    use ark_ff::UniformRand;
-    use ark_ff::Zero;
-    use rand::Rng;
-    let degree = 7;
-    let srs = setup_test(7);
+        let index = rand::thread_rng().gen_range(0..=degree);
+        let non_zero_scalar = Fr::rand(&mut rand_core::OsRng);
 
-    let index = rand::thread_rng().gen_range(0..=degree);
-    let non_zero_scalar = Fr::rand(&mut rand_core::OsRng);
+        let mut values = vec![Fr::zero(); degree + 1];
+        values[index] = non_zero_scalar;
 
-    let mut values = vec![Fr::zero(); degree + 1];
-    values[index] = non_zero_scalar;
+        let base_points =
+            PrecomputeLagrange::<Bls12_381>::precompute(&srs.commit_key.lagrange_powers_of_g);
+        let expected_comm = base_points.commit_lagrange(&values).unwrap();
 
-    let base_points =
-        PrecomputeLagrange::<Bls12_381>::precompute(&srs.commit_key.lagrange_powers_of_g);
-    let expected_comm = base_points.commit_lagrange(&values).unwrap();
+        let got_comm = base_points
+            .commit_lagrange_single(non_zero_scalar, index)
+            .unwrap();
 
-    let got_comm = base_points
-        .commit_lagrange_single(non_zero_scalar, index)
-        .unwrap();
+        assert_eq!(expected_comm.0, got_comm.0)
+    }
 
-    assert_eq!(expected_comm.0, got_comm.0)
-}
-
-use crate::kzg10::commit_key_lag::srs::PublicParameters;
-fn setup_test(degree: usize) -> PublicParameters<ark_bls12_381::Bls12_381> {
-    PublicParameters::setup(degree.next_power_of_two(), &mut rand_core::OsRng).unwrap()
+    use crate::kzg10::commit_key_lag::srs::PublicParameters;
+    fn setup_test(degree: usize) -> PublicParameters<ark_bls12_381::Bls12_381> {
+        PublicParameters::setup(degree.next_power_of_two(), &mut rand_core::OsRng).unwrap()
+    }
 }
