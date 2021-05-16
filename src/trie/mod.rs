@@ -73,7 +73,7 @@ mod test {
     #[test]
     fn basic_same_insert() {
         let width = 10;
-        let (ck, vk) = test_kzg(width);
+        let (ck, _) = test_kzg(width);
         let mut tree = VerkleTrie::new(width, &ck);
 
         for _ in 0..100 {
@@ -84,7 +84,7 @@ mod test {
     #[test]
     fn basic_insert_key() {
         let width = 8;
-        let (ck, vk) = test_kzg(width);
+        let (ck, _) = test_kzg(width);
         let mut tree = VerkleTrie::new(width, &ck);
 
         let value = Value::from_arr([1u8; 32]);
@@ -102,7 +102,7 @@ mod test {
     #[test]
     fn basic_get() {
         let width = 10;
-        let (ck, vk) = test_kzg(width);
+        let (ck, _) = test_kzg(width);
         let mut tree = VerkleTrie::new(width, &ck);
 
         tree.insert_single(Key::zero(), Value::one());
@@ -121,7 +121,7 @@ mod test {
         // This solely tests whether we get an OOM error, this will not happen with
         // this implementation, but may happen if children are eagerly allocated.
         let width = 10;
-        let (ck, vk) = test_kzg(width);
+        let (ck, _) = test_kzg(width);
         let mut tree = VerkleTrie::new(width, &ck);
 
         let zero = Key::from_arr([
@@ -144,7 +144,7 @@ mod test {
     #[test]
     fn check_longest_path_insert() {
         let width = 10;
-        let (ck, vk) = test_kzg(width);
+        let (ck, _) = test_kzg(width);
         let mut tree = VerkleTrie::new(width, &ck);
 
         let zero = Key::from_arr([
