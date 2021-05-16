@@ -18,9 +18,6 @@ pub use opening_key::OpeningKey;
 
 use self::errors::KZG10Error;
 
-pub trait VerkleCommitter<E: PairingEngine> {
-    fn commit_lagrange(&self, values: &[E::Fr]) -> Result<Commitment<E>, errors::KZG10Error>;
-}
 pub trait MultiPointProver<E: PairingEngine, T: TranscriptProtocol<E>> {
     fn open_multipoint_lagrange(
         &self,
@@ -32,15 +29,19 @@ pub trait MultiPointProver<E: PairingEngine, T: TranscriptProtocol<E>> {
     ) -> Result<proof::AggregateProofMultiPoint<E>, KZG10Error>;
 }
 
-pub trait Committer<E: PairingEngine> {
-    fn commit_lagrange(&self, values: &[E::Fr]) -> Result<Commitment<E>, errors::KZG10Error>;
+pub trait CoeffCommitter<E: PairingEngine> {
     fn commit_coefficient(
         &self,
         polynomial: &ark_poly::univariate::DensePolynomial<E::Fr>,
     ) -> Result<Commitment<E>, errors::KZG10Error>;
+}
+pub trait LagrangeCommitter<E: PairingEngine> {
+    fn commit_lagrange(&self, values: &[E::Fr]) -> Result<Commitment<E>, errors::KZG10Error>;
+    // Committing to a single scalar, requires one to know
+    // the lagrange index (L_i) to compute scalar * L_i
     fn commit_lagrange_single(
         &self,
         value: E::Fr,
-        index: usize,
+        lagrange_index: usize,
     ) -> Result<Commitment<E>, errors::KZG10Error>;
 }
