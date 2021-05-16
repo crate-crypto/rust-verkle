@@ -84,8 +84,8 @@ mod test {
     use crate::kzg10::MultiPointProver;
     use crate::kzg10::OpeningKey;
     use crate::kzg10::{
-        commit_key_coeff::srs::PublicParameters,
-        commit_key_lag::srs::PublicParameters as PublicParametersLag, CommitKey,
+        commit_key_coeff::{srs::PublicParameters, CommitKey},
+        commit_key_lag::srs::PublicParameters as PublicParametersLag,
     };
     use ark_bls12_381::{Bls12_381, Fr};
     use ark_poly::{
@@ -323,7 +323,7 @@ mod test {
     #[test]
     fn test_compute_aggregate_witness_lagrange() {
         let degree = 31;
-        let (lagrange_proving_key, opening_key) = setup_lagrange_srs(degree);
+        let (lagrange_proving_key, _) = setup_lagrange_srs(degree);
         let (coeff_proving_key, _) = setup_coeff_srs(degree);
 
         let domain: GeneralEvaluationDomain<Fr> = GeneralEvaluationDomain::new(degree).unwrap();

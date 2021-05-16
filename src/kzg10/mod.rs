@@ -1,7 +1,5 @@
 pub mod commit_key_coeff;
 pub mod commit_key_lag;
-use ark_poly::Evaluations;
-pub use commit_key_coeff as key;
 pub mod commitment;
 pub mod errors;
 pub mod opening_key;
@@ -10,12 +8,12 @@ pub mod proof;
 
 use crate::transcript::TranscriptProtocol;
 use ark_ec::PairingEngine;
+use ark_poly::Evaluations;
 // XXX: Remove this later on, we don't want to make the default API be coeff form
 // or create a better namespace for it
 pub use commit_key_coeff::srs::PublicParameters;
 pub use commit_key_lag::CommitKeyLagrange;
 pub use commitment::Commitment;
-pub use key::CommitKey;
 pub use opening_key::OpeningKey;
 
 use self::errors::KZG10Error;

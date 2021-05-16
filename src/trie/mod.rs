@@ -50,7 +50,7 @@ mod test {
 
     use super::verkle::VerkleTrie;
     use super::VerkleTrait;
-    use crate::kzg10::{CommitKey, OpeningKey, PublicParameters};
+    use crate::kzg10::{commit_key_coeff::CommitKey, OpeningKey, PublicParameters};
     use crate::trie::node::{internal::InternalNode, Node};
     use crate::{Key, Value};
     use ark_bls12_381::{Bls12_381, Fr};

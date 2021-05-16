@@ -3,7 +3,7 @@ use ark_bls12_381::{Bls12_381, Fr};
 use ark_poly::Evaluations;
 
 use crate::{
-    kzg10::{self, CommitKey, OpeningKey},
+    kzg10::{self, OpeningKey},
     VerkleCommitment,
 };
 // This module is used to create and verify proofs, given a Verkle path or a Verkle proof respectively
