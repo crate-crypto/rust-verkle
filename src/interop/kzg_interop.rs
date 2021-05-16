@@ -1,60 +1,62 @@
-use ark_bls12_381::{G1Affine, G1Projective};
-use ark_ec::ProjectiveCurve;
+#[cfg(test)]
+mod test {
+    use ark_bls12_381::{G1Affine, G1Projective};
+    use ark_ec::ProjectiveCurve;
 
-/// Interop to tests that the public parameters are the same non-fft
-#[test]
-fn python_impl_consistency_parameters() {
-    use super::encoding_interop;
-    use crate::kzg10::PublicParameters;
-    use ark_bls12_381::{Bls12_381, Fr};
+    /// Interop to tests that the public parameters are the same non-fft
+    #[test]
+    fn python_impl_consistency_parameters() {
+        use crate::kzg10::PublicParameters;
+        use crate::point_encoding;
+        use ark_bls12_381::{Bls12_381, Fr};
 
-    let degree = 1024;
-    let pp = PublicParameters::<Bls12_381>::setup_from_secret(
-        degree - 1,
-        Fr::from(8927347823478352432985u128),
-    )
-    .unwrap();
+        let degree = 1024;
+        let pp = PublicParameters::<Bls12_381>::setup_from_secret(
+            degree - 1,
+            Fr::from(8927347823478352432985u128),
+        )
+        .unwrap();
 
-    for (got, expected) in pp.commit_key.powers_of_g.iter().zip(G1.iter()) {
-        assert_eq!(expected, &hex::encode(encoding_interop::serialize_g1(got)))
+        for (got, expected) in pp.commit_key.powers_of_g.iter().zip(G1.iter()) {
+            assert_eq!(expected, &hex::encode(point_encoding::serialize_g1(got)))
+        }
     }
-}
 
-// This essentially tests if the fft_g1 params are consistent with
-// python
+    // This essentially tests if the fft_g1 params are consistent with
+    // python
 
-#[test]
-fn test_lagrange_powers() {
-    use super::encoding_interop;
-    use crate::kzg10::commit_key_lag::srs::PublicParameters;
-    use ark_bls12_381::{Bls12_381, Fr};
-    use ark_ff::{PrimeField, Zero};
-    use std::str::FromStr;
-    let degree = 1024;
-    let pp = PublicParameters::<Bls12_381>::setup_from_secret(
-        degree,
-        Fr::from(8927347823478352432985u128),
-    )
-    .unwrap();
+    #[test]
+    fn test_lagrange_powers() {
+        use crate::kzg10::commit_key_lag::srs::PublicParameters;
+        use crate::point_encoding;
+        use ark_bls12_381::{Bls12_381, Fr};
+        use ark_ff::{PrimeField, Zero};
+        use std::str::FromStr;
+        let degree = 1024;
+        let pp = PublicParameters::<Bls12_381>::setup_from_secret(
+            degree,
+            Fr::from(8927347823478352432985u128),
+        )
+        .unwrap();
 
-    for (lag_power, expected) in pp
-        .commit_key
-        .lagrange_powers_of_g
-        .iter()
-        .zip(PYTHON_FFT_G1.iter())
-    {
-        let got = hex::encode(encoding_interop::serialize_g1(lag_power));
-        assert_eq!(*expected, got)
+        for (lag_power, expected) in pp
+            .commit_key
+            .lagrange_powers_of_g
+            .iter()
+            .zip(PYTHON_FFT_G1.iter())
+        {
+            let got = hex::encode(point_encoding::serialize_g1(lag_power));
+            assert_eq!(*expected, got)
+        }
     }
-}
 
-// for i in range(1024):
-//     values = {}
-//     values[i] = 1
-//     commitment = kzg_utils.compute_commitment_lagrange(values)
-//     print(bytes(commitment.compress()).hex(), ",")
-// Note the primitve root is 7 here
-pub const PYTHON_FFT_G1 : [&str; 1024]= [
+    // for i in range(1024):
+    //     values = {}
+    //     values[i] = 1
+    //     commitment = kzg_utils.compute_commitment_lagrange(values)
+    //     print(bytes(commitment.compress()).hex(), ",")
+    // Note the primitive root is 7 here
+    pub const PYTHON_FFT_G1 : [&str; 1024]= [
 
 "8204cc539e0029a56607405d339f94386202a31a0f18612bbc6c316624766f1b43dabdd53e98f1014cb3f9afcc71939f",
 "abc8a4bd096b8627c40e5436f7f8ffe5551a8eb0c4c1bfe0f38eebd7fa1da41cad5cfa9403ca473dede2f9ca926bd8c4",
@@ -1083,9 +1085,9 @@ pub const PYTHON_FFT_G1 : [&str; 1024]= [
 
 ];
 
-// for i in range(1024):
-//     print(bytes(SETUP["g1"][i].compress()).hex(), ",")
-pub const G1 : [&str;1024] = [
+    // for i in range(1024):
+    //     print(bytes(SETUP["g1"][i].compress()).hex(), ",")
+    pub const G1 : [&str;1024] = [
 "97f1d3a73197d7942695638c4fa9ac0fc3688c4f9774b905a14e3a3f171bac586c55e83ff97a1aeffb3af00adb22c6bb",
 "841f05b0160c1e6f8300d3bffcb3d66f69835cf393753c811ed679997f5cde5a27baa4c1a66f1232799d1ca8d494e3bb",
 "a0ab332faa3e3df478d19b12c8fbb0eb13d9bc34da17ed087075f043c27d7449df2677705fd488c742027adf2cd54456",
@@ -2111,3 +2113,4 @@ pub const G1 : [&str;1024] = [
 "a2952888b34e9a672ce49cb0f6319fd713cf01d5e14b75afc68791defb1ff5d108819e3b649822ca800f0733114d66bc",
 "b195def8f3cbd83b0ab432182758dc99cd8cb2b349ff7e19511eae3e071411c019fb2ce26c4350662ab9472fb266d69f",
 ];
+}
