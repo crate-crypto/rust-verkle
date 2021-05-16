@@ -1,4 +1,4 @@
-use crate::transcript::BasicTranscript;
+use crate::{kzg10::MultiPointProver, transcript::BasicTranscript};
 use ark_bls12_381::{Bls12_381, Fr};
 use ark_poly::Evaluations;
 
@@ -108,7 +108,10 @@ impl VerklePath {
 }
 
 impl VerklePath {
-    pub fn create_proof(&self, ck: &CommitKey<Bls12_381>) -> VerkleProof {
+    pub fn create_proof(
+        &self,
+        ck: &dyn MultiPointProver<Bls12_381, BasicTranscript>,
+    ) -> VerkleProof {
         let mut transcript = BasicTranscript::new(b"verkle_proof");
 
         assert!(
@@ -116,16 +119,10 @@ impl VerklePath {
             "to create a verkle proof, you must have at least one polynomial"
         );
 
-        let commitments: Vec<_> = self
-            .commitments
-            .iter()
-            .map(|comm| kzg10::Commitment::from_affine(comm.into_repr()))
-            .collect();
-
         let proof = ck
             .open_multipoint_lagrange(
                 &self.polynomials,
-                Some(commitments),
+                Some(&self.commitments),
                 &self.node_roots,
                 &self.omega_path_indices,
                 &mut transcript,
@@ -137,7 +134,7 @@ impl VerklePath {
 // At the moment, no aggregation is being done
 // So there is a proof per branch node
 pub struct VerkleProof {
-    proof: kzg10::AggregateProofMultiPoint<ark_bls12_381::Bls12_381>,
+    proof: kzg10::proof::AggregateProofMultiPoint<ark_bls12_381::Bls12_381>,
 }
 
 impl VerkleProof {
@@ -149,11 +146,6 @@ impl VerkleProof {
         children_hashes: &[Fr],
     ) -> bool {
         let mut transcript = BasicTranscript::new(b"verkle_proof");
-
-        let commitments: Vec<kzg10::Commitment<ark_bls12_381::Bls12_381>> = commitments
-            .into_iter()
-            .map(|c| kzg10::Commitment::from_affine(*c.as_repr()))
-            .collect();
 
         vk.check_multi_point(
             self.proof,
