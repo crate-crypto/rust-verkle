@@ -3,13 +3,8 @@
 // XXX: The problem is that the arkworks encoding is not consistent with the "official" encoding for bls12_381
 // So this wrapper code is needed.
 use ark_bls12_381::{G1Affine, G2Affine};
-use ark_ec::AffineCurve;
-use ark_ff::Fp384;
-use ark_ff::FromBytes;
-use ark_serialize::{
-    CanonicalDeserializeWithFlags, CanonicalSerialize, CanonicalSerializeWithFlags, EmptyFlags,
-    Flags, SWFlags,
-};
+use ark_ff::{Fp384, FromBytes};
+use ark_serialize::{CanonicalSerializeWithFlags, EmptyFlags, Flags, SWFlags};
 
 // XXX: The below code can be cleaned up possibly by:
 // - using const generics for the array size
@@ -79,25 +74,29 @@ pub fn serialize_g2(p: &G2Affine) -> [u8; 96] {
     add_encoding(&mut result[..], p.infinity, p.y > -p.y);
     result
 }
+#[cfg(test)]
+mod test {
+    use super::*;
+    use ark_ec::AffineCurve;
+    #[test]
+    fn test_correct_g1() {
+        let p = G1Affine::prime_subgroup_generator();
+        let enc = serialize_g1(&p);
+        assert_eq!(hex::encode(enc), "97f1d3a73197d7942695638c4fa9ac0fc3688c4f9774b905a14e3a3f171bac586c55e83ff97a1aeffb3af00adb22c6bb");
+        assert_eq!(hex::encode(serialize_g1(&G1Affine::default())), "c00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000")
+    }
+    #[test]
+    fn test_serialize_deserialize() {
+        let p = G1Affine::prime_subgroup_generator();
+        let got = deserialize_g1(serialize_g1(&p));
 
-#[test]
-fn test_correct_g1() {
-    let p = G1Affine::prime_subgroup_generator();
-    let enc = serialize_g1(&p);
-    assert_eq!(hex::encode(enc), "97f1d3a73197d7942695638c4fa9ac0fc3688c4f9774b905a14e3a3f171bac586c55e83ff97a1aeffb3af00adb22c6bb");
-    assert_eq!(hex::encode(serialize_g1(&G1Affine::default())), "c00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000")
-}
-#[test]
-fn test_serialize_deserialize() {
-    let p = G1Affine::prime_subgroup_generator();
-    let got = deserialize_g1(serialize_g1(&p));
+        assert_eq!(got, p)
+    }
 
-    assert_eq!(got, p)
-}
-
-#[test]
-fn test_correct_g2() {
-    let p = G2Affine::prime_subgroup_generator();
-    assert_eq!(hex::encode(serialize_g2(&p)), "93e02b6052719f607dacd3a088274f65596bd0d09920b61ab5da61bbdc7f5049334cf11213945d57e5ac7d055d042b7e024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02b4510b647ae3d1770bac0326a805bbefd48056c8c121bdb8");
-    assert_eq!(hex::encode(serialize_g2(&G2Affine::default())), "c00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000")
+    #[test]
+    fn test_correct_g2() {
+        let p = G2Affine::prime_subgroup_generator();
+        assert_eq!(hex::encode(serialize_g2(&p)), "93e02b6052719f607dacd3a088274f65596bd0d09920b61ab5da61bbdc7f5049334cf11213945d57e5ac7d055d042b7e024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02b4510b647ae3d1770bac0326a805bbefd48056c8c121bdb8");
+        assert_eq!(hex::encode(serialize_g2(&G2Affine::default())), "c00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000")
+    }
 }
