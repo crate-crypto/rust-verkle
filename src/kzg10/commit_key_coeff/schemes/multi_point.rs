@@ -108,7 +108,7 @@ impl<E: PairingEngine, T: TranscriptProtocol<E>> MultiPointProver<E, T> for Comm
     fn open_multipoint_lagrange(
         &self,
         lagrange_polynomials: &[ark_poly::Evaluations<E::Fr>],
-        poly_commitments: Option<&[Commitment<E>]>,
+        _poly_commitments: Option<&[Commitment<E>]>,
         evaluations: &[E::Fr],
         points: &[E::Fr], // These will be roots of unity
         transcript: &mut T,

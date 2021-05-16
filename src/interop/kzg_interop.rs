@@ -1,7 +1,5 @@
 #[cfg(test)]
 mod test {
-    use ark_bls12_381::{G1Affine, G1Projective};
-    use ark_ec::ProjectiveCurve;
 
     /// Interop to tests that the public parameters are the same non-fft
     #[test]
@@ -30,8 +28,7 @@ mod test {
         use crate::kzg10::commit_key_lag::srs::PublicParameters;
         use crate::point_encoding;
         use ark_bls12_381::{Bls12_381, Fr};
-        use ark_ff::{PrimeField, Zero};
-        use std::str::FromStr;
+
         let degree = 1024;
         let pp = PublicParameters::<Bls12_381>::setup_from_secret(
             degree,

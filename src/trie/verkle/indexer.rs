@@ -1,6 +1,6 @@
-use std::collections::BTreeMap;
-
+use crate::trie::node::Node;
 use slotmap::{new_key_type, SlotMap};
+use std::collections::BTreeMap;
 
 // ChildMap stores the relations for all of the InternalNode children in
 // this map.
@@ -51,38 +51,43 @@ impl ChildMap {
         children
     }
 }
-#[test]
-fn example() {
-    let mut map = NodeSlotMap::new();
-    let a = map.index(Node::Empty);
-    let b = map.index(Node::Empty);
-    let c = map.index(Node::Empty);
 
-    let internal_node = InternalNode::new();
-    let i_node = map.index(Node::Internal(internal_node));
-    let internal_node2 = InternalNode::new();
-    let i_node2 = map.index(Node::Internal(internal_node2));
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::trie::node::internal::InternalNode;
 
-    let mut child_map = ChildMap {
-        inner: BTreeMap::new(),
-    };
+    #[test]
+    fn simple_usage_of_child_scan() {
+        let mut map = NodeSlotMap::new();
+        let a = map.index(Node::Empty);
+        let b = map.index(Node::Empty);
+        let c = map.index(Node::Empty);
 
-    child_map.inner.insert((i_node, 0), a);
-    child_map.inner.insert((i_node2, 0), c);
-    child_map.inner.insert((i_node, 1), b);
-    child_map.inner.insert((i_node2, 2), c);
-    child_map.inner.insert((i_node, 2), c);
+        let internal_node = InternalNode::new();
+        let i_node = map.index(Node::Internal(internal_node));
+        let internal_node2 = InternalNode::new();
+        let i_node2 = map.index(Node::Internal(internal_node2));
 
-    use std::ops::Bound::Included;
-    for x in child_map
-        .inner
-        .range((Included(&(i_node2, 0)), Included(&(i_node2, usize::MAX))))
-    {
-        println!("{:?}", x)
+        let mut child_map = ChildMap {
+            inner: BTreeMap::new(),
+        };
+
+        child_map.inner.insert((i_node, 0), a);
+        child_map.inner.insert((i_node2, 0), c);
+        child_map.inner.insert((i_node, 1), b);
+        child_map.inner.insert((i_node2, 2), c);
+        child_map.inner.insert((i_node, 2), c);
+
+        use std::ops::Bound::Included;
+        for (key, _) in child_map
+            .inner
+            .range((Included(&(i_node2, 0)), Included(&(i_node2, usize::MAX))))
+        {
+            assert!(key.1 == 0 || key.1 == 2)
+        }
     }
 }
-
-use crate::trie::node::{internal::InternalNode, Node};
 
 pub type ParentDataIndex = NodeIndex;
 pub type ChildDataIndex = NodeIndex;

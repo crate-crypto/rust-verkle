@@ -5,10 +5,7 @@ mod test {
 
     use crate::{
         dummy_setup,
-        kzg10::{
-            commit_key_coeff::CommitKey, precomp_lagrange::PrecomputeLagrange, CommitKeyLagrange,
-            LagrangeCommitter,
-        },
+        kzg10::{precomp_lagrange::PrecomputeLagrange, CommitKeyLagrange, LagrangeCommitter},
         Key, Value, VerkleTrait, VerkleTrie,
     };
 

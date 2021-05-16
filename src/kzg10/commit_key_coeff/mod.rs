@@ -28,8 +28,8 @@ impl<E: PairingEngine> LagrangeCommitter<E> for CommitKey<E> {
 
     fn commit_lagrange_single(
         &self,
-        value: E::Fr,
-        lagrange_index: usize,
+        _value: E::Fr,
+        _lagrange_index: usize,
     ) -> Result<Commitment<E>, KZG10Error> {
         // Not quite important to implement this
         todo!()

@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod test {
-    use ark_ff::{to_bytes, BigInteger, PrimeField};
+    use ark_ff::{BigInteger, PrimeField};
 
     use crate::{trie::node::leaf::LeafNode, Key, Value};
 

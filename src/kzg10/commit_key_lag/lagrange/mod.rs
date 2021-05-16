@@ -1,7 +1,7 @@
 use std::ops::{Add, Index, Mul};
 
 use ark_ec::PairingEngine;
-use ark_ff::{One, Zero};
+use ark_ff::Zero;
 use ark_poly::{
     univariate::DensePolynomial, EvaluationDomain, Evaluations, GeneralEvaluationDomain,
 };

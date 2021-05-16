@@ -1,5 +1,5 @@
 use ark_ec::PairingEngine;
-use ark_ff::{to_bytes, Field, PrimeField};
+use ark_ff::{to_bytes, PrimeField};
 use merlin::Transcript;
 
 /// Transcript adds an abstraction over the Merlin transcript
