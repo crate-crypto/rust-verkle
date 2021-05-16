@@ -7,7 +7,7 @@ mod test {
         dummy_setup,
         kzg10::{
             commit_key_coeff::CommitKey, precomp_lagrange::PrecomputeLagrange, CommitKeyLagrange,
-            VerkleCommitter,
+            LagrangeCommitter,
         },
         Key, Value, VerkleTrait, VerkleTrie,
     };
@@ -120,7 +120,7 @@ mod test {
     // Insert N keys from a prng, then compute the root.
     // start at N and we increment by N
 
-    fn test_vector_insert_100_step(ck: &dyn VerkleCommitter<Bls12_381>) {
+    fn test_vector_insert_100_step(ck: &dyn LagrangeCommitter<Bls12_381>) {
         // N = 100
         step_test_helper(ck, WIDTH_BITS, 100, "b7bbeaa9457095d69ac9bb669bc63175784dcac6dc775f92d45e2180eddcb682baae640fa92a8e96c8aa1e2707908ff1");
         // N = 200
@@ -138,7 +138,7 @@ mod test {
         test_vector_insert_100_step(&*PRECOMPUTED_TABLE_1024);
     }
 
-    fn test_vector_step_1k(ck: &dyn VerkleCommitter<Bls12_381>) {
+    fn test_vector_step_1k(ck: &dyn LagrangeCommitter<Bls12_381>) {
         // N = 1_000
         step_test_helper(ck, WIDTH_BITS, 1_000, "809743aa087f81c8ec5c9c59640c9104c6399f48470da9438ae2707f9b9adf243b1be5c09ad98fbfb1683535ff02c1dd");
         // N = 2_000
@@ -156,7 +156,7 @@ mod test {
         test_vector_step_1k(&*PRECOMPUTED_TABLE_1024);
     }
 
-    fn test_vector_step_10k(ck: &dyn VerkleCommitter<Bls12_381>) {
+    fn test_vector_step_10k(ck: &dyn LagrangeCommitter<Bls12_381>) {
         // N = 10_000
         step_test_helper(ck, WIDTH_BITS, 10_000, "ac6f80ecf262097837348a4170c4a6600d855ba02663859aceb1d3753f1228eef73d0a68be7df8b73d0509230c254c5c");
         // N = 20_000
@@ -175,7 +175,7 @@ mod test {
     }
 
     fn step_test_helper(
-        ck: &dyn VerkleCommitter<Bls12_381>,
+        ck: &dyn LagrangeCommitter<Bls12_381>,
         width: usize,
         num_keys: usize,
         expected: &str,

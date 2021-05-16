@@ -4,7 +4,7 @@ use self::indexer::{ChildMap, DataIndex, NodeSlotMap};
 use crate::hash::Hashable;
 use crate::trie::node::internal::InternalNode;
 use crate::trie::VerkleTrait;
-use crate::{kzg10::VerkleCommitter, trie::node::errors::NodeError};
+use crate::{kzg10::LagrangeCommitter, trie::node::errors::NodeError};
 use crate::{trie::node::Node, verkle::VerklePath, Key, Value, VerkleCommitment};
 use ark_bls12_381::Bls12_381;
 use ark_poly::{EvaluationDomain, Evaluations, GeneralEvaluationDomain};
@@ -20,11 +20,11 @@ pub struct VerkleTrie<'a> {
     pub(crate) data_indexer: NodeSlotMap,
     pub(crate) child_map: ChildMap,
     pub(crate) width: usize,
-    pub(crate) ck: &'a dyn VerkleCommitter<Bls12_381>,
+    pub(crate) ck: &'a dyn LagrangeCommitter<Bls12_381>,
 }
 
 impl<'a> VerkleTrie<'_> {
-    pub fn new(width: usize, ck: &'a dyn VerkleCommitter<Bls12_381>) -> VerkleTrie<'a> {
+    pub fn new(width: usize, ck: &'a dyn LagrangeCommitter<Bls12_381>) -> VerkleTrie<'a> {
         // Initialise the slot map to store the node data
         let mut data_indexer = NodeSlotMap::new();
 
@@ -45,7 +45,7 @@ impl<'a> VerkleTrie<'_> {
         }
     }
 
-    pub fn commit_key(&self) -> &dyn VerkleCommitter<Bls12_381> {
+    pub fn commit_key(&self) -> &dyn LagrangeCommitter<Bls12_381> {
         self.ck
     }
 }
@@ -89,7 +89,7 @@ pub fn compute_evaluations(
     width: usize,
     child_map: &ChildMap,
     sm: &mut NodeSlotMap,
-    ck: &dyn VerkleCommitter<Bls12_381>,
+    ck: &dyn LagrangeCommitter<Bls12_381>,
 ) -> Vec<Fr> {
     let children = child_map.children(data_index);
     let mut polynomial_eval = vec![Fr::zero(); 1 << width];
@@ -131,7 +131,7 @@ pub fn commitment(
     width: usize,
     sm: &mut NodeSlotMap,
     child_map: &ChildMap,
-    ck: &dyn VerkleCommitter<Bls12_381>,
+    ck: &dyn LagrangeCommitter<Bls12_381>,
 ) -> VerkleCommitment {
     // First get the internal node to check if it's commitment is cached
     let node = *sm.get(data_index).as_internal();
@@ -153,7 +153,7 @@ pub fn compute_polynomial_evaluations(
     width: usize,
     sm: &mut NodeSlotMap,
     child_map: &ChildMap,
-    ck: &dyn VerkleCommitter<Bls12_381>,
+    ck: &dyn LagrangeCommitter<Bls12_381>,
 ) -> Evaluations<Fr> {
     let evaluations = compute_evaluations(data_index, width, child_map, sm, ck);
 
