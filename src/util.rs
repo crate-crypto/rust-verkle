@@ -53,3 +53,26 @@ fn powers_of_sucessor() {
     assert_eq!(powers2.len(), 11);
     assert_eq!(powers, powers2)
 }
+
+#[cfg(test)]
+mod test {
+    use crate::util;
+
+    use super::*;
+    use ark_bls12_381::Fr;
+    use ark_ff::Field;
+    #[test]
+    fn test_powers_of() {
+        let x = Fr::from(10u64);
+        let degree = 100u64;
+
+        let powers_of_x = util::powers_of::<Fr>(&x, degree as usize);
+
+        for (i, x_i) in powers_of_x.iter().enumerate() {
+            assert_eq!(*x_i, x.pow(&[i as u64, 0, 0, 0]))
+        }
+
+        let last_element = powers_of_x.last().unwrap();
+        assert_eq!(*last_element, x.pow(&[degree, 0, 0, 0]))
+    }
+}
