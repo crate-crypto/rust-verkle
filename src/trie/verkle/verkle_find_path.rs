@@ -1,10 +1,7 @@
+use crate::hash::Hashable;
+use crate::{kzg10::VerkleCommitter, Key, VerkleCommitment, VerklePath};
 use ark_bls12_381::{Bls12_381, Fr};
 use ark_poly::{EvaluationDomain, Evaluations};
-
-use crate::{
-    kzg10::{CommitKey, VerkleCommitter},
-    Key, VerkleCommitment, VerklePath,
-};
 
 use super::indexer::{ChildMap, DataIndex, NodeSlotMap};
 use crate::trie::{
@@ -38,8 +35,8 @@ pub fn commitment_from_poly(
     let kzg10_commitment = ck.commit_lagrange(&precomputed_polynomial.evals).unwrap();
 
     let node = sm.get_mut(data_index).as_mut_internal();
-    node.commitment = VerkleCommitment::Computed(kzg10_commitment);
-    node.commitment
+    node.commitment = Some(kzg10_commitment);
+    kzg10_commitment
 }
 
 pub fn find_commitment_path(
@@ -78,7 +75,7 @@ pub fn find_commitment_path(
     let root_commitment = commitment_from_poly(data_index, sm, &root_branch_poly, ck);
 
     let node = sm.get_mut(data_index).as_mut_internal();
-    node.commitment = root_commitment;
+    node.commitment = Some(root_commitment);
 
     polynomials.push(root_branch_poly);
     commitments.push(root_commitment);

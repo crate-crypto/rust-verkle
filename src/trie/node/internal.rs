@@ -6,8 +6,8 @@ use crate::{
 
 #[derive(Debug, Copy, Clone)]
 pub struct InternalNode {
-    pub hash: Hash,
-    pub commitment: VerkleCommitment,
+    pub hash: Option<Hash>,
+    pub commitment: Option<VerkleCommitment>,
 }
 
 pub struct TerminationPath {
@@ -21,8 +21,8 @@ pub struct TerminationPath {
 impl InternalNode {
     pub fn new() -> InternalNode {
         InternalNode {
-            hash: Hash::NotComputed,
-            commitment: VerkleCommitment::NotComputed,
+            hash: None,
+            commitment: None,
         }
     }
 

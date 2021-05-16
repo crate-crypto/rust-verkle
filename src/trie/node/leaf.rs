@@ -54,10 +54,7 @@ mod interop {
         use num_bigint::BigUint;
         use num_traits::Num;
         // let hash = dbg!(leaf.hash().to_hex());
-        let mut bytes = match leaf.hash() {
-            Hash::NotComputed => panic!(""),
-            Hash::Computed(bytes) => bytes,
-        };
+        let mut bytes = leaf.hash().0;
         bytes.reverse();
         let hex_str = dbg!(hex::encode(bytes));
         let hash = dbg!(leaf.hash().to_fr().to_string());
@@ -84,10 +81,7 @@ mod interop {
         use num_bigint::BigUint;
         use num_traits::Num;
         // let hash = dbg!(leaf.hash().to_hex());
-        let mut bytes = match leaf.hash() {
-            Hash::NotComputed => panic!(""),
-            Hash::Computed(bytes) => bytes,
-        };
+        let mut bytes = leaf.hash().0;
         bytes.reverse();
         let hex_str = dbg!(hex::encode(bytes));
         let hash = dbg!(leaf.hash().to_fr().to_string());

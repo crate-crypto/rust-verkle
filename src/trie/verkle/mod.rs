@@ -1,11 +1,11 @@
 /// This is the default implementation of the VerkleTrie trait
 ///
 use self::indexer::{ChildMap, DataIndex, NodeSlotMap};
-use crate::{kzg10::VerkleCommitter, trie::node::errors::NodeError};
-
+use crate::hash::Hashable;
 use crate::trie::node::internal::InternalNode;
 use crate::trie::VerkleTrait;
-use crate::{kzg10::CommitKey, trie::node::Node, verkle::VerklePath, Key, Value, VerkleCommitment};
+use crate::{kzg10::VerkleCommitter, trie::node::errors::NodeError};
+use crate::{trie::node::Node, verkle::VerklePath, Key, Value, VerkleCommitment};
 use ark_bls12_381::Bls12_381;
 use ark_poly::{EvaluationDomain, Evaluations, GeneralEvaluationDomain};
 
@@ -136,14 +136,14 @@ pub fn commitment(
     // First get the internal node to check if it's commitment is cached
     let node = *sm.get(data_index).as_internal();
 
-    if let VerkleCommitment::Computed(_) = node.commitment {
-        return node.commitment;
+    if let Some(comm) = node.commitment {
+        return comm;
     }
     let poly = compute_polynomial_evaluations(data_index, width, sm, child_map, ck);
     let kzg10_commitment = ck.commit_lagrange(&poly.evals).unwrap();
     let node = sm.get_mut(data_index).as_mut_internal();
-    node.commitment = VerkleCommitment::Computed(kzg10_commitment);
-    node.commitment
+    node.commitment = Some(kzg10_commitment);
+    kzg10_commitment
 }
 
 // XXX: We can remove this and just use compute_evaluations

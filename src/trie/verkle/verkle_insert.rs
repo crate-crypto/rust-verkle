@@ -1,4 +1,4 @@
-use crate::{Key, Value, VerkleCommitment};
+use crate::{Key, Value};
 
 use super::indexer::{ChildDataIndex, ChildMap, DataIndex, NodeSlotMap, ParentDataIndex};
 use crate::trie::{
@@ -30,13 +30,13 @@ impl<'a> VerkleTrie<'a> {
                 }
                 Ins::UpdateInternalChild { pointer, data } => {
                     let internal_node = self.data_indexer.get_mut(pointer).as_mut_internal();
-                    internal_node.commitment = VerkleCommitment::NotComputed;
+                    internal_node.commitment = None;
                     self.child_map
                         .add_child(pointer, data.path_index, data.data_index);
                 }
                 Ins::ResetComm { pointer } => {
                     let internal_node = self.data_indexer.get_mut(pointer).as_mut_internal();
-                    internal_node.commitment = VerkleCommitment::NotComputed;
+                    internal_node.commitment = None;
                 }
             }
         }

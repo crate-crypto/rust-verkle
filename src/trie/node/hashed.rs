@@ -15,7 +15,7 @@ use super::{empty::EmptyNode, leaf::LeafNode};
 #[derive(Debug, Copy, Clone)]
 pub struct HashedNode {
     hash: Hash,
-    commitment: VerkleCommitment,
+    commitment: Option<VerkleCommitment>,
 }
 
 /// To create a HashedNode from an EmptyNode
@@ -24,7 +24,7 @@ impl From<EmptyNode> for HashedNode {
     fn from(e: EmptyNode) -> Self {
         HashedNode {
             hash: e.hash(),
-            commitment: VerkleCommitment::NotComputed,
+            commitment: None,
         }
     }
 }
@@ -35,7 +35,7 @@ impl From<LeafNode> for HashedNode {
     fn from(e: LeafNode) -> Self {
         HashedNode {
             hash: e.hash(),
-            commitment: VerkleCommitment::NotComputed,
+            commitment: None,
         }
     }
 }
@@ -55,7 +55,7 @@ impl HashedNode {
         // calling hash_to_fr is safe.
         let x = self.hash.to_fr();
         let commitment = VerkleCommitment::mul_generator(x);
-        self.commitment = commitment;
+        self.commitment = Some(commitment);
         commitment
     }
 
@@ -67,9 +67,9 @@ impl HashedNode {
     /// Compute the commitment to the hash or compute it
     /// if it is not already computed.
     pub fn commitment(&mut self) -> VerkleCommitment {
-        if let VerkleCommitment::NotComputed = self.commitment {
-            return self.compute_commitment();
+        match self.commitment {
+            Some(comm) => comm,
+            None => self.compute_commitment(),
         }
-        return self.commitment;
     }
 }
