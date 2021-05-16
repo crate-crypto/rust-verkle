@@ -3,7 +3,10 @@ use ark_ec::{AffineCurve, PairingEngine, ProjectiveCurve};
 use ark_ff::{One, PrimeField, Zero};
 use merlin::Transcript;
 
-use super::{AggregateProof, AggregateProofMultiPoint, Commitment, Proof, errors::KZG10Error};
+use super::{
+    errors::KZG10Error, proof::AggregateProof, proof::AggregateProofMultiPoint, proof::Proof,
+    Commitment,
+};
 
 /// Opening Key is used to verify opening proofs made about a committed polynomial.
 #[derive(Clone, Debug)]

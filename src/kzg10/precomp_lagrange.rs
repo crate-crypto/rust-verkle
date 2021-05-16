@@ -1,9 +1,6 @@
-use ark_bls12_381::{Bls12_381, Fr};
-use ark_ec::{AffineCurve, PairingEngine};
-
-use crate::kzg10::VerkleCommitter;
-
 use super::{errors::KZG10Error, Commitment};
+use crate::kzg10::VerkleCommitter;
+use ark_ec::{AffineCurve, PairingEngine};
 
 #[derive(Debug, Clone)]
 pub struct PrecomputeLagrange<E: PairingEngine> {
@@ -20,6 +17,7 @@ impl<E: PairingEngine> VerkleCommitter<E> for PrecomputeLagrange<E> {
         let mut result = E::G1Projective::default();
 
         for (scalar, table) in evaluations.into_iter().zip(self.inner.iter()) {
+            // convert scalar to bytes in little endian
             let bytes = ark_ff::to_bytes!(scalar).unwrap();
             for (row, byte) in bytes.into_iter().enumerate() {
                 let point = table.point(row, byte);
@@ -122,8 +120,9 @@ impl<E: PairingEngine> LagrangeTablePoints<E> {
 
 #[test]
 fn commit_lagrange_consistency() {
+    use ark_bls12_381::{Bls12_381, Fr};
     use ark_ff::UniformRand;
-    let (ck, vk) = setup_test(3);
+    let srs = setup_test(3);
 
     let values = vec![
         Fr::rand(&mut rand_core::OsRng),
@@ -132,20 +131,16 @@ fn commit_lagrange_consistency() {
         Fr::rand(&mut rand_core::OsRng),
     ];
 
-    let expected_comm = ck.commit_lagrange(&values).unwrap();
+    let expected_comm = srs.commit_key().commit_lagrange(&values).unwrap();
 
-    let base_points = PrecomputeLagrange::<Bls12_381>::precompute(&ck.lagrange_powers_of_g);
+    let base_points =
+        PrecomputeLagrange::<Bls12_381>::precompute(&srs.commit_key.lagrange_powers_of_g);
     let got_comm = base_points.commit_lagrange(&values).unwrap();
 
     assert_eq!(expected_comm.0, got_comm.0)
 }
-fn setup_test(
-    degree: usize,
-) -> (
-    super::CommitKey<ark_bls12_381::Bls12_381>,
-    super::OpeningKey<ark_bls12_381::Bls12_381>,
-) {
-    let srs =
-        super::PublicParameters::setup(degree.next_power_of_two(), &mut rand_core::OsRng).unwrap();
-    srs.trim(degree).unwrap()
+
+use crate::kzg10::commit_key_lag::srs::PublicParameters;
+fn setup_test(degree: usize) -> PublicParameters<ark_bls12_381::Bls12_381> {
+    PublicParameters::setup(degree.next_power_of_two(), &mut rand_core::OsRng).unwrap()
 }

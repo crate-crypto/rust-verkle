@@ -1,52 +1,15 @@
-use super::{
-    errors::KZG10Error, lagrange::LagrangeBasis, AggregateProof, AggregateProofMultiPoint,
-    CommitKey, Commitment, Proof,
-};
+use super::{lagrange::LagrangeBasis, CommitKeyLagrange};
 use crate::{transcript::TranscriptProtocol, util};
-use ark_ec::{msm::VariableBaseMSM, PairingEngine};
-use ark_ff::{PrimeField, Zero};
+use ark_ec::PairingEngine;
+use ark_ff::Zero;
 use ark_poly::{EvaluationDomain, Evaluations, GeneralEvaluationDomain};
-use merlin::Transcript;
-use util::powers_of;
 
-impl<E: PairingEngine> super::VerkleCommitter<E> for CommitKey<E> {
-    fn commit_lagrange(&self, evaluations: &[E::Fr]) -> Result<Commitment<E>, KZG10Error> {
-        // Check whether we can safely commit to this polynomial
-        self.check_commit_degree_is_within_bounds(evaluations.len() - 1)?;
-
-        // Compute commitment
-        let commitment = VariableBaseMSM::multi_scalar_mul(
-            &self.lagrange_powers_of_g[0..evaluations.len()],
-            &evaluations
-                .iter()
-                .map(|c| c.into_repr())
-                .collect::<Vec<_>>(),
-        );
-        Ok(Commitment::from_projective(commitment))
-    }
-}
-
-impl<E: PairingEngine> CommitKey<E> {
-    pub fn commit_lagrange(&self, evaluations: &[E::Fr]) -> Result<Commitment<E>, KZG10Error> {
-        // Check whether we can safely commit to this polynomial
-        self.check_commit_degree_is_within_bounds(evaluations.len() - 1)?;
-
-        // Compute commitment
-        let commitment = VariableBaseMSM::multi_scalar_mul(
-            &self.lagrange_powers_of_g[0..evaluations.len()],
-            &evaluations
-                .iter()
-                .map(|c| c.into_repr())
-                .collect::<Vec<_>>(),
-        );
-        Ok(Commitment::from_projective(commitment))
-    }
-
-    pub(crate) fn compute_aggregate_witness_lagrange<T: TranscriptProtocol<E>>(
+impl<E: PairingEngine> CommitKeyLagrange<E> {
+    pub(crate) fn compute_aggregate_witness_lagrange(
         &self,
         polynomials: &[Evaluations<E::Fr>],
         point: &E::Fr,
-        transcript: &mut T,
+        transcript: &mut dyn TranscriptProtocol<E>,
     ) -> LagrangeBasis<E> {
         let domain = polynomials.first().unwrap().domain();
         let domain_size = domain.size();
@@ -97,7 +60,7 @@ impl<E: PairingEngine> CommitKey<E> {
         }
     }
 
-    fn compute_inv(domain: &GeneralEvaluationDomain<E::Fr>) -> Vec<E::Fr> {
+    pub(crate) fn compute_inv(domain: &GeneralEvaluationDomain<E::Fr>) -> Vec<E::Fr> {
         use ark_ff::One;
         let inv: Vec<_> = domain
             .elements()
@@ -112,201 +75,44 @@ impl<E: PairingEngine> CommitKey<E> {
             .collect();
         inv
     }
-
-    pub fn open_single_lagrange(
-        &self,
-        polynomial: &Evaluations<E::Fr>,
-        poly_commitment: Option<Commitment<E>>,
-        value: &E::Fr,
-        point: &E::Fr,
-    ) -> Result<Proof<E>, KZG10Error> {
-        let lagrange_poly = LagrangeBasis::<E>::from(polynomial);
-        let inv = Self::compute_inv(&lagrange_poly.domain());
-        let witness_poly =
-            LagrangeBasis::divide_by_linear_vanishing_from_point(point, &lagrange_poly, &inv);
-
-        let commitment_to_poly = match poly_commitment {
-            Some(commitment) => commitment,
-            None => self.commit_lagrange(&polynomial.evals)?,
-        };
-
-        Ok(Proof {
-            commitment_to_witness: self.commit_lagrange(&witness_poly.values())?,
-            evaluated_point: *value,
-            commitment_to_polynomial: commitment_to_poly,
-        })
-    }
-
-    pub fn open_multiple_lagrange(
-        &self,
-        polynomials: &[Evaluations<E::Fr>],
-        evaluations: Vec<E::Fr>,
-        point: &E::Fr,
-        transcript: &mut Transcript,
-    ) -> Result<AggregateProof<E>, KZG10Error> {
-        // Commit to polynomials
-        let mut polynomial_commitments = Vec::with_capacity(polynomials.len());
-        for poly in polynomials.iter() {
-            polynomial_commitments.push(self.commit_lagrange(&poly.evals)?)
-        }
-
-        // Compute the aggregate witness for polynomials
-        let witness_poly = self.compute_aggregate_witness_lagrange(polynomials, point, transcript);
-
-        // Commit to witness polynomial
-        let witness_commitment = self.commit_lagrange(&witness_poly.0.evals)?;
-
-        let aggregate_proof = AggregateProof {
-            commitment_to_witness: witness_commitment,
-            evaluated_points: evaluations,
-            commitments_to_polynomials: polynomial_commitments,
-        };
-        Ok(aggregate_proof)
-    }
-
-    pub fn open_multipoint_lagrange<T: TranscriptProtocol<E>>(
-        &self,
-        lagrange_polynomials: &[Evaluations<E::Fr>],
-        poly_commitments: Option<Vec<Commitment<E>>>,
-        evaluations: &[E::Fr],
-        points: &[E::Fr], // These will be roots of unity
-        transcript: &mut T,
-    ) -> Result<AggregateProofMultiPoint<E>, KZG10Error> {
-        let num_polynomials = lagrange_polynomials.len();
-
-        let domain = lagrange_polynomials
-            .first()
-            .expect("expected at least one polynomial")
-            .domain();
-        let domain_size = domain.size();
-        // Commit to polynomials, if not done so already
-        let polynomial_commitments = match poly_commitments {
-            None => {
-                let mut commitments = Vec::with_capacity(lagrange_polynomials.len());
-                for poly in lagrange_polynomials.iter() {
-                    let poly_commit = self.commit_lagrange(&poly.evals)?;
-                    commitments.push(poly_commit);
-                }
-                commitments
-            }
-            Some(commitments) => commitments,
-        };
-
-        for poly_commit in polynomial_commitments.iter() {
-            transcript.append_point(b"f_x", &poly_commit.0);
-        }
-
-        // compute the witness for each polynomial at their respective points
-        use rayon::prelude::*;
-
-        let inv = Self::compute_inv(&domain);
-
-        // Compute a new polynomial which sums together all of the witnesses for each polynomial
-        // aggregate the witness polynomials to form the new polynomial that we want to run KZG10 on
-        let challenge = transcript.challenge_scalar(b"r");
-        let r_i = powers_of::<E::Fr>(&challenge, num_polynomials - 1);
-
-        let each_witness = lagrange_polynomials
-            .into_par_iter()
-            .zip(points)
-            .zip(evaluations)
-            .map(|((poly, point), evaluation)| {
-                let lb = LagrangeBasis::<E>::from(poly).add_scalar(&-*evaluation); // XXX: Is this needed? It's not in single KZG
-                let witness_poly =
-                    LagrangeBasis::<E>::divide_by_linear_vanishing_from_point(point, &lb, &inv);
-                witness_poly
-            });
-
-        let g_x: LagrangeBasis<E> = each_witness
-            .zip(r_i.par_iter())
-            .map(|(poly, challenge)| &poly * challenge)
-            .fold(
-                || LagrangeBasis::zero(domain_size),
-                |mut res, val| {
-                    res = &res + &val;
-                    res
-                },
-            )
-            .reduce(
-                || LagrangeBasis::zero(domain_size),
-                |mut res, val| {
-                    res = &res + &val;
-                    res
-                },
-            );
-
-        // Commit to to this poly_sum witness
-        let d_comm = self.commit_lagrange(g_x.values())?;
-
-        // Compute new point to evaluate g_x at
-        let t = transcript.challenge_scalar(b"t");
-        // compute the helper polynomial which will help the verifier compute g(t)
-        //
-        let mut denominator: Vec<_> = points.iter().map(|z_i| t - z_i).collect();
-        ark_ff::batch_inversion(&mut denominator);
-        let helper_coefficients: Vec<_> = r_i
-            .into_iter()
-            .zip(denominator)
-            .map(|(r_i, den)| r_i * den)
-            .collect();
-
-        let h_x: LagrangeBasis<E> = helper_coefficients
-            .iter()
-            .zip(lagrange_polynomials.iter())
-            .map(|(helper_scalars, poly)| &LagrangeBasis::from(poly) * helper_scalars)
-            .fold(LagrangeBasis::zero(domain_size), |mut res, val| {
-                res = &res + &val;
-                res
-            });
-
-        // Evaluate both polynomials at the point `t`
-        let h_t = h_x.evaluate_point_outside_domain(&t);
-        let g_t = g_x.evaluate_point_outside_domain(&t);
-
-        // We can now aggregate both proofs into an aggregate proof
-
-        transcript.append_scalar(b"g_t", &g_t);
-        transcript.append_scalar(b"h_t", &h_t);
-
-        let sum_quotient = d_comm;
-        let helper_evaluation = h_t;
-        let aggregated_witness_poly =
-            self.compute_aggregate_witness_lagrange(&[g_x.0, h_x.0], &t, transcript);
-        let aggregated_witness = self.commit_lagrange(&aggregated_witness_poly.values())?;
-
-        Ok(AggregateProofMultiPoint {
-            sum_quotient,
-            helper_evaluation,
-            aggregated_witness,
-        })
-    }
 }
 
 #[cfg(test)]
 mod test {
-    use crate::kzg10::OpeningKey;
-
-    use super::super::srs::*;
     use super::*;
+    use crate::kzg10::Committer;
+    use crate::kzg10::MultiPointProver;
+    use crate::kzg10::OpeningKey;
+    use crate::kzg10::{
+        commit_key_coeff::srs::PublicParameters,
+        commit_key_lag::srs::PublicParameters as PublicParametersLag, CommitKey,
+    };
     use ark_bls12_381::{Bls12_381, Fr};
     use ark_poly::{
         univariate::DensePolynomial as Polynomial, GeneralEvaluationDomain,
         Polynomial as PolyTrait, UVPolynomial,
     };
+    use merlin::Transcript;
     use rand_core::OsRng;
 
-    use merlin::Transcript;
-
     // Creates a proving key and verifier key based on a specified degree
-    fn setup_test(degree: usize) -> (CommitKey<Bls12_381>, OpeningKey<Bls12_381>) {
-        let srs = PublicParameters::setup(degree.next_power_of_two(), &mut OsRng).unwrap();
-        srs.trim(degree).unwrap()
+    fn setup_lagrange_srs(degree: usize) -> (CommitKeyLagrange<Bls12_381>, OpeningKey<Bls12_381>) {
+        let secret = Fr::from(20u128);
+        let srs =
+            PublicParametersLag::setup_from_secret(degree.next_power_of_two(), secret).unwrap();
+        (srs.commit_key, srs.opening_key)
+    }
+    fn setup_coeff_srs(degree: usize) -> (CommitKey<Bls12_381>, OpeningKey<Bls12_381>) {
+        let secret = Fr::from(20u128);
+        let srs = PublicParameters::setup_from_secret(degree.next_power_of_two(), secret).unwrap();
+        (srs.commit_key, srs.opening_key)
     }
 
     #[test]
     fn test_basic_commit_lagrange() {
         let degree = 31;
-        let (proving_key, opening_key) = setup_test(degree);
+        let (lagrange_proving_key, opening_key) = setup_lagrange_srs(degree);
+        let (coeff_proving_key, _) = setup_coeff_srs(degree);
         let domain: GeneralEvaluationDomain<Fr> = GeneralEvaluationDomain::new(degree).unwrap();
         let index = 5;
         let point = domain.element(index);
@@ -315,15 +121,15 @@ mod test {
         let poly = Polynomial::rand(degree, &mut OsRng);
         let value = poly.evaluate(&point);
 
-        // eval form
+        // Evaluation form
         let evaluations = Evaluations::from_vec_and_domain(domain.fft(&poly.coeffs), domain);
 
         assert_eq!(evaluations.evals[index], value);
 
-        let proof_l = proving_key
+        let proof_l = lagrange_proving_key
             .open_single_lagrange(&evaluations, None, &value, &point)
             .unwrap();
-        let proof_c = proving_key
+        let proof_c = coeff_proving_key
             .open_single(&poly, None, &value, &point)
             .unwrap();
 
@@ -346,7 +152,7 @@ mod test {
     #[test]
     fn test_divide_by_vanishing() {
         let degree = 25;
-        let (proving_key, _) = setup_test(degree);
+        let (proving_key, _) = setup_coeff_srs(degree);
         let domain: GeneralEvaluationDomain<Fr> = GeneralEvaluationDomain::new(degree).unwrap();
         let index = 5;
         let point = domain.element(index);
@@ -359,7 +165,7 @@ mod test {
         // eval form
         let evaluations = Evaluations::from_vec_and_domain(domain.fft(&poly.coeffs), domain);
         let lagrange_poly = LagrangeBasis::<Bls12_381>::from(evaluations);
-        let inv = CommitKey::<Bls12_381>::compute_inv(&domain);
+        let inv = CommitKeyLagrange::<Bls12_381>::compute_inv(&domain);
         let got_witness_lagrange =
             LagrangeBasis::divide_by_linear_vanishing(index, &lagrange_poly, &inv);
         let got_witness = got_witness_lagrange.interpolate();
@@ -370,7 +176,9 @@ mod test {
     #[test]
     fn test_multi_point_compact_lagrange() {
         let degree = 31;
-        let (proving_key, opening_key) = setup_test(degree);
+        let (coeff_proving_key, _) = setup_coeff_srs(degree);
+        let (lagrange_proving_key, opening_key) = setup_lagrange_srs(degree);
+
         let domain: GeneralEvaluationDomain<Fr> = GeneralEvaluationDomain::new(degree).unwrap();
         let index_a = 5;
         let index_b = 6;
@@ -381,21 +189,25 @@ mod test {
         let evaluations_a = Evaluations::from_vec_and_domain(domain.fft(&poly_a), domain);
 
         let value_a = poly_a.evaluate(&point_a);
-        let commit_poly_a = proving_key.commit_lagrange(&evaluations_a.evals).unwrap();
-        let commit_poly_a_1 = proving_key.commit(&poly_a).unwrap();
+        let commit_poly_a = lagrange_proving_key
+            .commit_lagrange(&evaluations_a.evals)
+            .unwrap();
+        let commit_poly_a_1 = coeff_proving_key.commit(&poly_a).unwrap();
         assert_eq!(commit_poly_a, commit_poly_a_1);
 
         let poly_b = Polynomial::rand(degree, &mut OsRng);
         let evaluations_b = Evaluations::from_vec_and_domain(domain.fft(&poly_b), domain);
 
         let value_b = poly_b.evaluate(&point_b);
-        let commit_poly_b = proving_key.commit_lagrange(&evaluations_b.evals).unwrap();
-        let commit_poly_b_1 = proving_key.commit(&poly_b).unwrap();
+        let commit_poly_b = lagrange_proving_key
+            .commit_lagrange(&evaluations_b.evals)
+            .unwrap();
+        let commit_poly_b_1 = coeff_proving_key.commit(&poly_b).unwrap();
         assert_eq!(commit_poly_b, commit_poly_b_1);
 
         let mut transcript = Transcript::new(b"dankrads_protocol");
 
-        let proof_c = proving_key
+        let proof_c = coeff_proving_key
             .open_multipoint(
                 &[poly_a, poly_b],
                 &[value_a, value_b],
@@ -405,7 +217,7 @@ mod test {
             .unwrap();
 
         let mut transcript = Transcript::new(b"dankrads_protocol");
-        let proof_l = proving_key
+        let proof_l = lagrange_proving_key
             .open_multipoint_lagrange(
                 &[evaluations_a, evaluations_b],
                 None,
@@ -444,7 +256,8 @@ mod test {
     #[test]
     fn test_aggregate_witness_lagrange() {
         let degree = 31;
-        let (proving_key, opening_key) = setup_test(degree);
+        let (lagrange_proving_key, opening_key) = setup_lagrange_srs(degree);
+        let (coeff_proving_key, _) = setup_coeff_srs(degree);
         let domain: GeneralEvaluationDomain<Fr> = GeneralEvaluationDomain::new(degree).unwrap();
         let index = 5;
         let point = domain.element(index);
@@ -469,7 +282,7 @@ mod test {
             let lagrange_poly = LagrangeBasis::<Bls12_381>::from(&evaluations_c);
             let poly_c_eval = lagrange_poly.0.evals[index];
 
-            let l_proof = proving_key
+            let l_proof = lagrange_proving_key
                 .open_multiple_lagrange(
                     &[evaluations_a, evaluations_b, evaluations_c],
                     vec![poly_a_eval, poly_b_eval, poly_c_eval],
@@ -477,7 +290,7 @@ mod test {
                     &mut Transcript::new(b"agg_flatten"),
                 )
                 .unwrap();
-            let c_proof = proving_key
+            let c_proof = coeff_proving_key
                 .open_multiple(
                     &[poly_a, poly_b, poly_c],
                     vec![poly_a_eval, poly_b_eval, poly_c_eval],
@@ -510,7 +323,8 @@ mod test {
     #[test]
     fn test_compute_aggregate_witness_lagrange() {
         let degree = 31;
-        let (proving_key, _) = setup_test(degree);
+        let (lagrange_proving_key, opening_key) = setup_lagrange_srs(degree);
+        let (coeff_proving_key, _) = setup_coeff_srs(degree);
 
         let domain: GeneralEvaluationDomain<Fr> = GeneralEvaluationDomain::new(degree).unwrap();
         let index = 5;
@@ -526,13 +340,13 @@ mod test {
         let poly_c = Polynomial::rand(degree, &mut OsRng);
         let evaluations_c = Evaluations::from_vec_and_domain(domain.fft(&poly_c.coeffs), domain);
 
-        let expected_quotient = proving_key.compute_aggregate_witness(
+        let expected_quotient = coeff_proving_key.compute_aggregate_witness(
             &[poly_a, poly_b, poly_c],
             &point,
             &mut Transcript::new(b"agg_flatten"),
         );
 
-        let got_quotient = proving_key
+        let got_quotient = lagrange_proving_key
             .compute_aggregate_witness_lagrange(
                 &[evaluations_a, evaluations_b, evaluations_c],
                 &point,
@@ -541,25 +355,5 @@ mod test {
             .interpolate();
 
         assert_eq!(expected_quotient, got_quotient)
-    }
-
-    #[test]
-    pub fn lagrange_commit_same_as_coefficient_commit() {
-        use ark_ff::UniformRand;
-        use ark_poly::{EvaluationDomain, GeneralEvaluationDomain};
-        use rand_core::OsRng;
-        let beta = Fr::rand(&mut OsRng);
-
-        let pp = PublicParameters::<Bls12_381>::setup_from_secret(1024, beta).unwrap();
-
-        let domain: GeneralEvaluationDomain<Fr> = GeneralEvaluationDomain::new(1024).unwrap();
-
-        let poly_a = Polynomial::<Fr>::rand(1023, &mut OsRng);
-        let evaluations = domain.fft(&poly_a);
-
-        let expected_commitment = pp.commit_key.commit(&poly_a).unwrap();
-        let got_commitment = pp.commit_key.commit_lagrange(&evaluations).unwrap();
-
-        assert_eq!(&expected_commitment, &got_commitment);
     }
 }
