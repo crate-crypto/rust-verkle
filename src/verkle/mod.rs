@@ -131,8 +131,7 @@ impl VerklePath {
         VerkleProof { proof }
     }
 }
-// At the moment, no aggregation is being done
-// So there is a proof per branch node
+
 pub struct VerkleProof {
     proof: kzg10::proof::AggregateProofMultiPoint<ark_bls12_381::Bls12_381>,
 }
