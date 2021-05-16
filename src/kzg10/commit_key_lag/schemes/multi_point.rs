@@ -4,7 +4,7 @@ use ark_poly::EvaluationDomain;
 use crate::{
     kzg10::{
         commit_key_lag::lagrange::LagrangeBasis, errors::KZG10Error,
-        proof::AggregateProofMultiPoint, CommitKeyLagrange, Commitment, Committer,
+        proof::AggregateProofMultiPoint, CommitKeyLagrange, Commitment, LagrangeCommitter,
         MultiPointProver,
     },
     transcript::TranscriptProtocol,
@@ -32,7 +32,7 @@ impl<E: PairingEngine, T: TranscriptProtocol<E>> MultiPointProver<E, T> for Comm
             None => {
                 let mut commitments = Vec::with_capacity(lagrange_polynomials.len());
                 for poly in lagrange_polynomials.iter() {
-                    let poly_commit = Committer::commit_lagrange(self, &poly.evals)?;
+                    let poly_commit = LagrangeCommitter::commit_lagrange(self, &poly.evals)?;
                     commitments.push(poly_commit);
                 }
                 commitments
@@ -84,7 +84,7 @@ impl<E: PairingEngine, T: TranscriptProtocol<E>> MultiPointProver<E, T> for Comm
             );
 
         // Commit to to this poly_sum witness
-        let d_comm = Committer::commit_lagrange(self, g_x.values())?;
+        let d_comm = LagrangeCommitter::commit_lagrange(self, g_x.values())?;
 
         // Compute new point to evaluate g_x at
         let t = transcript.challenge_scalar(b"t");
@@ -121,7 +121,7 @@ impl<E: PairingEngine, T: TranscriptProtocol<E>> MultiPointProver<E, T> for Comm
         let aggregated_witness_poly =
             self.compute_aggregate_witness_lagrange(&[g_x.0, h_x.0], &t, transcript);
         let aggregated_witness =
-            Committer::commit_lagrange(self, &aggregated_witness_poly.values())?;
+            LagrangeCommitter::commit_lagrange(self, &aggregated_witness_poly.values())?;
 
         Ok(AggregateProofMultiPoint {
             sum_quotient,

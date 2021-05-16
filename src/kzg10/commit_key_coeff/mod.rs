@@ -1,4 +1,4 @@
-use super::{errors::KZG10Error, Commitment, Committer, VerkleCommitter};
+use super::{errors::KZG10Error, CoeffCommitter, Commitment, LagrangeCommitter};
 use crate::{transcript::TranscriptProtocol, util};
 use ark_ec::{msm::VariableBaseMSM, PairingEngine};
 use ark_ff::{PrimeField, Zero};
@@ -16,7 +16,7 @@ pub struct CommitKey<E: PairingEngine> {
     pub powers_of_g: Vec<E::G1Affine>,
 }
 
-impl<E: PairingEngine> VerkleCommitter<E> for CommitKey<E> {
+impl<E: PairingEngine> LagrangeCommitter<E> for CommitKey<E> {
     fn commit_lagrange(&self, evaluations: &[E::Fr]) -> Result<Commitment<E>, KZG10Error> {
         let domain = GeneralEvaluationDomain::<E::Fr>::new(evaluations.len()).unwrap();
 
@@ -25,13 +25,18 @@ impl<E: PairingEngine> VerkleCommitter<E> for CommitKey<E> {
         let poly = Polynomial::from_coefficients_vec(domain.ifft(evaluations));
         return self.commit(&poly);
     }
+
+    fn commit_lagrange_single(
+        &self,
+        value: E::Fr,
+        lagrange_index: usize,
+    ) -> Result<Commitment<E>, KZG10Error> {
+        // Not quite important to implement this
+        todo!()
+    }
 }
 
-impl<E: PairingEngine> Committer<E> for CommitKey<E> {
-    fn commit_lagrange(&self, values: &[E::Fr]) -> Result<Commitment<E>, KZG10Error> {
-        VerkleCommitter::commit_lagrange(self, values)
-    }
-
+impl<E: PairingEngine> CoeffCommitter<E> for CommitKey<E> {
     fn commit_coefficient(
         &self,
         polynomial: &Polynomial<E::Fr>,
@@ -49,14 +54,6 @@ impl<E: PairingEngine> Committer<E> for CommitKey<E> {
                 .collect::<Vec<_>>(),
         );
         Ok(Commitment::from_projective(commitment))
-    }
-
-    fn commit_lagrange_single(
-        &self,
-        value: E::Fr,
-        index: usize,
-    ) -> Result<Commitment<E>, KZG10Error> {
-        todo!()
     }
 }
 

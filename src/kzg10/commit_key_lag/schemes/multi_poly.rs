@@ -2,7 +2,7 @@ use ark_ec::PairingEngine;
 use ark_poly::Evaluations;
 
 use crate::{
-    kzg10::{errors::KZG10Error, proof::AggregateProof, CommitKeyLagrange, Committer},
+    kzg10::{errors::KZG10Error, proof::AggregateProof, CommitKeyLagrange, LagrangeCommitter},
     transcript::TranscriptProtocol,
 };
 

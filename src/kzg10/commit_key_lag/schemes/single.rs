@@ -3,7 +3,7 @@ use ark_poly::Evaluations;
 
 use crate::kzg10::{
     commit_key_lag::lagrange::LagrangeBasis, errors::KZG10Error, proof::Proof, CommitKeyLagrange,
-    Commitment, Committer,
+    Commitment, LagrangeCommitter,
 };
 
 impl<E: PairingEngine> CommitKeyLagrange<E> {

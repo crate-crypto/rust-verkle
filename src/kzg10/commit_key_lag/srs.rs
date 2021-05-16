@@ -105,7 +105,6 @@ impl<E: PairingEngine> PublicParameters<E> {
 }
 #[cfg(test)]
 mod test {
-    use super::*;
     use crate::util;
     use ark_bls12_381::Fr;
     use ark_ff::Field;

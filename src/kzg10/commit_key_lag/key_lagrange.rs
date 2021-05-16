@@ -80,13 +80,13 @@ impl<E: PairingEngine> CommitKeyLagrange<E> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::kzg10::Committer;
     use crate::kzg10::MultiPointProver;
     use crate::kzg10::OpeningKey;
     use crate::kzg10::{
         commit_key_coeff::{srs::PublicParameters, CommitKey},
         commit_key_lag::srs::PublicParameters as PublicParametersLag,
     };
+    use crate::kzg10::{CoeffCommitter, LagrangeCommitter};
     use ark_bls12_381::{Bls12_381, Fr};
     use ark_poly::{
         univariate::DensePolynomial as Polynomial, GeneralEvaluationDomain,
