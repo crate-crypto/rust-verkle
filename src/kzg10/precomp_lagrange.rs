@@ -101,7 +101,7 @@ impl<E: PairingEngine> LagrangeTablePoints<E> {
     fn compute_base_row(point: &E::G1Affine, num_points: usize) -> LagrangePointsRow<E> {
         let mut row = Vec::with_capacity(num_points);
         row.push(*point);
-        for i in 1..=num_points {
+        for i in 1..num_points {
             row.push(row[i - 1] + *point)
         }
         LagrangePointsRow(row)
