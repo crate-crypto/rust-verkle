@@ -5,14 +5,16 @@ mod test {
 
     use crate::{
         dummy_setup,
-        kzg10::{precomp_lagrange::PrecomputeLagrange, CommitKey, VerkleCommitter},
+        kzg10::{
+            precomp_lagrange::PrecomputeLagrange, CommitKey, CommitKeyLagrange, VerkleCommitter,
+        },
         Key, Value, VerkleTrait, VerkleTrie,
     };
 
     const WIDTH_BITS: usize = 10;
     // Setup secret scalar is 8927347823478352432985
 
-    static COMMITTED_KEY_1024: Lazy<CommitKey<Bls12_381>> = Lazy::new(|| dummy_setup(10).0);
+    static COMMITTED_KEY_1024: Lazy<CommitKeyLagrange<Bls12_381>> = Lazy::new(|| dummy_setup(10).0);
 
     static PRECOMPUTED_TABLE_1024: Lazy<PrecomputeLagrange<Bls12_381>> = Lazy::new(|| {
         PrecomputeLagrange::<Bls12_381>::precompute(&COMMITTED_KEY_1024.lagrange_powers_of_g)

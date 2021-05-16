@@ -1,11 +1,8 @@
-#![feature(test)]
-extern crate test;
-
-// mod bench;
 pub mod commitment;
 pub mod hash;
 mod interop;
 pub mod kzg10;
+pub mod point_encoding;
 pub mod transcript;
 pub mod trie;
 pub mod util;
@@ -14,7 +11,7 @@ pub mod verkle;
 use ark_bls12_381::Bls12_381;
 pub use commitment::VerkleCommitment;
 use hash::Hash;
-use kzg10::{CommitKey, OpeningKey, PublicParameters};
+use kzg10::{commit_key_lag::srs::PublicParameters, CommitKeyLagrange, OpeningKey};
 pub use trie::{VerkleTrait, VerkleTrie};
 pub use verkle::{VerklePath, VerkleProof};
 
@@ -22,7 +19,7 @@ use sha2::Digest;
 pub type HashFunction = sha2::Sha256;
 
 /// create a dummy srs
-pub fn dummy_setup(width: usize) -> (CommitKey<Bls12_381>, OpeningKey<Bls12_381>) {
+pub fn dummy_setup(width: usize) -> (CommitKeyLagrange<Bls12_381>, OpeningKey<Bls12_381>) {
     let num_children = 1 << width;
     let degree = num_children - 1;
     let srs = PublicParameters::<Bls12_381>::setup_from_secret(
@@ -30,7 +27,8 @@ pub fn dummy_setup(width: usize) -> (CommitKey<Bls12_381>, OpeningKey<Bls12_381>
         ark_bls12_381::Fr::from(8927347823478352432985u128),
     )
     .unwrap();
-    srs.trim(degree).unwrap()
+    let opening_key = srs.opening_key;
+    (srs.commit_key, opening_key)
 }
 
 /// Bit extraction interprets the bytes as bits

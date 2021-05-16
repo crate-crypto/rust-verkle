@@ -26,7 +26,7 @@ fn python_impl_consistency_parameters() {
 #[test]
 fn test_lagrange_powers() {
     use super::encoding_interop;
-    use crate::kzg10::PublicParameters;
+    use crate::kzg10::commit_key_lag::srs::PublicParameters;
     use ark_bls12_381::{Bls12_381, Fr};
     use ark_ff::{PrimeField, Zero};
     use std::str::FromStr;

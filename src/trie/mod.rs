@@ -67,7 +67,7 @@ mod test {
             Fr::from(8927347823478352432985u128),
         )
         .unwrap();
-        srs.trim(degree).unwrap()
+        (srs.commit_key, srs.opening_key)
     }
 
     #[test]
