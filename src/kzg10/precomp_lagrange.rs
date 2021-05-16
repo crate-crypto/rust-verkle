@@ -47,22 +47,10 @@ impl<E: PairingEngine> PrecomputeLagrange<E> {
     }
 }
 
-// Precompute the necessary lagrange points
-//
-// XXX: Change this to be one vector
-#[derive(Debug, Clone)]
-pub struct LagrangePointsRow<E: PairingEngine>(Vec<E::G1Affine>);
-
-impl<E: PairingEngine> LagrangePointsRow<E> {
-    pub fn as_slice(&self) -> &[E::G1Affine] {
-        &self.0
-    }
-}
-
 #[derive(Debug, Clone)]
 pub struct LagrangeTablePoints<E: PairingEngine> {
     identity: E::G1Affine,
-    matrix: Vec<LagrangePointsRow<E>>,
+    matrix: Vec<E::G1Affine>,
 }
 
 impl<E: PairingEngine> LagrangeTablePoints<E> {
@@ -83,38 +71,41 @@ impl<E: PairingEngine> LagrangeTablePoints<E> {
                 LagrangeTablePoints::<E>::scale_row(rows[(i - 1) as usize].as_slice(), base);
             rows.push(next_row)
         }
+        use rayon::prelude::*;
+        let flattened_rows: Vec<_> = rows.into_par_iter().flatten().collect();
 
         LagrangeTablePoints {
             identity: E::G1Affine::default(),
-            matrix: rows,
+            matrix: flattened_rows,
         }
     }
     pub fn point(&self, index: usize, value: u8) -> &E::G1Affine {
-        let row = &self.matrix[index];
         if value == 0 {
             return &self.identity;
         }
-        &row.as_slice()[(value - 1) as usize]
+        &self.matrix.as_slice()[(index * 255) + (value - 1) as usize]
     }
 
     // Computes [G_1, 2G_1, 3G_1, ... num_points * G_1]
-    fn compute_base_row(point: &E::G1Affine, num_points: usize) -> LagrangePointsRow<E> {
+    fn compute_base_row(point: &E::G1Affine, num_points: usize) -> Vec<E::G1Affine> {
         let mut row = Vec::with_capacity(num_points);
         row.push(*point);
         for i in 1..num_points {
             row.push(row[i - 1] + *point)
         }
-        LagrangePointsRow(row)
+        assert_eq!(row.len(), num_points);
+        row
     }
+
     // Given [G_1, 2G_1, 3G_1, ... num_points * G_1] and a scalar `k`
-    // Returns [k * G_1, 2 * k *G_1, 3 * k * G_1, ... num_points * k * G_1]
-    fn scale_row(points: &[E::G1Affine], scale: E::Fr) -> LagrangePointsRow<E> {
+    // Returns [k * G_1, 2 * k * G_1, 3 * k * G_1, ... num_points * k * G_1]
+    fn scale_row(points: &[E::G1Affine], scale: E::Fr) -> Vec<E::G1Affine> {
         let scaled_row: Vec<E::G1Affine> = points
             .into_iter()
             .map(|element| element.mul(scale).into())
             .collect();
 
-        LagrangePointsRow(scaled_row)
+        scaled_row
     }
 }
 
@@ -122,9 +113,13 @@ impl<E: PairingEngine> LagrangeTablePoints<E> {
 fn commit_lagrange_consistency() {
     use ark_bls12_381::{Bls12_381, Fr};
     use ark_ff::UniformRand;
-    let srs = setup_test(3);
+    let srs = setup_test(7);
 
     let values = vec![
+        Fr::rand(&mut rand_core::OsRng),
+        Fr::rand(&mut rand_core::OsRng),
+        Fr::rand(&mut rand_core::OsRng),
+        Fr::rand(&mut rand_core::OsRng),
         Fr::rand(&mut rand_core::OsRng),
         Fr::rand(&mut rand_core::OsRng),
         Fr::rand(&mut rand_core::OsRng),
