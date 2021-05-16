@@ -39,14 +39,13 @@ features = ["i128"]
 
 [profile.bench]
 debug = true
-inline-threshold = 0
 opt-level = 3
 debug-assertions = true
 incremental = true
+
 [profile.release]
 opt-level = 3
 debug = true
-inline-threshold = 0
 debug-assertions = true
 incremental = true
 
