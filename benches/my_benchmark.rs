@@ -5,10 +5,8 @@ use rand::Rng;
 use rand::SeedableRng;
 use sha2::Digest;
 use verkle_trie::{
-    dummy_setup,
-    kzg10::OpeningKey,
-    kzg10::{precomp_lagrange::PrecomputeLagrange, CommitKey},
-    HashFunction, Key, Value, VerkleTrait, VerkleTrie,
+    dummy_setup, kzg10::precomp_lagrange::PrecomputeLagrange, kzg10::OpeningKey, HashFunction, Key,
+    Value, VerkleTrait, VerkleTrie,
 };
 
 use once_cell::sync::Lazy;
