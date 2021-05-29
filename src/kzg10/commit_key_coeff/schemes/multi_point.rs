@@ -32,6 +32,14 @@ impl<E: PairingEngine> CommitKey<E> {
             polynomial_commitments.push(poly_commit);
         }
 
+        for point in points {
+            transcript.append_scalar(b"value", point)
+        }
+
+        for point in evaluations {
+            transcript.append_scalar(b"eval", point)
+        }
+
         // compute the witness for each polynomial at their respective points
         let mut each_witness = Vec::new();
 
@@ -43,8 +51,8 @@ impl<E: PairingEngine> CommitKey<E> {
 
         // Compute a new polynomial which sums together all of the witnesses for each polynomial
         // aggregate the witness polynomials to form the new polynomial that we want to run KZG10 on
-        let challenge = TranscriptProtocol::<E>::challenge_scalar(transcript, b"r");
-        let r_i = powers_of::<E::Fr>(&challenge, each_witness.len() - 1);
+        let r = TranscriptProtocol::<E>::challenge_scalar(transcript, b"r");
+        let r_i = powers_of::<E::Fr>(&r, each_witness.len() - 1);
 
         let g_x: Polynomial<E::Fr> = each_witness
             .iter()
@@ -57,6 +65,9 @@ impl<E: PairingEngine> CommitKey<E> {
 
         // Commit to to this poly_sum witness
         let d_comm = self.commit(&g_x)?;
+
+        transcript.append_scalar(b"r", &r);
+        transcript.append_point(b"D", &d_comm.0);
 
         // Compute new point to evaluate g_x at
         let t = TranscriptProtocol::<E>::challenge_scalar(transcript, b"t");
@@ -81,18 +92,22 @@ impl<E: PairingEngine> CommitKey<E> {
                 res
             });
 
+        let E = self.commit(&h_x)?;
+
         // Evaluate both polynomials at the point `t`
         let h_t = h_x.evaluate(&t);
         let g_t = g_x.evaluate(&t);
 
-        // We can now aggregate both proofs into an aggregate proof
+        transcript.append_point(b"E", &E.0);
+        transcript.append_point(b"d_comm", &d_comm.0);
+        transcript.append_scalar(b"h_t", &h_t);
+        transcript.append_scalar(b"g_t", &g_t);
 
-        TranscriptProtocol::<E>::append_scalar(transcript, b"g_t", &g_t);
-        TranscriptProtocol::<E>::append_scalar(transcript, b"h_t", &h_t);
+        // We can now aggregate both proofs into an aggregate proof
 
         let sum_quotient = d_comm;
         let helper_evaluation = h_t;
-        let aggregated_witness_poly = self.compute_aggregate_witness(&[g_x, h_x], &t, transcript);
+        let aggregated_witness_poly = self.compute_aggregate_witness(&[h_x, g_x], &t, transcript);
         let aggregated_witness = self.commit(&aggregated_witness_poly)?;
 
         Ok(AggregateProofMultiPoint {

@@ -45,11 +45,11 @@ impl<E: PairingEngine, T: TranscriptProtocol<E>> MultiPointProver<E, T> for Comm
         }
 
         for point in points {
-            transcript.append_scalar(b"indices", point)
+            transcript.append_scalar(b"value", point)
         }
 
         for point in evaluations {
-            transcript.append_scalar(b"indices", point)
+            transcript.append_scalar(b"eval", point)
         }
 
         // compute the witness for each polynomial at their respective points
@@ -94,7 +94,7 @@ impl<E: PairingEngine, T: TranscriptProtocol<E>> MultiPointProver<E, T> for Comm
         // Commit to to this poly_sum witness
         let d_comm = LagrangeCommitter::commit_lagrange(self, g_x.values())?;
 
-        transcript.append_scalar(b"indices", &r);
+        transcript.append_scalar(b"r", &r);
         transcript.append_point(b"D", &d_comm.0);
 
         // Compute new point to evaluate g_x at
