@@ -5,7 +5,7 @@ use criterion::BenchmarkId;
 use criterion::{black_box, criterion_group, BatchSize, Criterion};
 use verkle_trie::{Value, VerkleTrait, VerkleTrie};
 
-fn insert_10k_from_10mil_step(c: &mut Criterion) {
+fn proof_10k_from_10mil_step(c: &mut Criterion) {
     let mut group = c.benchmark_group("insert 10k");
 
     for initial_keys in (100_000..=10_000_000).step_by(100_000) {
@@ -46,4 +46,4 @@ fn insert_10k_from_10mil_step(c: &mut Criterion) {
 criterion_group!(
     name = benches; 
     config = Criterion::default().significance_level(0.1).sample_size(10);
-    targets = insert_10k_from_10mil_step);
+    targets = proof_10k_from_10mil_step);
