@@ -34,7 +34,7 @@ fn insert_10k_from_10mil_step(c: &mut Criterion) {
             |b, _| {
                 b.iter_batched(
                     || merged_path.clone(),
-                    |mut merged_path| black_box(merged_path.create_proof(&*COMMITTED_KEY_1024)),
+                    |merged_path| black_box(merged_path.create_proof(&*COMMITTED_KEY_1024)),
                     BatchSize::SmallInput,
                 )
             },
