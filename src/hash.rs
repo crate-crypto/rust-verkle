@@ -36,13 +36,10 @@ impl Hash {
         Hash(res)
     }
 
-    // XXX: Fix to use a hash function and then reduce
-    // This function will panic, if a Hash is not computed
     pub fn to_fr(&self) -> Fr {
         Fr::from_le_bytes_mod_order(&self.0)
     }
-    // This panics if the hash is not computed
-    // This function is used for tests
+
     pub fn to_hex(&self) -> String {
         hex::encode(&self.0)
     }
