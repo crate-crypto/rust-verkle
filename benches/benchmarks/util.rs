@@ -9,7 +9,9 @@ pub static PRECOMPUTED_TABLE_1024: Lazy<PrecomputeLagrange<Bls12_381>> = Lazy::n
     let ck = dummy_setup(WIDTH_10).0;
     PrecomputeLagrange::<Bls12_381>::precompute(&ck.lagrange_powers_of_g)
 });
+
 pub static KEYS_10K: Lazy<Vec<Key>> = Lazy::new(|| generate_diff_set_of_keys(10_000).collect());
+pub static SAME_KEYS_10K: Lazy<Vec<Key>> = Lazy::new(|| generate_set_of_keys(10_000).collect());
 
 pub fn generate_set_of_keys(n: u32) -> impl Iterator<Item = Key> {
     (0u32..n).map(|i| {
