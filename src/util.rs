@@ -1,5 +1,5 @@
 use ark_ec::PairingEngine;
-use ark_ff::PrimeField;
+use ark_ff::{One, PrimeField};
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 
 use std::iter::successors;
@@ -10,6 +10,9 @@ pub(crate) fn powers_of_iter<F: PrimeField>(
     scalar: F,
     max_degree: usize,
 ) -> impl Iterator<Item = F> {
+    // XXX: As long as the scalar is not 1, this works.
+    // scalar should be random, so this should be negligible
+    assert!(scalar != F::one());
     let last_power = scalar.pow([max_degree as u64, 0, 0, 0]);
     let powers_of_10 = successors(Some(F::one()), move |n| {
         if n != &last_power {
