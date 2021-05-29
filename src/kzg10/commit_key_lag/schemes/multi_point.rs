@@ -44,6 +44,14 @@ impl<E: PairingEngine, T: TranscriptProtocol<E>> MultiPointProver<E, T> for Comm
             transcript.append_point(b"f_x", &poly_commit.0);
         }
 
+        for point in points {
+            transcript.append_scalar(b"indices", point)
+        }
+
+        for point in evaluations {
+            transcript.append_scalar(b"indices", point)
+        }
+
         // compute the witness for each polynomial at their respective points
         use rayon::prelude::*;
 
@@ -51,15 +59,15 @@ impl<E: PairingEngine, T: TranscriptProtocol<E>> MultiPointProver<E, T> for Comm
 
         // Compute a new polynomial which sums together all of the witnesses for each polynomial
         // aggregate the witness polynomials to form the new polynomial that we want to run KZG10 on
-        let challenge = transcript.challenge_scalar(b"r");
-        let r_i = powers_of::<E::Fr>(&challenge, num_polynomials - 1);
+        let r = transcript.challenge_scalar(b"r");
+        let r_i = powers_of::<E::Fr>(&r, num_polynomials - 1);
 
         let each_witness = lagrange_polynomials
             .into_par_iter()
             .zip(points)
             .zip(evaluations)
             .map(|((poly, point), evaluation)| {
-                let lb = LagrangeBasis::<E>::from(poly).add_scalar(&-*evaluation); // XXX: Is this needed? It's not in single KZG
+                let lb = LagrangeBasis::<E>::from(poly).add_scalar(&-*evaluation);
                 let witness_poly =
                     LagrangeBasis::<E>::divide_by_linear_vanishing_from_point(point, &lb, &inv);
                 witness_poly
@@ -86,6 +94,9 @@ impl<E: PairingEngine, T: TranscriptProtocol<E>> MultiPointProver<E, T> for Comm
         // Commit to to this poly_sum witness
         let d_comm = LagrangeCommitter::commit_lagrange(self, g_x.values())?;
 
+        transcript.append_scalar(b"indices", &r);
+        transcript.append_point(b"D", &d_comm.0);
+
         // Compute new point to evaluate g_x at
         let t = transcript.challenge_scalar(b"t");
         // compute the helper polynomial which will help the verifier compute g(t)
@@ -107,19 +118,26 @@ impl<E: PairingEngine, T: TranscriptProtocol<E>> MultiPointProver<E, T> for Comm
                 res
             });
 
+        // XXX: The prover only computes the commitment to add it to the transcript
+        // Can we remove this, and say that since h_t is added to the transcript
+        // then this is fine?
+        let E = LagrangeCommitter::commit_lagrange(self, &h_x.values())?;
+
         // Evaluate both polynomials at the point `t`
         let h_t = h_x.evaluate_point_outside_domain(&t);
         let g_t = g_x.evaluate_point_outside_domain(&t);
 
         // We can now aggregate both proofs into an aggregate proof
 
-        transcript.append_scalar(b"g_t", &g_t);
+        transcript.append_point(b"E", &E.0);
+        transcript.append_point(b"d_comm", &d_comm.0);
         transcript.append_scalar(b"h_t", &h_t);
+        transcript.append_scalar(b"g_t", &g_t);
 
         let sum_quotient = d_comm;
         let helper_evaluation = h_t;
         let aggregated_witness_poly =
-            self.compute_aggregate_witness_lagrange(&[g_x.0, h_x.0], &t, transcript);
+            self.compute_aggregate_witness_lagrange(&[h_x.0, g_x.0], &t, transcript);
         let aggregated_witness =
             LagrangeCommitter::commit_lagrange(self, &aggregated_witness_poly.values())?;
 
