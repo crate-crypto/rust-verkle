@@ -6,7 +6,7 @@ use criterion::{black_box, criterion_group, BatchSize, Criterion};
 use verkle_trie::{Value, VerkleTrait, VerkleTrie};
 
 fn proof_10k_from_10mil_step(c: &mut Criterion) {
-    let mut group = c.benchmark_group("insert 10k");
+    let mut group = c.benchmark_group("proof 10k");
 
     for initial_keys in (100_000..=10_000_000).step_by(100_000) {
         let mut trie = VerkleTrie::new(WIDTH_10, &*PRECOMPUTED_TABLE_1024);
