@@ -143,6 +143,7 @@ mod test {
     }
 
     #[test]
+    #[ignore] // it is expensive
     fn test_vector_step_100k() {
         // N = 100_000
         step_test_helper(&*PRECOMPUTED_TABLE_1024, WIDTH_BITS, 100_000, "8602e138ef96fa3bfc559e6333dc7737e9f0a10ddc760a92397d5d002570ccd4636fd484f91bf63ce253de5f1eabdd62");
