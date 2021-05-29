@@ -8,7 +8,7 @@ use verkle_trie::{Value, VerkleTrait, VerkleTrie};
 fn edit_10k_from_10mil_step(c: &mut Criterion) {
     let mut group = c.benchmark_group("edit 10k");
 
-    for initial_keys in (0..=10_000_000).step_by(100_000) {
+    for initial_keys in (100_000..=10_000_000).step_by(100_000) {
         let mut trie = VerkleTrie::new(WIDTH_10, &*PRECOMPUTED_TABLE_1024);
 
         // Initial set of keys
