@@ -50,7 +50,7 @@ debug-assertions = true
 incremental = true
 
 [[bench]]
-name = "my_benchmark"
+name = "benchmark_main"
 harness = false
 
 
@@ -62,4 +62,9 @@ debug = true
 
 [features]
 default = ["parallel"]
-parallel = ["ark-ff/parallel", "ark-poly/parallel", "ark-ec/parallel"]
+parallel = [
+    "ark-ff/parallel",
+    "ark-ff/asm",
+    "ark-poly/parallel",
+    "ark-ec/parallel",
+]
