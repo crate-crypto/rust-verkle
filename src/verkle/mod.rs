@@ -62,6 +62,7 @@ use crate::{
 ///
 /// Also concatenating all of the path indices together, gives the `Key`
 ///
+#[derive(Debug, Clone)]
 pub struct VerklePath {
     pub omega_path_indices: Vec<Fr>,
     pub node_roots: Vec<Fr>,
@@ -136,6 +137,7 @@ impl VerklePath {
 }
 
 // XXX: Store this as bytes, then deserialise to verify
+#[derive(Debug, Clone)]
 pub struct VerkleProof {
     proof: kzg10::proof::AggregateProofMultiPoint<ark_bls12_381::Bls12_381>,
 }

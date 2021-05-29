@@ -118,7 +118,11 @@ fn test_vector_3() {
         "f5a5fd42d16a20302798ef6ed309979b43003d2320d9f0e8ea9831a92759fb4b",
     ];
 
-    for (got_fr, expected_eval) in verkle_path.node_roots.iter().zip(expected_polynomial_evaluations) {
+    for (got_fr, expected_eval) in verkle_path
+        .node_roots
+        .iter()
+        .zip(expected_polynomial_evaluations)
+    {
         let got_eval = hex::encode(ark_ff::to_bytes!(got_fr).unwrap());
         assert_eq!(got_eval, expected_eval)
     }
