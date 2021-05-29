@@ -1,4 +1,7 @@
-use crate::{kzg10::MultiPointProver, transcript::BasicTranscript};
+use crate::{
+    kzg10::{Commitment, MultiPointProver},
+    transcript::BasicTranscript,
+};
 use ark_bls12_381::{Bls12_381, Fr};
 use ark_poly::Evaluations;
 
@@ -132,8 +135,21 @@ impl VerklePath {
     }
 }
 
+// XXX: Store this as bytes, then deserialise to verify
 pub struct VerkleProof {
     proof: kzg10::proof::AggregateProofMultiPoint<ark_bls12_381::Bls12_381>,
+}
+
+impl VerkleProof {
+    // XXX: This is mainly used for testing purposes
+    // (D, y, sigma)
+    pub fn components(&self) -> (Commitment<Bls12_381>, Fr, Commitment<Bls12_381>) {
+        (
+            self.proof.sum_quotient,
+            self.proof.helper_evaluation,
+            self.proof.aggregated_witness,
+        )
+    }
 }
 
 impl VerkleProof {
