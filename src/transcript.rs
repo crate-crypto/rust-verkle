@@ -1,6 +1,11 @@
+use ark_bls12_381::{Bls12_381, Fr, G1Affine};
 use ark_ec::PairingEngine;
 use ark_ff::{to_bytes, PrimeField};
 use merlin::Transcript;
+
+use crate::point_encoding::serialize_g1;
+
+// XXX: We ignore the label for now, so that we can have interopability
 
 /// Transcript adds an abstraction over the Merlin transcript
 /// For convenience
@@ -13,9 +18,6 @@ pub trait TranscriptProtocol<E: PairingEngine> {
 
     /// Compute a `label`ed challenge variable.
     fn challenge_scalar(&mut self, label: &'static [u8]) -> E::Fr;
-
-    /// Append domain separator for the circuit size.
-    fn circuit_domain_sep(&mut self, n: u64);
 }
 
 impl<E: PairingEngine> TranscriptProtocol<E> for Transcript {
@@ -35,11 +37,6 @@ impl<E: PairingEngine> TranscriptProtocol<E> for Transcript {
 
         E::Fr::from_be_bytes_mod_order(&buf)
     }
-
-    fn circuit_domain_sep(&mut self, n: u64) {
-        self.append_message(b"dom-sep", b"circuit_size");
-        self.append_u64(b"n", n);
-    }
 }
 
 // This transcript is used for performance comparisons with the python and golang implementation
@@ -49,48 +46,52 @@ pub struct BasicTranscript {
 }
 impl BasicTranscript {
     pub fn new(label: &'static [u8]) -> BasicTranscript {
-        let mut state = Vec::new();
-        state.extend(label);
+        let state = Vec::new();
+        // state.extend(label);
         BasicTranscript { state }
     }
 
     pub fn append_message(&mut self, label: &'static [u8], message: &[u8]) {
-        self.state.extend(label);
+        // self.state.extend(label);
         self.state.extend(message);
     }
     pub fn append_u64(&mut self, label: &'static [u8], x: u64) {
-        self.state.extend(label);
+        // self.state.extend(label);
         self.state.extend(&x.to_be_bytes());
     }
 }
 
-impl<E: PairingEngine> TranscriptProtocol<E> for BasicTranscript {
-    fn append_point(&mut self, label: &'static [u8], point: &E::G1Affine) {
-        let bytes = to_bytes!(point).unwrap();
+impl TranscriptProtocol<Bls12_381> for BasicTranscript {
+    fn append_point(&mut self, label: &'static [u8], point: &G1Affine) {
+        use sha2::Digest;
 
+        let mut hasher = sha2::Sha256::new();
+        let bytes = serialize_g1(point);
+        hasher.update(bytes);
+        let bytes = hasher.finalize();
         self.append_message(label, &bytes);
     }
 
-    fn append_scalar(&mut self, label: &'static [u8], s: &E::Fr) {
+    fn append_scalar(&mut self, label: &'static [u8], s: &Fr) {
         let bytes = to_bytes!(s).unwrap();
         self.append_message(label, &bytes)
     }
     // Python code essentially takes the sha256 hash
     // then reduces it modulo the field
-    fn challenge_scalar(&mut self, label: &'static [u8]) -> E::Fr {
+    fn challenge_scalar(&mut self, label: &'static [u8]) -> Fr {
         use sha2::Digest;
 
-        self.state.extend(label);
+        // self.state.extend(label);
 
         let mut hasher = sha2::Sha256::new();
         hasher.update(&self.state);
         let bytes = hasher.finalize();
 
-        E::Fr::from_be_bytes_mod_order(&bytes)
-    }
+        // XXX: Clear the state to be consistent with python
+        // This is error prone because, if you forget to add in the previous
+        // squeezed challenge, then you have a new transcript
+        self.state.clear();
 
-    fn circuit_domain_sep(&mut self, n: u64) {
-        self.append_message(b"dom-sep", b"circuit_size");
-        self.append_u64(b"n", n);
+        Fr::from_le_bytes_mod_order(&bytes)
     }
 }
