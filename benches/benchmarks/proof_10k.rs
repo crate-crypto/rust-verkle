@@ -1,12 +1,12 @@
 use crate::benchmarks::util::{
-    generate_set_of_keys, PRECOMPUTED_TABLE_1024, SAME_KEYS_10K, WIDTH_10,
+    generate_set_of_keys, COMMITTED_KEY_1024, PRECOMPUTED_TABLE_1024, SAME_KEYS_10K, WIDTH_10,
 };
 use criterion::BenchmarkId;
 use criterion::{black_box, criterion_group, BatchSize, Criterion};
 use verkle_trie::{Value, VerkleTrait, VerkleTrie};
 
-fn edit_10k_from_10mil_step(c: &mut Criterion) {
-    let mut group = c.benchmark_group("edit 10k");
+fn insert_10k_from_10mil_step(c: &mut Criterion) {
+    let mut group = c.benchmark_group("insert 10k");
 
     for initial_keys in (0..=10_000_000).step_by(100_000) {
         let mut trie = VerkleTrie::new(WIDTH_10, &*PRECOMPUTED_TABLE_1024);
@@ -16,17 +16,25 @@ fn edit_10k_from_10mil_step(c: &mut Criterion) {
         let kvs = keys.map(|key| (key, Value::zero()));
         trie.insert(kvs);
 
+        let mut verkle_paths = Vec::with_capacity(10_000);
+
+        for key in SAME_KEYS_10K.iter() {
+            let verkle_path = trie.create_verkle_path(key).unwrap();
+            verkle_paths.push(verkle_path);
+        }
+
+        let mut merged_path = verkle_paths.pop().unwrap();
+        for path in verkle_paths {
+            merged_path = merged_path.merge(path);
+        }
+
         group.bench_with_input(
             BenchmarkId::from_parameter(initial_keys),
             &initial_keys,
             |b, _| {
                 b.iter_batched(
-                    || trie.clone(),
-                    |mut trie| {
-                        // Same keys but different values
-                        let keys_values = SAME_KEYS_10K.iter().map(|key| (*key, Value::one()));
-                        black_box(trie.insert(keys_values))
-                    },
+                    || merged_path.clone(),
+                    |mut merged_path| black_box(merged_path.create_proof(&*COMMITTED_KEY_1024)),
                     BatchSize::SmallInput,
                 )
             },
@@ -38,4 +46,4 @@ fn edit_10k_from_10mil_step(c: &mut Criterion) {
 criterion_group!(
     name = benches; 
     config = Criterion::default().significance_level(0.1).sample_size(10);
-    targets = edit_10k_from_10mil_step);
+    targets = insert_10k_from_10mil_step);

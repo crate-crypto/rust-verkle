@@ -1,13 +1,17 @@
 use ark_bls12_381::Bls12_381;
 use sha2::Digest;
 
+use once_cell::sync::Lazy;
+use verkle_trie::kzg10::CommitKeyLagrange;
 use verkle_trie::{dummy_setup, kzg10::precomp_lagrange::PrecomputeLagrange, HashFunction, Key};
 
-use once_cell::sync::Lazy;
 pub const WIDTH_10: usize = 10;
+
+pub static COMMITTED_KEY_1024: Lazy<CommitKeyLagrange<Bls12_381>> =
+    Lazy::new(|| dummy_setup(WIDTH_10).0);
+
 pub static PRECOMPUTED_TABLE_1024: Lazy<PrecomputeLagrange<Bls12_381>> = Lazy::new(|| {
-    let ck = dummy_setup(WIDTH_10).0;
-    PrecomputeLagrange::<Bls12_381>::precompute(&ck.lagrange_powers_of_g)
+    PrecomputeLagrange::<Bls12_381>::precompute(&COMMITTED_KEY_1024.lagrange_powers_of_g)
 });
 
 pub static KEYS_10K: Lazy<Vec<Key>> = Lazy::new(|| generate_diff_set_of_keys(10_000).collect());
