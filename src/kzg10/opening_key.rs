@@ -102,9 +102,21 @@ impl<E: PairingEngine> OpeningKey<E> {
             transcript.append_point(b"f_x", &comm.0);
         }
 
+        for point in evaluation_points {
+            transcript.append_scalar(b"value", point)
+        }
+
+        for point in evaluated_points {
+            transcript.append_scalar(b"eval", point)
+        }
+
         // Compute challenges
         let r = TranscriptProtocol::<E>::challenge_scalar(transcript, b"r");
         let r_i = crate::util::powers_of_iter(r, commitments.len());
+
+        transcript.append_scalar(b"r", &r);
+        transcript.append_point(b"D", &proof.sum_quotient.0);
+
         let t = TranscriptProtocol::<E>::challenge_scalar(transcript, b"t");
 
         // compute g_2(t)
@@ -132,13 +144,15 @@ impl<E: PairingEngine> OpeningKey<E> {
         let w = y - g_2_t;
 
         // Add w and y to transcript
-        TranscriptProtocol::<E>::append_scalar(transcript, b"g_t", &w);
-        TranscriptProtocol::<E>::append_scalar(transcript, b"h_t", &y);
+        transcript.append_point(b"E", &e_comm.0);
+        transcript.append_point(b"d_comm", &proof.sum_quotient.0);
+        transcript.append_scalar(b"h_t", &y);
+        transcript.append_scalar(b"g_t", &w);
 
         // Compute aggregate proof. `q` is computed internally
         let mut agg_proof = AggregateProof::with_witness(proof.aggregated_witness);
-        agg_proof.add_part((w, proof.sum_quotient));
         agg_proof.add_part((y, e_comm));
+        agg_proof.add_part((w, proof.sum_quotient));
         let proof = agg_proof.flatten(transcript);
 
         self.check(t, proof)
