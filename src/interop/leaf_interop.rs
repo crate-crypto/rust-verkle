@@ -62,20 +62,4 @@ mod test {
             hex::encode(&leaf_bytes)
         )
     }
-    #[test]
-    pub fn k1v1_endian_switch() {
-        let leaf = LeafNode {
-            key: Key::from_arr([
-                1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                0, 0, 0, 0,
-            ]),
-            value: Value::zero(),
-        };
-
-        let leaf_bytes = leaf.hash().to_fr().into_repr().to_bytes_be();
-        assert_eq!(
-            "3bc490f63858af73445a6e5ca52f07cb19b8ddccad4f22e370f3b72034abab15",
-            hex::encode(&leaf_bytes)
-        )
-    }
 }
