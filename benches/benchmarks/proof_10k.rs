@@ -32,8 +32,8 @@ fn proof_10k_from_10mil_step(c: &mut Criterion) {
             BenchmarkId::from_parameter(initial_keys),
             &initial_keys,
             |b, _| {
-                b.iter_batched(
-                    || merged_path.clone(),
+                b.iter_batched_ref(
+                    || &merged_path,
                     |merged_path| black_box(merged_path.create_proof(&*COMMITTED_KEY_1024)),
                     BatchSize::SmallInput,
                 )
