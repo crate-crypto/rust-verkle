@@ -10,61 +10,60 @@ impl<E: PairingEngine> CommitKeyLagrange<E> {
         polynomials: &[Evaluations<E::Fr>],
         point: &E::Fr,
         transcript: &mut dyn TranscriptProtocol<E>,
+        domain_elements: &[E::Fr],
     ) -> LagrangeBasis<E> {
-        let domain = polynomials.first().unwrap().domain();
-        let domain_size = domain.size();
+        let domain_size = domain_elements.len();
 
         let challenge = TranscriptProtocol::<E>::challenge_scalar(transcript, b"aggregate_witness");
         let powers = util::powers_of::<E::Fr>(&challenge, polynomials.len() - 1);
 
         assert_eq!(powers.len(), polynomials.len());
 
+        use rayon::prelude::*;
         let numerator: LagrangeBasis<E> = polynomials
-            .iter()
-            .zip(powers.iter())
-            .map(|(poly, challenge)| LagrangeBasis::from(poly) * *challenge)
-            .fold(LagrangeBasis::zero(domain_size), |mut res, val| {
-                res = &res + &val;
-                res
-            });
+            .into_par_iter()
+            .zip(powers.into_par_iter())
+            .map(|(poly, challenge)| LagrangeBasis::from(poly) * &challenge)
+            .fold(|| LagrangeBasis::zero(domain_size), |res, val| res + val)
+            .reduce(|| LagrangeBasis::zero(domain_size), |res, val| res + val);
 
-        self.compute_lagrange_quotient(point, numerator)
+        self.compute_lagrange_quotient(point, numerator, domain_elements)
     }
 
     pub(crate) fn compute_lagrange_quotient(
         &self,
         point: &E::Fr,
         poly: LagrangeBasis<E>,
+        domain_elements: &[E::Fr],
     ) -> LagrangeBasis<E> {
-        let domain = poly.0.domain();
-        let domain_size = domain.size();
+        let domain_size = domain_elements.len();
 
-        let index = domain
-            .elements()
-            .into_iter()
-            .position(|omega| omega == *point);
+        let index = domain_elements.iter().position(|omega| omega == point);
 
-        let inv = Self::compute_inv(&poly.domain());
+        let inv = Self::compute_inv(&domain_elements);
 
         match index {
-            Some(index) => LagrangeBasis::divide_by_linear_vanishing(index, &poly, &inv),
+            Some(index) => {
+                LagrangeBasis::divide_by_linear_vanishing(index, &poly, &inv, &domain_elements)
+            }
             None => {
                 let value = poly.evaluate_point_outside_domain(point);
                 let mut q = vec![E::Fr::zero(); domain_size];
                 for i in 0..domain_size {
-                    q[i] = (poly.0.evals[i] - value) / (domain.element(i) - point)
+                    q[i] = (poly.0.evals[i] - value) / (domain_elements[i] - point)
                 }
+                let domain = GeneralEvaluationDomain::new(domain_elements.len()).unwrap();
                 let evaluations = Evaluations::from_vec_and_domain(q, domain);
                 LagrangeBasis::from(evaluations)
             }
         }
     }
 
-    pub(crate) fn compute_inv(domain: &GeneralEvaluationDomain<E::Fr>) -> Vec<E::Fr> {
+    pub(crate) fn compute_inv(domain: &[E::Fr]) -> Vec<E::Fr> {
         use ark_ff::One;
+        use rayon::prelude::*;
         let inv: Vec<_> = domain
-            .elements()
-            .into_iter()
+            .into_par_iter()
             .enumerate()
             .map(|(index, x)| {
                 if index == 0 {
@@ -154,6 +153,7 @@ mod test {
         let degree = 25;
         let (proving_key, _) = setup_coeff_srs(degree);
         let domain: GeneralEvaluationDomain<Fr> = GeneralEvaluationDomain::new(degree).unwrap();
+        let domain_elements: Vec<_> = domain.elements().collect();
         let index = 5;
         let point = domain.element(index);
 
@@ -165,9 +165,13 @@ mod test {
         // eval form
         let evaluations = Evaluations::from_vec_and_domain(domain.fft(&poly.coeffs), domain);
         let lagrange_poly = LagrangeBasis::<Bls12_381>::from(evaluations);
-        let inv = CommitKeyLagrange::<Bls12_381>::compute_inv(&domain);
-        let got_witness_lagrange =
-            LagrangeBasis::divide_by_linear_vanishing(index, &lagrange_poly, &inv);
+        let inv = CommitKeyLagrange::<Bls12_381>::compute_inv(&domain_elements);
+        let got_witness_lagrange = LagrangeBasis::divide_by_linear_vanishing(
+            index,
+            &lagrange_poly,
+            &inv,
+            &domain_elements,
+        );
         let got_witness = got_witness_lagrange.interpolate();
 
         assert_eq!(got_witness, expected_witness);
@@ -327,6 +331,7 @@ mod test {
         let (coeff_proving_key, _) = setup_coeff_srs(degree);
 
         let domain: GeneralEvaluationDomain<Fr> = GeneralEvaluationDomain::new(degree).unwrap();
+        let domain_elements: Vec<_> = domain.elements().collect();
         let index = 5;
         let point = domain.element(index);
 
@@ -351,6 +356,7 @@ mod test {
                 &[evaluations_a, evaluations_b, evaluations_c],
                 &point,
                 &mut Transcript::new(b"agg_flatten"),
+                &domain_elements,
             )
             .interpolate();
 

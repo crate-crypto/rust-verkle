@@ -54,8 +54,8 @@ impl<E: PairingEngine, T: TranscriptProtocol<E>> MultiPointProver<E, T> for Comm
 
         // compute the witness for each polynomial at their respective points
         use rayon::prelude::*;
-
-        let inv = Self::compute_inv(&domain);
+        let domain_elements: Vec<_> = domain.elements().collect();
+        let inv = Self::compute_inv(&domain_elements);
 
         // Compute a new polynomial which sums together all of the witnesses for each polynomial
         // aggregate the witness polynomials to form the new polynomial that we want to run KZG10 on
@@ -68,28 +68,20 @@ impl<E: PairingEngine, T: TranscriptProtocol<E>> MultiPointProver<E, T> for Comm
             .zip(evaluations)
             .map(|((poly, point), evaluation)| {
                 let lb = LagrangeBasis::<E>::from(poly).add_scalar(&-*evaluation);
-                let witness_poly =
-                    LagrangeBasis::<E>::divide_by_linear_vanishing_from_point(point, &lb, &inv);
+                let witness_poly = LagrangeBasis::<E>::divide_by_linear_vanishing_from_point(
+                    point,
+                    &lb,
+                    &inv,
+                    &domain_elements,
+                );
                 witness_poly
             });
 
         let g_x: LagrangeBasis<E> = each_witness
             .zip(r_i.par_iter())
-            .map(|(poly, challenge)| &poly * challenge)
-            .fold(
-                || LagrangeBasis::zero(domain_size),
-                |mut res, val| {
-                    res = &res + &val;
-                    res
-                },
-            )
-            .reduce(
-                || LagrangeBasis::zero(domain_size),
-                |mut res, val| {
-                    res = &res + &val;
-                    res
-                },
-            );
+            .map(|(poly, challenge)| poly * challenge)
+            .fold(|| LagrangeBasis::zero(domain_size), |res, val| res + val)
+            .reduce(|| LagrangeBasis::zero(domain_size), |res, val| res + val);
 
         // Commit to to this poly_sum witness
         let d_comm = LagrangeCommitter::commit_lagrange(self, g_x.values())?;
@@ -101,22 +93,18 @@ impl<E: PairingEngine, T: TranscriptProtocol<E>> MultiPointProver<E, T> for Comm
         let t = transcript.challenge_scalar(b"t");
         // compute the helper polynomial which will help the verifier compute g(t)
         //
-        let mut denominator: Vec<_> = points.iter().map(|z_i| t - z_i).collect();
+        let mut denominator: Vec<_> = points.par_iter().map(|z_i| t - z_i).collect();
         ark_ff::batch_inversion(&mut denominator);
-        let helper_coefficients: Vec<_> = r_i
-            .into_iter()
+        let helper_coefficients = r_i
+            .into_par_iter()
             .zip(denominator)
-            .map(|(r_i, den)| r_i * den)
-            .collect();
+            .map(|(r_i, den)| r_i * den);
 
         let h_x: LagrangeBasis<E> = helper_coefficients
-            .iter()
-            .zip(lagrange_polynomials.iter())
-            .map(|(helper_scalars, poly)| &LagrangeBasis::from(poly) * helper_scalars)
-            .fold(LagrangeBasis::zero(domain_size), |mut res, val| {
-                res = &res + &val;
-                res
-            });
+            .zip(lagrange_polynomials.par_iter())
+            .map(|(helper_scalars, poly)| LagrangeBasis::from(poly) * &helper_scalars)
+            .fold(|| LagrangeBasis::zero(domain_size), |res, val| res + val)
+            .reduce(|| LagrangeBasis::zero(domain_size), |res, val| res + val);
 
         // XXX: The prover only computes the commitment to add it to the transcript
         // Can we remove this, and say that since h_t is added to the transcript
@@ -136,8 +124,12 @@ impl<E: PairingEngine, T: TranscriptProtocol<E>> MultiPointProver<E, T> for Comm
 
         let sum_quotient = d_comm;
         let helper_evaluation = h_t;
-        let aggregated_witness_poly =
-            self.compute_aggregate_witness_lagrange(&[h_x.0, g_x.0], &t, transcript);
+        let aggregated_witness_poly = self.compute_aggregate_witness_lagrange(
+            &[h_x.0, g_x.0],
+            &t,
+            transcript,
+            &domain_elements,
+        );
         let aggregated_witness =
             LagrangeCommitter::commit_lagrange(self, &aggregated_witness_poly.values())?;
 

@@ -5,7 +5,8 @@ use crate::{
     kzg10::{errors::KZG10Error, proof::AggregateProof, CommitKeyLagrange, LagrangeCommitter},
     transcript::TranscriptProtocol,
 };
-
+use ark_poly::EvaluationDomain;
+use ark_poly::GeneralEvaluationDomain;
 impl<E: PairingEngine> CommitKeyLagrange<E> {
     pub fn open_multiple_lagrange(
         &self,
@@ -20,8 +21,15 @@ impl<E: PairingEngine> CommitKeyLagrange<E> {
             polynomial_commitments.push(self.commit_lagrange(&poly.evals)?)
         }
 
+        let domain = polynomials.first().unwrap().domain();
+        let domain_elements: Vec<_> = domain.elements().collect();
         // Compute the aggregate witness for polynomials
-        let witness_poly = self.compute_aggregate_witness_lagrange(polynomials, point, transcript);
+        let witness_poly = self.compute_aggregate_witness_lagrange(
+            polynomials,
+            point,
+            transcript,
+            &domain_elements,
+        );
 
         // Commit to witness polynomial
         let witness_commitment = self.commit_lagrange(&witness_poly.0.evals)?;
