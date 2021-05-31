@@ -2,9 +2,9 @@ use ark_bls12_381::Bls12_381;
 use sha2::Digest;
 
 use once_cell::sync::Lazy;
+use std::convert::TryInto;
 use verkle_trie::kzg10::CommitKeyLagrange;
 use verkle_trie::{dummy_setup, kzg10::precomp_lagrange::PrecomputeLagrange, HashFunction, Key};
-
 pub const WIDTH_10: usize = 10;
 
 pub static COMMITTED_KEY_1024: Lazy<CommitKeyLagrange<Bls12_381>> =
@@ -25,12 +25,17 @@ pub fn generate_set_of_keys(n: u32) -> impl Iterator<Item = Key> {
         arr[1] = i_bytes[1];
         arr[2] = i_bytes[2];
         arr[3] = i_bytes[3];
-        Key::from_arr(arr)
+
+        let mut hasher = HashFunction::new();
+        hasher.update(&arr[..]);
+        hasher.update(b"seed");
+
+        let res: [u8; 32] = hasher.finalize().try_into().unwrap();
+        Key::from_arr(res)
     })
 }
 
 pub fn generate_diff_set_of_keys(n: u32) -> impl Iterator<Item = Key> {
-    use std::convert::TryInto;
     (0u32..n).map(|i| {
         let mut hasher = HashFunction::new();
         hasher.update(i.to_be_bytes());
