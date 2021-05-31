@@ -1,7 +1,7 @@
 use super::{errors::KZG10Error, Commitment};
 use crate::kzg10::LagrangeCommitter;
 use ark_ec::{AffineCurve, PairingEngine};
-
+use ark_ff::Zero;
 #[derive(Debug, Clone)]
 pub struct PrecomputeLagrange<E: PairingEngine> {
     inner: Vec<LagrangeTablePoints<E>>,
@@ -16,7 +16,12 @@ impl<E: PairingEngine> LagrangeCommitter<E> for PrecomputeLagrange<E> {
 
         let mut result = E::G1Projective::default();
 
-        for (scalar, table) in evaluations.into_iter().zip(self.inner.iter()) {
+        let scalar_table = evaluations
+            .into_iter()
+            .zip(self.inner.iter())
+            .filter(|(evals, _)| !evals.is_zero());
+
+        for (scalar, table) in scalar_table {
             // convert scalar to bytes in little endian
             let bytes = ark_ff::to_bytes!(scalar).unwrap();
             for (row, byte) in bytes.into_iter().enumerate() {
