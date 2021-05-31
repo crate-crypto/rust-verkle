@@ -27,22 +27,21 @@ impl<E: PairingEngine, T: TranscriptProtocol<E>> MultiPointProver<E, T> for Comm
             .expect("expected at least one polynomial")
             .domain();
         let domain_size = domain.size();
+
         // Commit to polynomials, if not done so already
-        let polynomial_commitments = match poly_commitments {
+        match poly_commitments {
             None => {
-                let mut commitments = Vec::with_capacity(lagrange_polynomials.len());
                 for poly in lagrange_polynomials.iter() {
                     let poly_commit = LagrangeCommitter::commit_lagrange(self, &poly.evals)?;
-                    commitments.push(poly_commit);
+                    transcript.append_point(b"f_x", &poly_commit.0);
                 }
-                commitments
             }
-            Some(commitments) => commitments.to_vec(), // XXX: move transcript append section here
+            Some(commitments) => {
+                for poly_commit in commitments.iter() {
+                    transcript.append_point(b"f_x", &poly_commit.0);
+                }
+            }
         };
-
-        for poly_commit in polynomial_commitments.iter() {
-            transcript.append_point(b"f_x", &poly_commit.0);
-        }
 
         for point in points {
             transcript.append_scalar(b"value", point)
