@@ -24,10 +24,16 @@ impl<E: PairingEngine> LagrangeCommitter<E> for PrecomputeLagrange<E> {
         for (scalar, table) in scalar_table {
             // convert scalar to bytes in little endian
             let bytes = ark_ff::to_bytes!(scalar).unwrap();
-            for (row, byte) in bytes.into_iter().enumerate() {
-                let point = table.point(row, byte);
-                result += E::G1Projective::from(*point);
-            }
+
+            let partial_result: E::G1Projective = bytes
+                .into_iter()
+                .enumerate()
+                .map(|(row, byte)| {
+                    let point = table.point(row, byte);
+                    E::G1Projective::from(*point)
+                })
+                .sum();
+            result += partial_result;
         }
         Ok(Commitment::from_projective(result))
     }
@@ -39,13 +45,15 @@ impl<E: PairingEngine> LagrangeCommitter<E> for PrecomputeLagrange<E> {
     ) -> Result<Commitment<E>, KZG10Error> {
         let table = &self.inner[lagrange_index];
 
-        let mut result = E::G1Projective::default();
-
         let bytes = ark_ff::to_bytes!(value).unwrap();
-        for (row, byte) in bytes.into_iter().enumerate() {
-            let point = table.point(row, byte);
-            result += E::G1Projective::from(*point);
-        }
+        let result: E::G1Projective = bytes
+            .into_iter()
+            .enumerate()
+            .map(|(row, byte)| {
+                let point = table.point(row, byte);
+                E::G1Projective::from(*point)
+            })
+            .sum();
         Ok(Commitment::from_projective(result))
     }
 }
