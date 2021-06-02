@@ -21,7 +21,7 @@ use self::errors::KZG10Error;
 pub trait MultiPointProver<E: PairingEngine, T: TranscriptProtocol<E>> {
     fn open_multipoint_lagrange(
         &self,
-        lagrange_polynomials: &[Evaluations<E::Fr>],
+        lagrange_polynomials: Vec<Vec<E::Fr>>,
         poly_commitments: Option<&[Commitment<E>]>,
         evaluations: &[E::Fr],
         points: &[E::Fr], // These will be roots of unity

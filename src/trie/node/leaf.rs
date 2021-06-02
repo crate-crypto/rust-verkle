@@ -43,6 +43,10 @@ mod interop {
             hash
         )
     }
+
+    // Add more of these tests first!
+    // Add benchmarks back into main and make the step benchmark 1 million instead of 500 million
+
     #[test]
     fn hash_fr() {
         let key0 = Key::one();

@@ -113,7 +113,7 @@ impl VerklePath {
 
 impl VerklePath {
     pub fn create_proof(
-        &self,
+        self,
         ck: &dyn MultiPointProver<Bls12_381, BasicTranscript>,
     ) -> VerkleProof {
         let mut transcript = BasicTranscript::new(b"verkle_proof");
@@ -125,7 +125,10 @@ impl VerklePath {
 
         let proof = ck
             .open_multipoint_lagrange(
-                &self.polynomials,
+                self.polynomials
+                    .into_iter()
+                    .map(|evaluations| evaluations.evals)
+                    .collect(),
                 Some(&self.commitments),
                 &self.node_roots,
                 &self.omega_path_indices,

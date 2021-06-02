@@ -122,19 +122,19 @@ impl<E: PairingEngine> CommitKey<E> {
 impl<E: PairingEngine, T: TranscriptProtocol<E>> MultiPointProver<E, T> for CommitKey<E> {
     fn open_multipoint_lagrange(
         &self,
-        lagrange_polynomials: &[ark_poly::Evaluations<E::Fr>],
+        lagrange_polynomials: Vec<Vec<E::Fr>>,
         _poly_commitments: Option<&[Commitment<E>]>,
         evaluations: &[E::Fr],
         points: &[E::Fr], // These will be roots of unity
         transcript: &mut T,
     ) -> Result<AggregateProofMultiPoint<E>, KZG10Error> {
-        let polynomial_degree = lagrange_polynomials.first().unwrap().evals.len();
+        let polynomial_degree = lagrange_polynomials.first().unwrap().len();
         let domain = GeneralEvaluationDomain::<E::Fr>::new(polynomial_degree).unwrap();
 
         // IFFT all of the evaluations
         let mut polynomials = Vec::new();
         for lag_poly in lagrange_polynomials.into_iter() {
-            let coeffs = domain.ifft(&lag_poly.evals);
+            let coeffs = domain.ifft(&lag_poly);
             let poly = Polynomial::from_coefficients_vec(coeffs);
             polynomials.push(poly)
         }

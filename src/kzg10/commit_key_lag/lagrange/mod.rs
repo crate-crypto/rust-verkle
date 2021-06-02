@@ -8,39 +8,39 @@ use ark_poly::{
 use rayon::prelude::*;
 // Wrapper around Evaluations with extra methods
 
-pub struct LagrangeBasis<E: PairingEngine>(pub Evaluations<E::Fr>);
+pub struct LagrangeBasis<E: PairingEngine>(pub Vec<E::Fr>);
 
 impl<E: PairingEngine> LagrangeBasis<E> {
     pub fn interpolate(&self) -> DensePolynomial<E::Fr> {
-        self.0.interpolate_by_ref()
+        let domain = GeneralEvaluationDomain::<E::Fr>::new(self.0.len()).unwrap();
+        let evaluations = Evaluations::from_vec_and_domain(self.0.to_vec(), domain);
+        evaluations.interpolate_by_ref()
     }
     // XXX: cannot add as a trait due to Rust
     pub fn add_scalar(mut self, element: &E::Fr) -> Self {
         self.0
-            .evals
             .par_iter_mut()
             .for_each(|eval| *eval = *eval + *element);
         self
     }
 
     pub fn zero(num_points: usize) -> LagrangeBasis<E> {
-        let domain = GeneralEvaluationDomain::<E::Fr>::new(num_points).unwrap();
-        let evals = vec![E::Fr::zero(); domain.size()];
+        let evals = vec![E::Fr::zero(); num_points];
 
-        LagrangeBasis::from(Evaluations::from_vec_and_domain(evals, domain))
+        LagrangeBasis::from(evals)
     }
 
     pub fn domain(&self) -> GeneralEvaluationDomain<E::Fr> {
-        self.0.domain()
+        GeneralEvaluationDomain::<E::Fr>::new(self.0.len()).unwrap()
     }
     pub fn values(&self) -> &[E::Fr] {
-        &self.0.evals
+        &self.0
     }
 
     // convenience method
     pub fn divide_by_linear_vanishing_from_point(
         point: &E::Fr,
-        f_x: &LagrangeBasis<E>,
+        f_x: &[E::Fr],
         precomputed_inverses: &[E::Fr],
         domain: &[E::Fr],
     ) -> LagrangeBasis<E> {
@@ -57,7 +57,7 @@ impl<E: PairingEngine> LagrangeBasis<E> {
     // XXX: This function is general and so it is not optimised at the moment.
     pub fn divide_by_linear_vanishing(
         index: usize,
-        f_x: &LagrangeBasis<E>,
+        f_x: &[E::Fr],
         inv: &[E::Fr],
         domain_elements: &[E::Fr],
     ) -> LagrangeBasis<E> {
@@ -67,7 +67,7 @@ impl<E: PairingEngine> LagrangeBasis<E> {
 
         let y = f_x[index];
 
-        let quot_i = f_x.values().into_par_iter().enumerate().map(|(i, elem)| {
+        let quot_i = f_x.into_par_iter().enumerate().map(|(i, elem)| {
             if i == index {
                 return (i, E::Fr::zero());
             }
@@ -100,55 +100,42 @@ impl<E: PairingEngine> LagrangeBasis<E> {
             })
             .collect();
 
-        let domain = GeneralEvaluationDomain::new(domain_size).unwrap();
-        LagrangeBasis::from(Evaluations::from_vec_and_domain(quotient, domain))
+        LagrangeBasis::from(quotient)
     }
 
     pub fn evaluate_point_outside_domain(&self, point: &E::Fr) -> E::Fr {
-        let domain = self.0.domain();
+        let domain = self.domain();
 
         let lagrange_coeffs = domain.evaluate_all_lagrange_coefficients(*point);
 
         let mut interpolated_eval = E::Fr::zero();
         for i in 0..domain.size() {
-            interpolated_eval += lagrange_coeffs[i] * &self.0.evals[i];
+            interpolated_eval += lagrange_coeffs[i] * &self.0[i];
         }
         interpolated_eval
     }
 }
 
-impl<E: PairingEngine> From<&'_ [E::Fr]> for LagrangeBasis<E> {
-    fn from(evals: &[E::Fr]) -> Self {
-        let domain = GeneralEvaluationDomain::<E::Fr>::new(evals.len()).unwrap();
-        let evaluations = Evaluations::from_vec_and_domain(evals.to_vec(), domain);
-        LagrangeBasis(evaluations)
-    }
-}
 impl<E: PairingEngine> From<Vec<E::Fr>> for LagrangeBasis<E> {
     fn from(evals: Vec<E::Fr>) -> Self {
-        let domain = GeneralEvaluationDomain::<E::Fr>::new(evals.len()).unwrap();
-        let evaluations = Evaluations::from_vec_and_domain(evals, domain);
-        LagrangeBasis(evaluations)
-    }
-}
-impl<E: PairingEngine> From<Evaluations<E::Fr>> for LagrangeBasis<E> {
-    fn from(evals: Evaluations<E::Fr>) -> Self {
         LagrangeBasis(evals)
     }
 }
-impl<E: PairingEngine> From<&'_ Evaluations<E::Fr>> for LagrangeBasis<E> {
-    fn from(evals: &Evaluations<E::Fr>) -> Self {
-        LagrangeBasis(evals.clone())
-    }
-}
+// impl<E: PairingEngine> From<Evaluations<E::Fr>> for LagrangeBasis<E> {
+//     fn from(evaluations: Evaluations<E::Fr>) -> Self {
+//         LagrangeBasis(evaluations.evals)
+//     }
+// }
+// impl<E: PairingEngine> From<&'_ Evaluations<E::Fr>> for LagrangeBasis<E> {
+//     fn from(evaluations: &Evaluations<E::Fr>) -> Self {
+//         LagrangeBasis(evaluations.evals.clone())
+//     }
+// }
 impl<E: PairingEngine> Mul<&'_ E::Fr> for LagrangeBasis<E> {
     type Output = LagrangeBasis<E>;
 
     fn mul(mut self, rhs: &E::Fr) -> Self::Output {
-        self.0
-            .evals
-            .par_iter_mut()
-            .for_each(|eval| *eval = *eval * rhs);
+        self.0.par_iter_mut().for_each(|eval| *eval = *eval * rhs);
         self
     }
 }
@@ -159,9 +146,8 @@ impl<E: PairingEngine> Add<LagrangeBasis<E>> for LagrangeBasis<E> {
     fn add(mut self, rhs: LagrangeBasis<E>) -> Self::Output {
         use rayon::prelude::*;
         self.0
-            .evals
             .par_iter_mut()
-            .zip(rhs.0.evals.into_par_iter())
+            .zip(rhs.0.into_par_iter())
             .for_each(|(lhs, rhs)| *lhs = *lhs + rhs);
         self
     }

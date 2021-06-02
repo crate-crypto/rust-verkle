@@ -7,7 +7,7 @@ use ark_poly::{EvaluationDomain, Evaluations, GeneralEvaluationDomain};
 impl<E: PairingEngine> CommitKeyLagrange<E> {
     pub(crate) fn compute_aggregate_witness_lagrange(
         &self,
-        polynomials: &[Evaluations<E::Fr>],
+        polynomials: Vec<Vec<E::Fr>>,
         point: &E::Fr,
         transcript: &mut dyn TranscriptProtocol<E>,
         domain_elements: &[E::Fr],
@@ -43,18 +43,20 @@ impl<E: PairingEngine> CommitKeyLagrange<E> {
         let inv = Self::compute_inv(&domain_elements);
 
         match index {
-            Some(index) => {
-                LagrangeBasis::divide_by_linear_vanishing(index, &poly, &inv, &domain_elements)
-            }
+            Some(index) => LagrangeBasis::divide_by_linear_vanishing(
+                index,
+                poly.values(),
+                &inv,
+                &domain_elements,
+            ),
             None => {
                 let value = poly.evaluate_point_outside_domain(point);
                 let mut q = vec![E::Fr::zero(); domain_size];
                 for i in 0..domain_size {
-                    q[i] = (poly.0.evals[i] - value) / (domain_elements[i] - point)
+                    q[i] = (poly.0[i] - value) / (domain_elements[i] - point)
                 }
-                let domain = GeneralEvaluationDomain::new(domain_elements.len()).unwrap();
-                let evaluations = Evaluations::from_vec_and_domain(q, domain);
-                LagrangeBasis::from(evaluations)
+
+                LagrangeBasis::from(q)
             }
         }
     }
@@ -121,12 +123,12 @@ mod test {
         let value = poly.evaluate(&point);
 
         // Evaluation form
-        let evaluations = Evaluations::from_vec_and_domain(domain.fft(&poly.coeffs), domain);
+        let evaluations = domain.fft(&poly.coeffs);
 
-        assert_eq!(evaluations.evals[index], value);
+        assert_eq!(evaluations[index], value);
 
         let proof_l = lagrange_proving_key
-            .open_single_lagrange(&evaluations, None, &value, &point)
+            .open_single_lagrange(evaluations, None, &value, &point)
             .unwrap();
         let proof_c = coeff_proving_key
             .open_single(&poly, None, &value, &point)
@@ -163,12 +165,11 @@ mod test {
         let expected_witness = proving_key.compute_single_witness(&poly, &point);
 
         // eval form
-        let evaluations = Evaluations::from_vec_and_domain(domain.fft(&poly.coeffs), domain);
-        let lagrange_poly = LagrangeBasis::<Bls12_381>::from(evaluations);
+        let evaluations = domain.fft(&poly.coeffs);
         let inv = CommitKeyLagrange::<Bls12_381>::compute_inv(&domain_elements);
-        let got_witness_lagrange = LagrangeBasis::divide_by_linear_vanishing(
+        let got_witness_lagrange = LagrangeBasis::<Bls12_381>::divide_by_linear_vanishing(
             index,
-            &lagrange_poly,
+            &evaluations,
             &inv,
             &domain_elements,
         );
@@ -190,21 +191,21 @@ mod test {
         let point_b = domain.element(index_b);
 
         let poly_a = Polynomial::rand(degree, &mut OsRng);
-        let evaluations_a = Evaluations::from_vec_and_domain(domain.fft(&poly_a), domain);
+        let evaluations_a = domain.fft(&poly_a);
 
         let value_a = poly_a.evaluate(&point_a);
         let commit_poly_a = lagrange_proving_key
-            .commit_lagrange(&evaluations_a.evals)
+            .commit_lagrange(&evaluations_a)
             .unwrap();
         let commit_poly_a_1 = coeff_proving_key.commit(&poly_a).unwrap();
         assert_eq!(commit_poly_a, commit_poly_a_1);
 
         let poly_b = Polynomial::rand(degree, &mut OsRng);
-        let evaluations_b = Evaluations::from_vec_and_domain(domain.fft(&poly_b), domain);
+        let evaluations_b = domain.fft(&poly_b);
 
         let value_b = poly_b.evaluate(&point_b);
         let commit_poly_b = lagrange_proving_key
-            .commit_lagrange(&evaluations_b.evals)
+            .commit_lagrange(&evaluations_b)
             .unwrap();
         let commit_poly_b_1 = coeff_proving_key.commit(&poly_b).unwrap();
         assert_eq!(commit_poly_b, commit_poly_b_1);
@@ -223,7 +224,7 @@ mod test {
         let mut transcript = Transcript::new(b"dankrads_protocol");
         let proof_l = lagrange_proving_key
             .open_multipoint_lagrange(
-                &[evaluations_a, evaluations_b],
+                vec![evaluations_a, evaluations_b],
                 None,
                 &[value_a, value_b],
                 &[point_a, point_b],
@@ -270,25 +271,23 @@ mod test {
         let aggregated_proof = {
             // Compute secret polynomials and their evaluations
             let poly_a = Polynomial::rand(degree, &mut OsRng);
-            let evaluations_a = Evaluations::from_vec_and_domain(domain.fft(&poly_a), domain);
-            let lagrange_poly = LagrangeBasis::<Bls12_381>::from(&evaluations_a);
-            let poly_a_eval = lagrange_poly.0.evals[index];
+            let evaluations_a = domain.fft(&poly_a);
+            let lagrange_poly = LagrangeBasis::<Bls12_381>::from(evaluations_a.clone());
+            let poly_a_eval = lagrange_poly.0[index];
 
             let poly_b = Polynomial::rand(degree, &mut OsRng);
-            let evaluations_b =
-                Evaluations::from_vec_and_domain(domain.fft(&poly_b.coeffs), domain);
-            let lagrange_poly = LagrangeBasis::<Bls12_381>::from(&evaluations_b);
-            let poly_b_eval = lagrange_poly.0.evals[index];
+            let evaluations_b = domain.fft(&poly_b.coeffs);
+            let lagrange_poly = LagrangeBasis::<Bls12_381>::from(evaluations_b.clone());
+            let poly_b_eval = lagrange_poly.0[index];
 
             let poly_c = Polynomial::rand(degree, &mut OsRng);
-            let evaluations_c =
-                Evaluations::from_vec_and_domain(domain.fft(&poly_c.coeffs), domain);
-            let lagrange_poly = LagrangeBasis::<Bls12_381>::from(&evaluations_c);
-            let poly_c_eval = lagrange_poly.0.evals[index];
+            let evaluations_c = domain.fft(&poly_c.coeffs);
+            let lagrange_poly = LagrangeBasis::<Bls12_381>::from(evaluations_c.clone());
+            let poly_c_eval = lagrange_poly.0[index];
 
             let l_proof = lagrange_proving_key
                 .open_multiple_lagrange(
-                    &[evaluations_a, evaluations_b, evaluations_c],
+                    vec![evaluations_a, evaluations_b, evaluations_c],
                     vec![poly_a_eval, poly_b_eval, poly_c_eval],
                     &point,
                     &mut Transcript::new(b"agg_flatten"),
@@ -337,13 +336,13 @@ mod test {
 
         // Compute secret polynomials and their evaluations
         let poly_a = Polynomial::rand(degree, &mut OsRng);
-        let evaluations_a = Evaluations::from_vec_and_domain(domain.fft(&poly_a.coeffs), domain);
+        let evaluations_a = domain.fft(&poly_a.coeffs);
 
         let poly_b = Polynomial::rand(degree, &mut OsRng);
-        let evaluations_b = Evaluations::from_vec_and_domain(domain.fft(&poly_b.coeffs), domain);
+        let evaluations_b = domain.fft(&poly_b.coeffs);
 
         let poly_c = Polynomial::rand(degree, &mut OsRng);
-        let evaluations_c = Evaluations::from_vec_and_domain(domain.fft(&poly_c.coeffs), domain);
+        let evaluations_c = domain.fft(&poly_c.coeffs);
 
         let expected_quotient = coeff_proving_key.compute_aggregate_witness(
             &[poly_a, poly_b, poly_c],
@@ -353,7 +352,7 @@ mod test {
 
         let got_quotient = lagrange_proving_key
             .compute_aggregate_witness_lagrange(
-                &[evaluations_a, evaluations_b, evaluations_c],
+                vec![evaluations_a, evaluations_b, evaluations_c],
                 &point,
                 &mut Transcript::new(b"agg_flatten"),
                 &domain_elements,

@@ -13,7 +13,7 @@ fn main() {
     let verkle_path = trie.create_verkle_path(&Key::one()).unwrap();
 
     println!("creating verkle proof");
-    let verkle_proof = verkle_path.create_proof(&commit_key);
+    let verkle_proof = verkle_path.clone().create_proof(&commit_key);
 
     println!("verifying");
     let ok = verkle_proof.verify(

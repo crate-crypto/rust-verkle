@@ -10,7 +10,7 @@ use ark_poly::GeneralEvaluationDomain;
 impl<E: PairingEngine> CommitKeyLagrange<E> {
     pub fn open_multiple_lagrange(
         &self,
-        polynomials: &[Evaluations<E::Fr>],
+        polynomials: Vec<Vec<E::Fr>>,
         evaluations: Vec<E::Fr>,
         point: &E::Fr,
         transcript: &mut dyn TranscriptProtocol<E>,
@@ -18,10 +18,16 @@ impl<E: PairingEngine> CommitKeyLagrange<E> {
         // Commit to polynomials
         let mut polynomial_commitments = Vec::with_capacity(polynomials.len());
         for poly in polynomials.iter() {
-            polynomial_commitments.push(self.commit_lagrange(&poly.evals)?)
+            polynomial_commitments.push(self.commit_lagrange(&poly)?)
         }
 
-        let domain = polynomials.first().unwrap().domain();
+        let domain = GeneralEvaluationDomain::new(
+            polynomials
+                .first()
+                .expect("expected at least one polynomial")
+                .len(),
+        )
+        .unwrap();
         let domain_elements: Vec<_> = domain.elements().collect();
         // Compute the aggregate witness for polynomials
         let witness_poly = self.compute_aggregate_witness_lagrange(
@@ -32,7 +38,7 @@ impl<E: PairingEngine> CommitKeyLagrange<E> {
         );
 
         // Commit to witness polynomial
-        let witness_commitment = self.commit_lagrange(&witness_poly.0.evals)?;
+        let witness_commitment = self.commit_lagrange(&witness_poly.0)?;
 
         let aggregate_proof = AggregateProof {
             commitment_to_witness: witness_commitment,

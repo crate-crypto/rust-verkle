@@ -14,7 +14,7 @@ use crate::{
 impl<E: PairingEngine, T: TranscriptProtocol<E>> MultiPointProver<E, T> for CommitKeyLagrange<E> {
     fn open_multipoint_lagrange(
         &self,
-        lagrange_polynomials: &[ark_poly::Evaluations<E::Fr>],
+        lagrange_polynomials: Vec<Vec<E::Fr>>,
         poly_commitments: Option<&[Commitment<E>]>,
         evaluations: &[E::Fr],
         points: &[E::Fr], // These will be roots of unity
@@ -22,17 +22,21 @@ impl<E: PairingEngine, T: TranscriptProtocol<E>> MultiPointProver<E, T> for Comm
     ) -> Result<AggregateProofMultiPoint<E>, KZG10Error> {
         let num_polynomials = lagrange_polynomials.len();
 
-        let domain = lagrange_polynomials
-            .first()
-            .expect("expected at least one polynomial")
-            .domain();
+        use ark_poly::GeneralEvaluationDomain;
+        let domain = GeneralEvaluationDomain::new(
+            lagrange_polynomials
+                .first()
+                .expect("expected at least one polynomial")
+                .len(),
+        )
+        .unwrap();
         let domain_size = domain.size();
 
         // Commit to polynomials, if not done so already
         match poly_commitments {
             None => {
                 for poly in lagrange_polynomials.iter() {
-                    let poly_commit = LagrangeCommitter::commit_lagrange(self, &poly.evals)?;
+                    let poly_commit = LagrangeCommitter::commit_lagrange(self, &poly)?;
                     transcript.append_point(b"f_x", &poly_commit.0);
                 }
             }
@@ -62,14 +66,14 @@ impl<E: PairingEngine, T: TranscriptProtocol<E>> MultiPointProver<E, T> for Comm
         let r_i = powers_of::<E::Fr>(&r, num_polynomials - 1);
 
         let each_witness = lagrange_polynomials
-            .into_par_iter()
+            .par_iter()
             .zip(points)
             .zip(evaluations)
             .map(|((poly, point), evaluation)| {
-                let lb = LagrangeBasis::<E>::from(poly).add_scalar(&-*evaluation);
+                let lb = LagrangeBasis::<E>::from(poly.clone()).add_scalar(&-*evaluation);
                 let witness_poly = LagrangeBasis::<E>::divide_by_linear_vanishing_from_point(
                     point,
-                    &lb,
+                    &lb.values(),
                     &inv,
                     &domain_elements,
                 );
@@ -100,7 +104,7 @@ impl<E: PairingEngine, T: TranscriptProtocol<E>> MultiPointProver<E, T> for Comm
             .map(|(r_i, den)| r_i * den);
 
         let h_x: LagrangeBasis<E> = helper_coefficients
-            .zip(lagrange_polynomials.par_iter())
+            .zip(lagrange_polynomials.into_par_iter())
             .map(|(helper_scalars, poly)| LagrangeBasis::from(poly) * &helper_scalars)
             .fold(|| LagrangeBasis::zero(domain_size), |res, val| res + val)
             .reduce(|| LagrangeBasis::zero(domain_size), |res, val| res + val);
@@ -124,7 +128,7 @@ impl<E: PairingEngine, T: TranscriptProtocol<E>> MultiPointProver<E, T> for Comm
         let sum_quotient = d_comm;
         let helper_evaluation = h_t;
         let aggregated_witness_poly = self.compute_aggregate_witness_lagrange(
-            &[h_x.0, g_x.0],
+            vec![h_x.0, g_x.0],
             &t,
             transcript,
             &domain_elements,
