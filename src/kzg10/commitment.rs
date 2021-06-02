@@ -52,3 +52,11 @@ impl Commitment<Bls12_381> {
         serialize_g1(&self.0)
     }
 }
+
+impl<E: PairingEngine> std::ops::Add for Commitment<E> {
+    type Output = Commitment<E>;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        Commitment(self.0 + rhs.0)
+    }
+}

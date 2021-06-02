@@ -38,14 +38,19 @@ impl<E: PairingEngine> LagrangeCommitter<E> for PrecomputeLagrange<E> {
         lagrange_index: usize,
     ) -> Result<Commitment<E>, KZG10Error> {
         let table = &self.inner[lagrange_index];
-
+        use rayon::prelude::*;
         let mut result = E::G1Projective::default();
 
         let bytes = ark_ff::to_bytes!(value).unwrap();
-        for (row, byte) in bytes.into_iter().enumerate() {
-            let point = table.point(row, byte);
-            result += E::G1Projective::from(*point);
-        }
+
+        let result: E::G1Projective = bytes
+            .into_iter()
+            .enumerate()
+            .map(|(row, byte)| {
+                let point = table.point(row, byte);
+                E::G1Projective::from(*point)
+            })
+            .sum();
         Ok(Commitment::from_projective(result))
     }
 }

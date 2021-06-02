@@ -28,11 +28,15 @@ impl<E: PairingEngine> LagrangeCommitter<E> for CommitKey<E> {
 
     fn commit_lagrange_single(
         &self,
-        _value: E::Fr,
-        _lagrange_index: usize,
+        value: E::Fr,
+        lagrange_index: usize,
     ) -> Result<Commitment<E>, KZG10Error> {
-        // Not quite important to implement this
-        todo!()
+        use ark_ec::{AffineCurve, ProjectiveCurve};
+
+        let l_i = self.powers_of_g[lagrange_index];
+        let res = l_i.mul(value);
+        let comm = Commitment::<E>::from_projective(res);
+        Ok(comm)
     }
 }
 

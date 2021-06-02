@@ -67,13 +67,11 @@ impl<'a> VerkleTrait for VerkleTrie<'a> {
     }
 
     fn compute_root(&mut self) -> VerkleCommitment {
-        commitment(
-            self.root_index,
-            self.width,
-            &mut self.data_indexer,
-            &self.child_map,
-            self.ck,
-        )
+        self.data_indexer
+            .get(self.root_index)
+            .as_internal()
+            .commitment
+            .unwrap_or_default()
     }
 
     fn create_verkle_path(&mut self, key: &Key) -> Result<VerklePath, NodeError> {
