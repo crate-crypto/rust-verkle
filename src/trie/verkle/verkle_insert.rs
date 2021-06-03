@@ -12,7 +12,7 @@ use crate::trie::{
 
 impl<'a> VerkleTrie<'a> {
     pub fn _insert(&mut self, key: Key, value: Value) {
-        let instructions = VerkleTrie::find_insert_position(
+        let (instructions, update_comm_instrs) = VerkleTrie::find_insert_position(
             self.root_index,
             self.width,
             &self.child_map,
@@ -21,72 +21,47 @@ impl<'a> VerkleTrie<'a> {
             value,
         );
         self.process_instructions(instructions);
+
+        for instr in update_comm_instrs.into_iter().rev() {
+            let pointer = instr.pointer;
+            let old_value = instr.old_value;
+            let lagrange_index = instr.lagrange_index;
+
+            let child_data_index = self.child_map.child(pointer, lagrange_index).unwrap();
+            let child = self.data_indexer.get(child_data_index);
+            let new_value = match child {
+                Node::Internal(internal_node) => {
+                    internal_node.commitment.unwrap().to_hash().to_fr()
+                }
+                Node::Hashed(_) => unreachable!("we don't store these after insertion"),
+                Node::Leaf(leaf) => leaf.hash().to_fr(),
+                Node::Empty => unreachable!("you cannot update to a empty node"),
+            };
+            let delta = new_value - old_value;
+            let updated_comm = self
+                .ck
+                .commit_lagrange_single(delta, lagrange_index)
+                .unwrap();
+
+            let internal_node = self.data_indexer.get_mut(pointer).as_mut_internal();
+            let old_comm = internal_node.commitment.unwrap_or_default();
+            internal_node.commitment = Some(updated_comm + old_comm);
+        }
     }
 }
 
 impl<'a> VerkleTrie<'a> {
     fn process_instructions(&mut self, instructions: Vec<Ins>) {
-        // Split the instructions.
-        // We want to process the commitment update instructions separately
-        let (update_comm_instrs, other_instrs): (Vec<_>, Vec<_>) =
-            instructions.into_iter().partition(|e| {
-                std::mem::discriminant(e)
-                    == std::mem::discriminant(&Ins::UpdateComm {
-                        pointer: DataIndex::default(),
-                        old_value: Fr::zero(),
-                        lagrange_index: 0,
-                    })
-            });
-
-        for instruction in other_instrs {
+        for instruction in instructions {
             match instruction {
                 Ins::UpdateLeaf(node_index, leaf_node) => {
                     let node = self.data_indexer.get_mut(node_index);
                     *node = Node::Leaf(leaf_node);
                 }
                 Ins::UpdateInternalChild { pointer, data } => {
-                    let internal_node = self.data_indexer.get_mut(pointer).as_mut_internal();
                     self.child_map
                         .add_child(pointer, data.path_index, data.data_index);
                 }
-
-                Ins::UpdateComm {
-                    pointer,
-                    old_value,
-                    lagrange_index,
-                } => unreachable!(),
-            }
-        }
-
-        // Now update all of the commitments
-        for instr in update_comm_instrs.into_iter().rev() {
-            match instr {
-                Ins::UpdateComm {
-                    pointer,
-                    old_value,
-                    lagrange_index,
-                } => {
-                    let child_data_index = self.child_map.child(pointer, lagrange_index).unwrap();
-                    let child = self.data_indexer.get(child_data_index);
-                    let new_value = match child {
-                        Node::Internal(internal_node) => {
-                            internal_node.commitment.unwrap().to_hash().to_fr()
-                        }
-                        Node::Hashed(_) => unreachable!("we don't store these after insertion"),
-                        Node::Leaf(leaf) => leaf.hash().to_fr(),
-                        Node::Empty => unreachable!("you cannot update to a empty node"),
-                    };
-                    let delta = new_value - old_value;
-                    let updated_comm = self
-                        .ck
-                        .commit_lagrange_single(delta, lagrange_index)
-                        .unwrap();
-
-                    let internal_node = self.data_indexer.get_mut(pointer).as_mut_internal();
-                    let old_comm = internal_node.commitment.unwrap_or_default();
-                    internal_node.commitment = Some(updated_comm + old_comm);
-                }
-                _ => unreachable!(),
             }
         }
     }
@@ -105,19 +80,17 @@ pub enum Ins {
     // and what data we should update the leaf with
     UpdateLeaf(DataIndex, LeafNode),
     // Instruction to update an internal node
-    UpdateInternalChild {
-        pointer: DataIndex,
-        data: ChildData,
-    },
-    UpdateComm {
-        // This is the parent node that we are updating. It will always be a branch node
-        pointer: DataIndex,
-        // This is the value of the child node, before the update was ran
-        old_value: Fr,
-        // This is the child index, which we will use to figure out which lagrange coefficient to use
-        lagrange_index: usize,
-        // The child_data_index can be derived from the pointer and the child index
-    },
+    UpdateInternalChild { pointer: DataIndex, data: ChildData },
+}
+
+pub struct UpdateComm {
+    // This is the parent node that we are updating. It will always be a branch node
+    pointer: DataIndex,
+    // This is the value of the child node, before the update was ran
+    old_value: Fr,
+    // This is the child index, which we will use to figure out which lagrange coefficient to use
+    lagrange_index: usize,
+    // The child_data_index can be derived from the pointer and the child index
 }
 
 impl<'a> VerkleTrie<'a> {
@@ -129,13 +102,14 @@ impl<'a> VerkleTrie<'a> {
         data_indexer: &mut NodeSlotMap,
         key: Key,
         value: Value,
-    ) -> Vec<Ins> {
+    ) -> (Vec<Ins>, Vec<UpdateComm>) {
         let leaf_node = LeafNode { key, value };
 
         let mut path_indices = key.path_indices(width);
         let mut paths_passed = 0; // XXX: When we use for loops, this can be replaced with enumerate
 
         let mut instructions = Vec::new();
+        let mut comm_update_instructions = Vec::new();
 
         let mut current_node_index = root_index;
 
@@ -162,14 +136,14 @@ impl<'a> VerkleTrie<'a> {
                     instructions.push(inst);
 
                     // Add the update commitment instruction
-                    let inst = Ins::UpdateComm {
+                    let inst = UpdateComm {
                         pointer: current_node_index,
                         old_value: Fr::zero(),
                         lagrange_index: index,
                     };
-                    instructions.push(inst);
+                    comm_update_instructions.push(inst);
 
-                    return instructions;
+                    return (instructions, comm_update_instructions);
                 }
             };
 
@@ -185,12 +159,12 @@ impl<'a> VerkleTrie<'a> {
             if let Node::Internal(internal) = child {
                 let old_value = internal.commitment.unwrap_or_default().to_hash().to_fr();
 
-                let inst = Ins::UpdateComm {
+                let inst = UpdateComm {
                     pointer: current_node_index,
                     old_value,
                     lagrange_index: index,
                 };
-                instructions.push(inst);
+                comm_update_instructions.push(inst);
 
                 // XXX; we will add an update commitment instruction
                 current_node_index = child_data_index;
@@ -204,12 +178,12 @@ impl<'a> VerkleTrie<'a> {
                 let instr = Ins::UpdateLeaf(child_data_index, leaf_node);
                 instructions.push(instr);
 
-                let inst = Ins::UpdateComm {
+                let inst = UpdateComm {
                     pointer: current_node_index,
                     old_value: leaf.hash().to_fr(),
                     lagrange_index: index,
                 };
-                instructions.push(inst);
+                comm_update_instructions.push(inst);
 
                 break;
             }
@@ -246,12 +220,12 @@ impl<'a> VerkleTrie<'a> {
             };
             instructions.push(inst);
 
-            let inst = Ins::UpdateComm {
+            let inst = UpdateComm {
                 pointer: current_node_index,
                 old_value: leaf.hash().to_fr(),
                 lagrange_index: index,
             };
-            instructions.push(inst);
+            comm_update_instructions.push(inst);
 
             current_node_index = node_index;
             for path in relative_shared_path {
@@ -270,12 +244,12 @@ impl<'a> VerkleTrie<'a> {
                 };
                 instructions.push(inst);
 
-                let inst = Ins::UpdateComm {
+                let inst = UpdateComm {
                     pointer: current_node_index,
                     old_value: Fr::zero(),
                     lagrange_index: *path,
                 };
-                instructions.push(inst);
+                comm_update_instructions.push(inst);
                 current_node_index = node_index;
             }
 
@@ -299,22 +273,22 @@ impl<'a> VerkleTrie<'a> {
             };
             instructions.push(inst);
 
-            let inst = Ins::UpdateComm {
+            let inst = UpdateComm {
                 pointer: current_node_index,
                 old_value: Fr::zero(),
                 lagrange_index: p_diff_a,
             };
-            instructions.push(inst);
-            let inst = Ins::UpdateComm {
+            comm_update_instructions.push(inst);
+            let inst = UpdateComm {
                 pointer: current_node_index,
                 old_value: Fr::zero(),
                 lagrange_index: p_diff_b,
             };
-            instructions.push(inst);
+            comm_update_instructions.push(inst);
 
-            return instructions;
+            return (instructions, comm_update_instructions);
         }
 
-        return instructions;
+        return (instructions, comm_update_instructions);
     }
 }
