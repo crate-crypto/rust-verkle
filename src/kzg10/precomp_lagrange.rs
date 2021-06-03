@@ -156,7 +156,12 @@ mod test {
             PrecomputeLagrange::<Bls12_381>::precompute(&srs.commit_key.lagrange_powers_of_g);
         let got_comm = base_points.commit_lagrange(&values).unwrap();
 
-        assert_eq!(expected_comm.0, got_comm.0)
+        assert_eq!(expected_comm.0, got_comm.0);
+
+        let indexed_values: Vec<_> = values.into_iter().enumerate().collect();
+        let got_comm = base_points.commit_lagrange_sparse(&indexed_values).unwrap();
+
+        assert_eq!(expected_comm.0, got_comm.0);
     }
     #[test]
     fn commit_lagrange_single_consistency() {

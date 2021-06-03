@@ -7,7 +7,7 @@ pub mod precomp_lagrange;
 pub mod proof;
 
 use crate::transcript::TranscriptProtocol;
-use ark_ec::PairingEngine;
+use ark_ec::{AffineCurve, PairingEngine};
 use ark_poly::Evaluations;
 // XXX: Remove this later on, we don't want to make the default API be coeff form
 // or create a better namespace for it
@@ -44,4 +44,17 @@ pub trait LagrangeCommitter<E: PairingEngine> {
         value: E::Fr,
         lagrange_index: usize,
     ) -> Result<Commitment<E>, errors::KZG10Error>;
+    fn commit_lagrange_sparse(
+        &self,
+        values: &[(usize, E::Fr)],
+    ) -> Result<Commitment<E>, errors::KZG10Error> {
+        let mut result = E::G1Projective::default();
+        for (lag_index, value) in values {
+            result += self
+                .commit_lagrange_single(*value, *lag_index)?
+                .0
+                .into_projective()
+        }
+        Ok(Commitment::from_projective(result))
+    }
 }
