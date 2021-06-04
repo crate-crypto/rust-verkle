@@ -53,6 +53,28 @@ impl<E: PairingEngine> LagrangeCommitter<E> for PrecomputeLagrange<E> {
             .sum();
         Ok(Commitment::from_projective(result))
     }
+
+    fn commit_lagrange_sparse(
+        &self,
+        values: &[(usize, E::Fr)],
+    ) -> Result<Commitment<E>, KZG10Error> {
+        let mut result = E::G1Projective::default();
+
+        let result: E::G1Projective = values
+            .into_iter()
+            .map(|(lag_index, value)| {
+                let bytes = ark_ff::to_bytes!(value).unwrap();
+                bytes.into_iter().enumerate().map(move |(row, byte)| {
+                    let table = &self.inner[*lag_index];
+                    let point = table.point(row, byte);
+                    E::G1Projective::from(*point)
+                })
+            })
+            .flat_map(|x| x)
+            .sum();
+
+        Ok(Commitment::from_projective(result))
+    }
 }
 
 impl<E: PairingEngine> PrecomputeLagrange<E> {

@@ -56,9 +56,18 @@ impl<'a> VerkleTrait for VerkleTrie<'a> {
     }
 
     fn insert(&mut self, key_values: impl Iterator<Item = (Key, Value)>) -> VerkleCommitment {
+        const AVERAGE_PATH_LENGTH: usize = 4;
+
+        let (_, upper) = key_values.size_hint();
+
+        let mut update_comms = Vec::with_capacity(AVERAGE_PATH_LENGTH * upper.unwrap_or_default());
+
         for kv in key_values {
-            self._insert(kv.0, kv.1);
+            let update_comm_instrs = self._insert(kv.0, kv.1);
+            update_comms.extend(update_comm_instrs)
         }
+        let deduped_comms = self.dedup_comm(update_comms);
+        self.update_comm(deduped_comms);
         self.compute_root()
     }
 

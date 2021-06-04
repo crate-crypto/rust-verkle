@@ -1,4 +1,7 @@
-use std::hint::unreachable_unchecked;
+use std::{
+    collections::{HashMap, HashSet},
+    hint::unreachable_unchecked,
+};
 
 use crate::{hash::Hashable, Key, Value};
 use ark_bls12_381::Fr;
@@ -11,7 +14,7 @@ use crate::trie::{
 };
 
 impl<'a> VerkleTrie<'a> {
-    pub fn _insert(&mut self, key: Key, value: Value) {
+    pub fn _insert(&mut self, key: Key, value: Value) -> Vec<UpdateComm> {
         let (instructions, update_comm_instrs) = VerkleTrie::find_insert_position(
             self.root_index,
             self.width,
@@ -22,26 +25,70 @@ impl<'a> VerkleTrie<'a> {
         );
         self.process_instructions(instructions);
 
-        for instr in update_comm_instrs.into_iter().rev() {
-            let pointer = instr.pointer;
-            let old_value = instr.old_value;
-            let lagrange_index = instr.lagrange_index;
+        update_comm_instrs
+    }
 
-            let child_data_index = self.child_map.child(pointer, lagrange_index).unwrap();
-            let child = self.data_indexer.get(child_data_index);
-            let new_value = match child {
-                Node::Internal(internal_node) => {
-                    internal_node.commitment.unwrap().to_hash().to_fr()
-                }
-                Node::Hashed(_) => unreachable!("we don't store these after insertion"),
-                Node::Leaf(leaf) => leaf.hash().to_fr(),
-                Node::Empty => unreachable!("you cannot update to a empty node"),
-            };
-            let delta = new_value - old_value;
-            let updated_comm = self
-                .ck
-                .commit_lagrange_single(delta, lagrange_index)
-                .unwrap();
+    // Deduplicates the update commitment:
+    // - If an update commitment has the same pointer and lagrange index,
+    // then we keep the first one and remove the subsequent ones
+    pub fn dedup_comm(&mut self, old_comms: Vec<UpdateComm>) -> Vec<UpdateComm> {
+        let mut dedup_comms = Vec::with_capacity(old_comms.len());
+
+        // Set to keep track of unique
+        let mut unique_ = HashSet::with_capacity(old_comms.len());
+
+        for update_comm in old_comms {
+            if unique_.contains(&update_comm) {
+                continue;
+            } else {
+                dedup_comms.push(update_comm);
+                unique_.insert(update_comm);
+            }
+        }
+
+        dedup_comms
+    }
+
+    pub fn update_comm(&mut self, ins: Vec<UpdateComm>) {
+        // First group all of the commitments by the same pointer/branch node
+        // so that we update that nodes commitment at once
+
+        use itertools::Itertools;
+        let mut grouped_updates: Vec<(DataIndex, Vec<UpdateComm>)> = ins
+            .into_iter()
+            .into_group_map_by(|x| x.pointer)
+            .into_iter()
+            .collect();
+
+        // Now sort by depth, with the lowest depth first.
+        // We will iterate from the highest depth by just reversing it in the for loop
+        grouped_updates.sort_by(|x, y| x.1[0].depth.cmp(&y.1[0].depth));
+
+        for (pointer, comms) in grouped_updates.into_iter().rev() {
+            // Compute all of the delta's for each child
+            let deltas: Vec<_> = comms
+                .into_iter()
+                .map(|update_comm| {
+                    let old_value = update_comm.old_value;
+                    let lagrange_index = update_comm.lagrange_index;
+
+                    let child_data_index = self.child_map.child(pointer, lagrange_index).unwrap();
+
+                    let child = self.data_indexer.get(child_data_index);
+                    let new_value = match child {
+                        Node::Internal(internal_node) => {
+                            internal_node.commitment.unwrap().to_hash().to_fr()
+                        }
+                        Node::Hashed(_) => unreachable!("we don't store these after insertion"),
+                        Node::Leaf(leaf) => leaf.hash().to_fr(),
+                        Node::Empty => unreachable!("you cannot update to a empty node"),
+                    };
+                    let delta = new_value - old_value;
+                    (lagrange_index, delta)
+                })
+                .collect_vec();
+
+            let updated_comm = self.ck.commit_lagrange_sparse(&deltas).unwrap();
 
             let internal_node = self.data_indexer.get_mut(pointer).as_mut_internal();
             let old_comm = internal_node.commitment.unwrap_or_default();
@@ -83,6 +130,7 @@ pub enum Ins {
     UpdateInternalChild { pointer: DataIndex, data: ChildData },
 }
 
+#[derive(Debug, Copy, Clone)]
 pub struct UpdateComm {
     // This is the parent node that we are updating. It will always be a branch node
     pointer: DataIndex,
@@ -91,6 +139,21 @@ pub struct UpdateComm {
     // This is the child index, which we will use to figure out which lagrange coefficient to use
     lagrange_index: usize,
     // The child_data_index can be derived from the pointer and the child index
+    depth: usize,
+}
+
+impl PartialEq for UpdateComm {
+    fn eq(&self, other: &Self) -> bool {
+        self.pointer.eq(&other.pointer) & self.lagrange_index.eq(&other.lagrange_index)
+    }
+}
+impl Eq for UpdateComm {}
+
+impl std::hash::Hash for UpdateComm {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.pointer.hash(state);
+        self.lagrange_index.hash(state);
+    }
 }
 
 impl<'a> VerkleTrie<'a> {
@@ -140,6 +203,7 @@ impl<'a> VerkleTrie<'a> {
                         pointer: current_node_index,
                         old_value: Fr::zero(),
                         lagrange_index: index,
+                        depth: paths_passed,
                     };
                     comm_update_instructions.push(inst);
 
@@ -163,6 +227,7 @@ impl<'a> VerkleTrie<'a> {
                     pointer: current_node_index,
                     old_value,
                     lagrange_index: index,
+                    depth: paths_passed,
                 };
                 comm_update_instructions.push(inst);
 
@@ -182,6 +247,7 @@ impl<'a> VerkleTrie<'a> {
                     pointer: current_node_index,
                     old_value: leaf.hash().to_fr(),
                     lagrange_index: index,
+                    depth: paths_passed,
                 };
                 comm_update_instructions.push(inst);
 
@@ -196,8 +262,6 @@ impl<'a> VerkleTrie<'a> {
             // path_difference returns all shared_paths.
             // Even shared paths before the current internal node.
             // Lets remove all of those paths
-            // let pos_of_first_path = shared_path.iter().position(|&pth| pth == index).unwrap();
-            // let relative_shared_path = &shared_path[(pos_of_first_path + 1)..];
             let relative_shared_path = &shared_path[paths_passed..];
 
             // p_diff_a and p_diff_b tell us the first path index that these paths disagree
@@ -224,11 +288,12 @@ impl<'a> VerkleTrie<'a> {
                 pointer: current_node_index,
                 old_value: leaf.hash().to_fr(),
                 lagrange_index: index,
+                depth: paths_passed,
             };
             comm_update_instructions.push(inst);
 
             current_node_index = node_index;
-            for path in relative_shared_path {
+            for (offset, path) in relative_shared_path.iter().enumerate() {
                 // create a new branch node and add it to the arena
                 let new_inner_node = InternalNode::new();
                 let node_index = data_indexer.index(Node::Internal(new_inner_node));
@@ -248,6 +313,7 @@ impl<'a> VerkleTrie<'a> {
                     pointer: current_node_index,
                     old_value: Fr::zero(),
                     lagrange_index: *path,
+                    depth: paths_passed + offset + 1, // XXX: plus one because enumerate starts at 0
                 };
                 comm_update_instructions.push(inst);
                 current_node_index = node_index;
@@ -277,12 +343,14 @@ impl<'a> VerkleTrie<'a> {
                 pointer: current_node_index,
                 old_value: Fr::zero(),
                 lagrange_index: p_diff_a,
+                depth: paths_passed + relative_shared_path.len() + 1,
             };
             comm_update_instructions.push(inst);
             let inst = UpdateComm {
                 pointer: current_node_index,
                 old_value: Fr::zero(),
                 lagrange_index: p_diff_b,
+                depth: paths_passed + relative_shared_path.len() + 1,
             };
             comm_update_instructions.push(inst);
 
