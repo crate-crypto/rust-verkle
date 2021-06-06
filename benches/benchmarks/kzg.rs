@@ -21,7 +21,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
     let domain: GeneralEvaluationDomain<Fr> = GeneralEvaluationDomain::new(degree).unwrap();
 
     let mut group = c.benchmark_group("kzg prove");
-    for num_polys in (1_000..=30_000).step_by(1_000) {
+    for num_polys in (10_000..=40_000).step_by(10_000) {
         let mut polys = Vec::with_capacity(num_polys);
         for _ in 0..num_polys {
             let poly_a = Polynomial::rand(degree, &mut rand_core::OsRng);
