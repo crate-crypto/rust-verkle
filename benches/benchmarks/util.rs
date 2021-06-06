@@ -1,4 +1,6 @@
-use ark_bls12_381::Bls12_381;
+use ark_bls12_381::{Bls12_381, Fr};
+use ark_ff::UniformRand;
+use ark_poly::univariate::DensePolynomial;
 use sha2::Digest;
 
 use once_cell::sync::Lazy;
