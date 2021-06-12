@@ -10,6 +10,7 @@ use crate::{
     transcript::TranscriptProtocol,
     util::powers_of,
 };
+use ark_std::{end_timer, start_timer};
 
 impl<E: PairingEngine, T: TranscriptProtocol<E>> MultiPointProver<E, T> for CommitKeyLagrange<E> {
     fn open_multipoint_lagrange(
@@ -28,6 +29,7 @@ impl<E: PairingEngine, T: TranscriptProtocol<E>> MultiPointProver<E, T> for Comm
             .domain();
         let domain_size = domain.size();
 
+        let f_x_trans = start_timer!(|| "transcript : each [f_x]");
         // Commit to polynomials, if not done so already
         match poly_commitments {
             None => {
@@ -42,25 +44,36 @@ impl<E: PairingEngine, T: TranscriptProtocol<E>> MultiPointProver<E, T> for Comm
                 }
             }
         };
+        end_timer!(f_x_trans);
+
+        let points_trans = start_timer!(|| "transcript : points for f_x");
 
         for point in points {
             transcript.append_scalar(b"value", point)
         }
+        end_timer!(points_trans);
 
+        let evals_trans = start_timer!(|| "transcript : evaluations for f_x");
         for point in evaluations {
             transcript.append_scalar(b"eval", point)
         }
+        end_timer!(evals_trans);
 
         // compute the witness for each polynomial at their respective points
+        let inv_comp = start_timer!(|| "compute inverse elements");
         use rayon::prelude::*;
         let domain_elements: Vec<_> = domain.elements().collect();
         let inv = Self::compute_inv(&domain_elements);
+        end_timer!(inv_comp);
 
         // Compute a new polynomial which sums together all of the witnesses for each polynomial
         // aggregate the witness polynomials to form the new polynomial that we want to run KZG10 on
+        let r_power_comp = start_timer!(|| "compute powers of r");
         let r = transcript.challenge_scalar(b"r");
         let r_i = powers_of::<E::Fr>(&r, num_polynomials - 1);
+        end_timer!(r_power_comp);
 
+        let g_x_comp = start_timer!(|| "compute g_x");
         let each_witness = lagrange_polynomials
             .into_par_iter()
             .zip(points)
@@ -81,17 +94,23 @@ impl<E: PairingEngine, T: TranscriptProtocol<E>> MultiPointProver<E, T> for Comm
             .map(|(poly, challenge)| poly * challenge)
             .fold(|| LagrangeBasis::zero(domain_size), |res, val| res + val)
             .reduce(|| LagrangeBasis::zero(domain_size), |res, val| res + val);
+        end_timer!(g_x_comp);
 
+        let g_x_commit_comp = start_timer!(|| "commit g_x");
         // Commit to to this poly_sum witness
         let d_comm = LagrangeCommitter::commit_lagrange(self, g_x.values())?;
+        end_timer!(g_x_commit_comp);
 
+        let r_d_trans = start_timer!(|| "append `r` and `[g(x)]` to transcript");
         transcript.append_scalar(b"r", &r);
         transcript.append_point(b"D", &d_comm.0);
+        end_timer!(r_d_trans);
 
         // Compute new point to evaluate g_x at
         let t = transcript.challenge_scalar(b"t");
         // compute the helper polynomial which will help the verifier compute g(t)
         //
+        let h_x_comp = start_timer!(|| "compute h(x)");
         let mut denominator: Vec<_> = points.par_iter().map(|z_i| t - z_i).collect();
         ark_ff::batch_inversion(&mut denominator);
         let helper_coefficients = r_i
@@ -104,23 +123,31 @@ impl<E: PairingEngine, T: TranscriptProtocol<E>> MultiPointProver<E, T> for Comm
             .map(|(helper_scalars, poly)| LagrangeBasis::from(poly) * &helper_scalars)
             .fold(|| LagrangeBasis::zero(domain_size), |res, val| res + val)
             .reduce(|| LagrangeBasis::zero(domain_size), |res, val| res + val);
+        end_timer!(h_x_comp);
 
         // XXX: The prover only computes the commitment to add it to the transcript
         // Can we remove this, and say that since h_t is added to the transcript
         // then this is fine?
-        let E = LagrangeCommitter::commit_lagrange(self, &h_x.values())?;
+        let h_x_comp = start_timer!(|| "commit h(x)");
 
+        let E = LagrangeCommitter::commit_lagrange(self, &h_x.values())?;
+        end_timer!(h_x_comp);
         // Evaluate both polynomials at the point `t`
+        let g_t_h_t_comp = start_timer!(|| "compute h(t) and g(t)");
         let h_t = h_x.evaluate_point_outside_domain(&t);
         let g_t = g_x.evaluate_point_outside_domain(&t);
+        end_timer!(g_t_h_t_comp);
 
         // We can now aggregate both proofs into an aggregate proof
 
+        let bunch_trans = start_timer!(|| "transcript: h(t), g(t), [g_x], [h_x]");
         transcript.append_point(b"E", &E.0);
         transcript.append_point(b"d_comm", &d_comm.0);
         transcript.append_scalar(b"h_t", &h_t);
         transcript.append_scalar(b"g_t", &g_t);
+        end_timer!(bunch_trans);
 
+        let agg_time = start_timer!(|| "h(x) + q * g(x)");
         let sum_quotient = d_comm;
         let helper_evaluation = h_t;
         let aggregated_witness_poly = self.compute_aggregate_witness_lagrange(
@@ -129,8 +156,12 @@ impl<E: PairingEngine, T: TranscriptProtocol<E>> MultiPointProver<E, T> for Comm
             transcript,
             &domain_elements,
         );
+        end_timer!(agg_time);
+
+        let agg_comm_time = start_timer!(|| "[h(x) + q * g(x)]");
         let aggregated_witness =
             LagrangeCommitter::commit_lagrange(self, &aggregated_witness_poly.values())?;
+        end_timer!(agg_comm_time);
 
         Ok(AggregateProofMultiPoint {
             sum_quotient,
