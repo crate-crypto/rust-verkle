@@ -1,27 +1,56 @@
+use ark_bls12_381::Bls12_381;
+use ark_bls12_381::Fr;
+use ark_ff::PrimeField;
+use ark_ff::UniformRand;
+use ark_poly::EvaluationDomain;
+use ark_poly::UVPolynomial;
+use ark_poly::{univariate::DensePolynomial as Polynomial, Evaluations, GeneralEvaluationDomain};
+use ark_std::{end_timer, start_timer};
+use rand_core::OsRng;
+use verkle_trie::kzg10::Commitment;
+use verkle_trie::kzg10::MultiPointProver;
+use verkle_trie::transcript::BasicTranscript;
 use verkle_trie::{dummy_setup, Key, Value, VerkleTrait, VerkleTrie};
 fn main() {
-    println!("creating trusted setup");
-    let (commit_key, opening_key) = dummy_setup(10);
+    let (commit_key, _) = dummy_setup(10);
 
-    let mut trie = VerkleTrie::new(10, &commit_key);
+    let num_polys = 10_000;
+    let degree = 1023;
+    let domain: GeneralEvaluationDomain<Fr> = GeneralEvaluationDomain::new(degree).unwrap();
 
-    println!("creating inserting values");
-    trie.insert_single(Key::one(), Value::one());
-    trie.insert_single(Key::from_arr([1; 32]), Value::one());
+    let mut polys = Vec::with_capacity(num_polys);
+    let poly_a = Polynomial::rand(degree, &mut rand_core::OsRng);
+    let evaluations = Evaluations::from_vec_and_domain(domain.fft(&poly_a), domain);
+    for _ in 0..num_polys {
+        polys.push(evaluations.clone());
+    }
 
-    println!("creating verkle path");
-    let verkle_path = trie.create_verkle_path(&Key::one()).unwrap();
+    let mut points = Vec::with_capacity(num_polys);
+    for i in 0..num_polys {
+        points.push(domain.element(i));
+    }
 
-    println!("creating verkle proof");
-    let verkle_proof = verkle_path.create_proof(&commit_key);
+    let mut evaluations = Vec::with_capacity(num_polys);
+    let eval = Fr::rand(&mut OsRng);
+    for _ in 0..num_polys {
+        evaluations.push(eval.clone());
+    }
 
-    println!("verifying");
-    let ok = verkle_proof.verify(
-        &opening_key,
-        &verkle_path.commitments,
-        &verkle_path.omega_path_indices,
-        &verkle_path.node_roots,
-    );
-
-    println!("proof validity: {}", ok);
+    let mut commitments = Vec::with_capacity(num_polys);
+    let com = Commitment::<Bls12_381>::mul_generator(Fr::rand(&mut OsRng));
+    for _ in 0..num_polys {
+        commitments.push(com.clone());
+    }
+    let mut transcript = BasicTranscript::new(b"foo");
+    let s = start_timer!(|| "start prove");
+    commit_key
+        .open_multipoint_lagrange(
+            &polys,
+            Some(&commitments),
+            &evaluations,
+            &points,
+            &mut transcript,
+        )
+        .unwrap();
+    end_timer!(s)
 }
