@@ -88,20 +88,41 @@ impl<E: PairingEngine> LagrangeBasis<E> {
         domain_elements: &[E::Fr],
     ) -> Vec<E::Fr> {
         let domain_size = domain_elements.len();
+        assert!(index < domain_size);
 
         let y = f_x[index];
         let mut q = vec![E::Fr::zero(); domain_size];
+        let mut q_index = E::Fr::zero();
 
-        for i in 0..domain_size {
-            if i != index {
-                let quot_i = (f_x[i] - y)
-                    * domain_elements[(domain_size - i) % domain_size]
-                    * inv[index.wrapping_sub(i).rem_euclid(domain_size)];
-                q[i] = quot_i;
-                q[index] +=
-                    -domain_elements[(i.wrapping_sub(index)).rem_euclid(domain_size)] * quot_i
-            }
+        let first_segment = 1..index;
+        let second_segment = (index + 1)..domain_size;
+
+        // unroll the case of when i == 0;
+        if 0 != index {
+            q[0] = (f_x[0] - y) * domain_elements[0] * inv[index - 0];
+
+            // (0 - index ) mod domain_size = domain_size - index
+            q_index += -domain_elements[domain_size - index] * q[0]
         }
+
+        // Case for when i < index and i != 0
+        for i in first_segment {
+            assert!(i < index);
+            q[i] = (f_x[i] - y) * domain_elements[domain_size - i] * inv[index - i];
+            // i - index mod domain size = domain_size + (i-index) because i-index is negative
+            q_index += -domain_elements[(domain_size + (i - index))] * q[0]
+        }
+
+        // Case for when i > index and i != 0
+        for i in second_segment {
+            assert!(i > index);
+
+            q[i] =
+                (f_x[i] - y) * domain_elements[domain_size - i] * inv[(domain_size + (index - i))];
+
+            q_index += -domain_elements[i - index] * q[i]
+        }
+        q[index] = q_index;
 
         q
     }
