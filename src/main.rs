@@ -14,7 +14,7 @@ use verkle_trie::{dummy_setup, Key, Value, VerkleTrait, VerkleTrie};
 fn main() {
     let (commit_key, _) = dummy_setup(10);
 
-    let num_polys = 10_000;
+    let num_polys = 20_000;
     let degree = 1023;
     let domain: GeneralEvaluationDomain<Fr> = GeneralEvaluationDomain::new(degree).unwrap();
 

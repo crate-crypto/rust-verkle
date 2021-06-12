@@ -74,11 +74,18 @@ impl<E: PairingEngine, T: TranscriptProtocol<E>> MultiPointProver<E, T> for Comm
         end_timer!(r_power_comp);
 
         let g_x_comp = start_timer!(|| "compute g_x");
-        let each_witness = lagrange_polynomials
+        let each_wit_time = start_timer!(|| "each g_x component");
+        let each_witness: Vec<_> = lagrange_polynomials
             .into_par_iter()
             .zip(points)
             .zip(evaluations)
-            .map(|((poly, point), evaluation)| {
+            .enumerate()
+            .map(|(i, ((poly, point), evaluation))| {
+                let g_x_comp_time = if i == 0 || i == 1 || i == 2 {
+                    Some(start_timer!(|| format!("g_x component : {}", i)))
+                } else {
+                    None
+                };
                 let lb = LagrangeBasis::<E>::from(poly).add_scalar(&-*evaluation);
                 let witness_poly = LagrangeBasis::<E>::divide_by_linear_vanishing_from_point(
                     point,
@@ -86,10 +93,17 @@ impl<E: PairingEngine, T: TranscriptProtocol<E>> MultiPointProver<E, T> for Comm
                     &inv,
                     &domain_elements,
                 );
+                if i == 0 || i == 1 || i == 2 {
+                    let g_x_comp_time = g_x_comp_time.unwrap();
+                    end_timer!(g_x_comp_time);
+                }
                 witness_poly
-            });
+            })
+            .collect();
+        end_timer!(each_wit_time);
 
         let g_x: LagrangeBasis<E> = each_witness
+            .into_par_iter()
             .zip(r_i.par_iter())
             .map(|(poly, challenge)| poly * challenge)
             .fold(|| LagrangeBasis::zero(domain_size), |res, val| res + val)
@@ -147,7 +161,7 @@ impl<E: PairingEngine, T: TranscriptProtocol<E>> MultiPointProver<E, T> for Comm
         transcript.append_scalar(b"g_t", &g_t);
         end_timer!(bunch_trans);
 
-        let agg_time = start_timer!(|| "h(x) + q * g(x)");
+        let agg_time = start_timer!(|| "k(x) = (h(x) + q * g(x)) / X - i");
         let sum_quotient = d_comm;
         let helper_evaluation = h_t;
         let aggregated_witness_poly = self.compute_aggregate_witness_lagrange(
@@ -158,7 +172,7 @@ impl<E: PairingEngine, T: TranscriptProtocol<E>> MultiPointProver<E, T> for Comm
         );
         end_timer!(agg_time);
 
-        let agg_comm_time = start_timer!(|| "[h(x) + q * g(x)]");
+        let agg_comm_time = start_timer!(|| "[k(x)]");
         let aggregated_witness =
             LagrangeCommitter::commit_lagrange(self, &aggregated_witness_poly.values())?;
         end_timer!(agg_comm_time);
