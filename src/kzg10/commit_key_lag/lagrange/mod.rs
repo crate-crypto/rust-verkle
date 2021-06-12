@@ -46,7 +46,6 @@ impl<E: PairingEngine> LagrangeBasis<E> {
     ) -> LagrangeBasis<E> {
         // find index for this point
         let index = domain.iter().position(|f| f == point).unwrap();
-
         LagrangeBasis::<E>::divide_by_linear_vanishing(index, f_x, precomputed_inverses, domain)
     }
     // This function computes f(x) - f(omega^i) / x - omega^i
@@ -66,43 +65,75 @@ impl<E: PairingEngine> LagrangeBasis<E> {
         let domain_size = domain_elements.len();
 
         let y = f_x[index];
+        let mut q = vec![E::Fr::zero(); domain_size];
 
-        let quot_i = f_x.values().into_par_iter().enumerate().map(|(i, elem)| {
-            if i == index {
-                return (i, E::Fr::zero());
+        for i in 0..domain_size {
+            if i != index {
+                let quot_i = (f_x[i] - y)
+                    * domain_elements[(domain_size - i) % domain_size]
+                    * inv[index.wrapping_sub(i).rem_euclid(domain_size)];
+                q[i] = quot_i;
+                q[index] +=
+                    -domain_elements[(i.wrapping_sub(index)).rem_euclid(domain_size)] * quot_i
             }
-
-            let quot_i = (*elem - y)
-                * domain_elements[(domain_size - i) % domain_size]
-                * inv[index.wrapping_sub(i).rem_euclid(domain_size)];
-
-            (i, quot_i)
-        });
-
-        // compute the value at index
-        let quot_index: E::Fr = quot_i
-            .clone()
-            .map(|(i, quot_i)| {
-                if i == index {
-                    return E::Fr::zero();
-                }
-                -domain_elements[(i.wrapping_sub(index)).rem_euclid(domain_size)] * quot_i
-            })
-            .sum();
-
-        let quotient: Vec<_> = quot_i
-            .into_par_iter()
-            .map(|(i, elem)| {
-                if i == index {
-                    return quot_index;
-                }
-                return elem;
-            })
-            .collect();
+        }
 
         let domain = GeneralEvaluationDomain::new(domain_size).unwrap();
-        LagrangeBasis::from(Evaluations::from_vec_and_domain(quotient, domain))
+        let l = LagrangeBasis::<E>::from(Evaluations::from_vec_and_domain(q, domain));
+
+        l
     }
+    // pub fn divide_by_linear_vanishing(
+    //     index: usize,
+    //     f_x: &LagrangeBasis<E>,
+    //     inv: &[E::Fr],
+    //     domain_elements: &[E::Fr],
+    // ) -> LagrangeBasis<E> {
+    //     use rayon::prelude::*;
+
+    //     let domain_size = domain_elements.len();
+
+    //     let y = f_x[index];
+
+    //     let quot_i = f_x.values().into_par_iter().enumerate().map(|(i, elem)| {
+    //         if i == index {
+    //             return (i, E::Fr::zero());
+    //         }
+
+    //         let quot_i = (*elem - y)
+    //             * domain_elements[(domain_size - i) % domain_size]
+    //             * inv[index.wrapping_sub(i).rem_euclid(domain_size)];
+
+    //         (i, quot_i)
+    //     });
+
+    //     // compute the value at index
+    //     let quot_index: E::Fr = quot_i
+    //         .clone()
+    //         .map(|(i, quot_i)| {
+    //             if i == index {
+    //                 return E::Fr::zero();
+    //             }
+    //             -domain_elements[(i.wrapping_sub(index)).rem_euclid(domain_size)] * quot_i
+    //         })
+    //         .sum();
+
+    //     use ark_std::{end_timer, start_timer};
+    //     let s = start_timer!(|| "quot");
+    //     let quotient: Vec<_> = quot_i
+    //         .map(|(i, elem)| {
+    //             if i == index {
+    //                 return quot_index;
+    //             }
+    //             return elem;
+    //         })
+    //         .collect();
+    //     end_timer!(s);
+    //     let domain = GeneralEvaluationDomain::new(domain_size).unwrap();
+    //     let l = LagrangeBasis::from(Evaluations::from_vec_and_domain(quotient, domain));
+
+    //     l
+    // }
 
     pub fn evaluate_point_outside_domain(&self, point: &E::Fr) -> E::Fr {
         let domain = self.0.domain();
