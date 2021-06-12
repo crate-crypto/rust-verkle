@@ -177,24 +177,26 @@ impl<E: PairingEngine, T: TranscriptProtocol<E>> MultiPointProver<E, T> for Comm
         let agg_time = start_timer!(|| "k(x) = (h(x) + q * g(x)) / X - i");
         let sum_quotient = d_comm;
         let helper_evaluation = h_t;
-        // let aggregated_witness_poly = self.compute_aggregate_witness_lagrange(
-        //     &[h_x.0, g_x],
-        //     &t,
-        //     transcript,
-        //     &domain_elements,
-        // );
-        // end_timer!(agg_time);
+        let aggregated_witness_poly = self.compute_aggregate_witness_lagrange(
+            &[
+                h_x.0,
+                ark_poly::Evaluations::from_vec_and_domain(g_x, domain),
+            ],
+            &t,
+            transcript,
+            &domain_elements,
+        );
+        end_timer!(agg_time);
 
-        // let agg_comm_time = start_timer!(|| "[k(x)]");
-        // let aggregated_witness =
-        //     LagrangeCommitter::commit_lagrange(self, &aggregated_witness_poly.values())?;
-        // end_timer!(agg_comm_time);
+        let agg_comm_time = start_timer!(|| "[k(x)]");
+        let aggregated_witness =
+            LagrangeCommitter::commit_lagrange(self, &aggregated_witness_poly)?;
+        end_timer!(agg_comm_time);
 
-        // Ok(AggregateProofMultiPoint {
-        //     sum_quotient,
-        //     helper_evaluation,
-        //     aggregated_witness,
-        // })
-        todo!()
+        Ok(AggregateProofMultiPoint {
+            sum_quotient,
+            helper_evaluation,
+            aggregated_witness,
+        })
     }
 }
