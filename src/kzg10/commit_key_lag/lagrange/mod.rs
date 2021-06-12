@@ -10,6 +10,33 @@ use rayon::prelude::*;
 
 pub struct LagrangeBasis<E: PairingEngine>(pub Evaluations<E::Fr>);
 
+pub fn mul_lagrange_fr<E: PairingEngine>(mut v: Vec<E::Fr>, fr: &E::Fr) -> Vec<E::Fr> {
+    v.par_iter_mut().for_each(|eval| *eval = *eval * *fr);
+
+    v
+}
+pub fn add_lagrange<E: PairingEngine>(mut a: Vec<E::Fr>, b: Vec<E::Fr>) -> Vec<E::Fr> {
+    a.par_iter_mut()
+        .zip(b.into_par_iter())
+        .for_each(|(lhs, rhs)| *lhs = *lhs + rhs);
+
+    a
+}
+
+pub fn eval_t<E: PairingEngine>(
+    v: &[E::Fr],
+    t: &E::Fr,
+    domain: GeneralEvaluationDomain<E::Fr>,
+) -> E::Fr {
+    let lagrange_coeffs = domain.evaluate_all_lagrange_coefficients(*t);
+
+    let mut interpolated_eval = E::Fr::zero();
+    for i in 0..domain.size() {
+        interpolated_eval += lagrange_coeffs[i] * &v[i];
+    }
+    interpolated_eval
+}
+
 impl<E: PairingEngine> LagrangeBasis<E> {
     pub fn interpolate(&self) -> DensePolynomial<E::Fr> {
         self.0.interpolate_by_ref()
@@ -43,7 +70,7 @@ impl<E: PairingEngine> LagrangeBasis<E> {
         f_x: &LagrangeBasis<E>,
         precomputed_inverses: &[E::Fr],
         domain: &[E::Fr],
-    ) -> LagrangeBasis<E> {
+    ) -> Vec<E::Fr> {
         // find index for this point
         let index = domain.iter().position(|f| f == point).unwrap();
         LagrangeBasis::<E>::divide_by_linear_vanishing(index, f_x, precomputed_inverses, domain)
@@ -59,9 +86,7 @@ impl<E: PairingEngine> LagrangeBasis<E> {
         f_x: &LagrangeBasis<E>,
         inv: &[E::Fr],
         domain_elements: &[E::Fr],
-    ) -> LagrangeBasis<E> {
-        use rayon::prelude::*;
-
+    ) -> Vec<E::Fr> {
         let domain_size = domain_elements.len();
 
         let y = f_x[index];
@@ -78,10 +103,7 @@ impl<E: PairingEngine> LagrangeBasis<E> {
             }
         }
 
-        let domain = GeneralEvaluationDomain::new(domain_size).unwrap();
-        let l = LagrangeBasis::<E>::from(Evaluations::from_vec_and_domain(q, domain));
-
-        l
+        q
     }
     // pub fn divide_by_linear_vanishing(
     //     index: usize,

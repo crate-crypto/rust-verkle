@@ -30,7 +30,7 @@ impl<E: PairingEngine> CommitKeyLagrange<E> {
             None => self.commit_lagrange(&polynomial.evals)?,
         };
         Ok(Proof {
-            commitment_to_witness: self.commit_lagrange(&witness_poly.values())?,
+            commitment_to_witness: self.commit_lagrange(&witness_poly)?,
             evaluated_point: *value,
             commitment_to_polynomial: commitment_to_poly,
         })

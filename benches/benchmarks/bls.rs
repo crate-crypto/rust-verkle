@@ -1,11 +1,11 @@
 use ark_bls12_381::Fr;
 use ark_ff::PrimeField;
+use ark_ff::Zero;
 use criterion::{black_box, criterion_group, criterion_main, BatchSize, Criterion};
-
 pub fn criterion_benchmark(c: &mut Criterion) {
     let fr_a = rand_fr(10);
     let fr_b = rand_fr(20);
-    c.bench_function("fr mul", |b| b.iter(|| black_box(fr_a * fr_b)));
+    c.bench_function("fr mul", |b| b.iter(|| black_box(-fr_a)));
 }
 
 fn rand_fr(seed: u64) -> Fr {

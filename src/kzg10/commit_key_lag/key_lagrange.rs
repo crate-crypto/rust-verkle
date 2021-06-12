@@ -11,7 +11,7 @@ impl<E: PairingEngine> CommitKeyLagrange<E> {
         point: &E::Fr,
         transcript: &mut dyn TranscriptProtocol<E>,
         domain_elements: &[E::Fr],
-    ) -> LagrangeBasis<E> {
+    ) -> Vec<E::Fr> {
         let domain_size = domain_elements.len();
 
         let challenge = TranscriptProtocol::<E>::challenge_scalar(transcript, b"aggregate_witness");
@@ -35,7 +35,7 @@ impl<E: PairingEngine> CommitKeyLagrange<E> {
         point: &E::Fr,
         poly: LagrangeBasis<E>,
         domain_elements: &[E::Fr],
-    ) -> LagrangeBasis<E> {
+    ) -> Vec<E::Fr> {
         let domain_size = domain_elements.len();
 
         let index = domain_elements.iter().position(|omega| omega == point);
@@ -52,9 +52,7 @@ impl<E: PairingEngine> CommitKeyLagrange<E> {
                 for i in 0..domain_size {
                     q[i] = (poly.0.evals[i] - value) / (domain_elements[i] - point)
                 }
-                let domain = GeneralEvaluationDomain::new(domain_elements.len()).unwrap();
-                let evaluations = Evaluations::from_vec_and_domain(q, domain);
-                LagrangeBasis::from(evaluations)
+                q
             }
         }
     }

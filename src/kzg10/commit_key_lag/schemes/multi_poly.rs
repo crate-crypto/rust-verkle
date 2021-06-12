@@ -32,7 +32,7 @@ impl<E: PairingEngine> CommitKeyLagrange<E> {
         );
 
         // Commit to witness polynomial
-        let witness_commitment = self.commit_lagrange(&witness_poly.0.evals)?;
+        let witness_commitment = self.commit_lagrange(&witness_poly)?;
 
         let aggregate_proof = AggregateProof {
             commitment_to_witness: witness_commitment,

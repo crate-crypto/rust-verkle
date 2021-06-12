@@ -3,9 +3,10 @@ use ark_poly::EvaluationDomain;
 
 use crate::{
     kzg10::{
-        commit_key_lag::lagrange::LagrangeBasis, errors::KZG10Error,
-        proof::AggregateProofMultiPoint, CommitKeyLagrange, Commitment, LagrangeCommitter,
-        MultiPointProver,
+        commit_key_lag::lagrange::{add_lagrange, eval_t, mul_lagrange_fr, LagrangeBasis},
+        errors::KZG10Error,
+        proof::AggregateProofMultiPoint,
+        CommitKeyLagrange, Commitment, LagrangeCommitter, MultiPointProver,
     },
     transcript::TranscriptProtocol,
     util::powers_of,
@@ -106,18 +107,24 @@ impl<E: PairingEngine, T: TranscriptProtocol<E>> MultiPointProver<E, T> for Comm
             .collect();
 
         end_timer!(each_wit_time);
-
-        let g_x: LagrangeBasis<E> = each_witness
+        use ark_ff::Zero;
+        let g_x: Vec<E::Fr> = each_witness
             .into_par_iter()
             .zip(r_i.par_iter())
-            .map(|(poly, challenge)| poly * challenge)
-            .fold(|| LagrangeBasis::zero(domain_size), |res, val| res + val)
-            .reduce(|| LagrangeBasis::zero(domain_size), |res, val| res + val);
+            .map(|(poly, challenge)| mul_lagrange_fr::<E>(poly, challenge))
+            .fold(
+                || vec![E::Fr::zero(); domain_size],
+                |res, val| add_lagrange::<E>(res, val),
+            )
+            .reduce(
+                || vec![E::Fr::zero(); domain_size],
+                |res, val| add_lagrange::<E>(res, val),
+            );
         end_timer!(g_x_comp);
 
         let g_x_commit_comp = start_timer!(|| "commit g_x");
         // Commit to to this poly_sum witness
-        let d_comm = LagrangeCommitter::commit_lagrange(self, g_x.values())?;
+        let d_comm = LagrangeCommitter::commit_lagrange(self, &g_x)?;
         end_timer!(g_x_commit_comp);
 
         let r_d_trans = start_timer!(|| "append `r` and `[g(x)]` to transcript");
@@ -154,7 +161,8 @@ impl<E: PairingEngine, T: TranscriptProtocol<E>> MultiPointProver<E, T> for Comm
         // Evaluate both polynomials at the point `t`
         let g_t_h_t_comp = start_timer!(|| "compute h(t) and g(t)");
         let h_t = h_x.evaluate_point_outside_domain(&t);
-        let g_t = g_x.evaluate_point_outside_domain(&t);
+        let g_t = eval_t::<E>(&g_x, &t, domain);
+        // g_x.evaluate_point_outside_domain(&t);
         end_timer!(g_t_h_t_comp);
 
         // We can now aggregate both proofs into an aggregate proof
@@ -169,23 +177,24 @@ impl<E: PairingEngine, T: TranscriptProtocol<E>> MultiPointProver<E, T> for Comm
         let agg_time = start_timer!(|| "k(x) = (h(x) + q * g(x)) / X - i");
         let sum_quotient = d_comm;
         let helper_evaluation = h_t;
-        let aggregated_witness_poly = self.compute_aggregate_witness_lagrange(
-            &[h_x.0, g_x.0],
-            &t,
-            transcript,
-            &domain_elements,
-        );
-        end_timer!(agg_time);
+        // let aggregated_witness_poly = self.compute_aggregate_witness_lagrange(
+        //     &[h_x.0, g_x],
+        //     &t,
+        //     transcript,
+        //     &domain_elements,
+        // );
+        // end_timer!(agg_time);
 
-        let agg_comm_time = start_timer!(|| "[k(x)]");
-        let aggregated_witness =
-            LagrangeCommitter::commit_lagrange(self, &aggregated_witness_poly.values())?;
-        end_timer!(agg_comm_time);
+        // let agg_comm_time = start_timer!(|| "[k(x)]");
+        // let aggregated_witness =
+        //     LagrangeCommitter::commit_lagrange(self, &aggregated_witness_poly.values())?;
+        // end_timer!(agg_comm_time);
 
-        Ok(AggregateProofMultiPoint {
-            sum_quotient,
-            helper_evaluation,
-            aggregated_witness,
-        })
+        // Ok(AggregateProofMultiPoint {
+        //     sum_quotient,
+        //     helper_evaluation,
+        //     aggregated_witness,
+        // })
+        todo!()
     }
 }
