@@ -74,7 +74,7 @@ impl<E: PairingEngine, T: TranscriptProtocol<E>> MultiPointProver<E, T> for Comm
         end_timer!(r_power_comp);
 
         let g_x_comp = start_timer!(|| "compute g_x");
-        let each_wit_time = start_timer!(|| "each g_x component");
+        let each_wit_time = start_timer!(|| "compute linear combinations of g_x");
         let lag_len = lagrange_polynomials.len();
         let each_witness: Vec<_> = lagrange_polynomials
             .into_par_iter()
@@ -84,7 +84,7 @@ impl<E: PairingEngine, T: TranscriptProtocol<E>> MultiPointProver<E, T> for Comm
             .map(|(i, ((poly, point), evaluation))| {
                 let g_x_comp_time = if i == 0 || i == 1 || i == 2 {
                     Some(start_timer!(|| format!(
-                        "g_x component : {}/{}",
+                        "lin combination : {}/{}",
                         i, lag_len
                     )))
                 } else {
