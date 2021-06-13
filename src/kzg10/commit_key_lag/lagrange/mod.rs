@@ -71,7 +71,7 @@ impl<E: PairingEngine> LagrangeBasis<E> {
         f_x: &[E::Fr],
         precomputed_inverses: &[E::Fr],
         domain: &[E::Fr],
-    ) -> LagrangeBasis<E> {
+    ) -> Vec<E::Fr> {
         // find index for this point
         let index = domain.iter().position(|f| f == point).unwrap();
 
@@ -88,9 +88,12 @@ impl<E: PairingEngine> LagrangeBasis<E> {
         f_x: &[E::Fr],
         inv: &[E::Fr],
         domain_elements: &[E::Fr],
-    ) -> LagrangeBasis<E> {
+    ) -> Vec<E::Fr> {
         let domain_size = domain_elements.len();
+        let inv_size = inv.len();
+
         assert!(index < domain_size);
+        assert_eq!(inv.len(), domain_size);
 
         let y = f_x[index];
         let mut q = vec![E::Fr::zero(); domain_size];
@@ -128,10 +131,7 @@ impl<E: PairingEngine> LagrangeBasis<E> {
 
         q[index] = q_index;
 
-        let domain = GeneralEvaluationDomain::new(domain_size).unwrap();
-        let l = LagrangeBasis::<E>::from(Evaluations::from_vec_and_domain(q, domain));
-
-        l
+        q
     }
 
     pub fn evaluate_point_outside_domain(&self, point: &E::Fr) -> E::Fr {
