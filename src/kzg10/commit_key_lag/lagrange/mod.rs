@@ -61,47 +61,49 @@ impl<E: PairingEngine> LagrangeBasis<E> {
         inv: &[E::Fr],
         domain_elements: &[E::Fr],
     ) -> LagrangeBasis<E> {
-        use rayon::prelude::*;
-
         let domain_size = domain_elements.len();
+        assert!(index < domain_size);
 
         let y = f_x[index];
+        let mut q = vec![E::Fr::zero(); domain_size];
+        let mut q_index = E::Fr::zero();
 
-        let quot_i = f_x.values().into_par_iter().enumerate().map(|(i, elem)| {
-            if i == index {
-                return (i, E::Fr::zero());
-            }
+        // preconditions:
+        // i = 0
+        if 0 != index {
+            q[0] = (f_x[0] - y) * domain_elements[0] * inv[index];
+            q_index += -domain_elements[domain_size - index] * &q[0]
+        }
 
-            let quot_i = (*elem - y)
-                * domain_elements[(domain_size - i) % domain_size]
+        // preconditions:
+        // i < index
+        // i != 0
+        for i in 1..index {
+            assert!(i < index);
+            assert!(i != 0);
+
+            q[i] = (f_x[i] - y) * domain_elements[domain_size - i] * inv[index - i];
+            q_index += -domain_elements[(i.wrapping_sub(index)).rem_euclid(domain_size)] * &q[i]
+        }
+
+        // preconditions:
+        // i > index
+        // i != 0
+        for i in (index + 1)..domain_size {
+            assert!(i > index);
+            assert!(i != 0);
+            q[i] = (f_x[i] - y)
+                * domain_elements[domain_size - i]
                 * inv[index.wrapping_sub(i).rem_euclid(domain_size)];
+            q_index += -domain_elements[i - index] * &q[i]
+        }
 
-            (i, quot_i)
-        });
-
-        // compute the value at index
-        let quot_index: E::Fr = quot_i
-            .clone()
-            .map(|(i, quot_i)| {
-                if i == index {
-                    return E::Fr::zero();
-                }
-                -domain_elements[(i.wrapping_sub(index)).rem_euclid(domain_size)] * quot_i
-            })
-            .sum();
-
-        let quotient: Vec<_> = quot_i
-            .into_par_iter()
-            .map(|(i, elem)| {
-                if i == index {
-                    return quot_index;
-                }
-                return elem;
-            })
-            .collect();
+        q[index] = q_index;
 
         let domain = GeneralEvaluationDomain::new(domain_size).unwrap();
-        LagrangeBasis::from(Evaluations::from_vec_and_domain(quotient, domain))
+        let l = LagrangeBasis::<E>::from(Evaluations::from_vec_and_domain(q, domain));
+
+        l
     }
 
     pub fn evaluate_point_outside_domain(&self, point: &E::Fr) -> E::Fr {
