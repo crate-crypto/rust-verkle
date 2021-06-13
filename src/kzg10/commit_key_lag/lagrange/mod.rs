@@ -102,31 +102,35 @@ impl<E: PairingEngine> LagrangeBasis<E> {
         // preconditions:
         // i = 0
         if 0 != index {
-            q[0] = (f_x[0] - y) * domain_elements[0] * inv[index];
-            q_index += domain_elements[domain_size - index] * &q[0]
+            unsafe {
+                q[0] = (f_x[0] - y) * domain_elements[0] * inv.get_unchecked(index);
+                q_index += q[0] * domain_elements.get_unchecked(domain_size - index)
+            }
         }
 
         // preconditions:
         // i < index
         // i != 0
         for i in 1..index {
-            assert!(i < index);
-            assert!(i != 0);
-
-            q[i] = (f_x[i] - y) * domain_elements[domain_size - i] * inv[index - i];
-            q_index += domain_elements[(i.wrapping_sub(index)).rem_euclid(domain_size)] * &q[i]
+            unsafe {
+                q[i] = (-y + f_x.get_unchecked(i))
+                    * domain_elements.get_unchecked(domain_size - i)
+                    * inv.get_unchecked(index - i);
+                q_index += q[i]
+                    * domain_elements.get_unchecked((i.wrapping_sub(index)).rem_euclid(domain_size))
+            }
         }
 
         // preconditions:
         // i > index
         // i != 0
         for i in (index + 1)..domain_size {
-            assert!(i > index);
-            assert!(i != 0);
-            q[i] = (f_x[i] - y)
-                * domain_elements[domain_size - i]
-                * inv[index.wrapping_sub(i).rem_euclid(domain_size)];
-            q_index += domain_elements[i - index] * &q[i]
+            unsafe {
+                q[i] = (-y + f_x.get_unchecked(i))
+                    * domain_elements.get_unchecked(domain_size - i)
+                    * inv.get_unchecked(index.wrapping_sub(i).rem_euclid(domain_size));
+                q_index += q[i] * domain_elements.get_unchecked(i - index)
+            }
         }
 
         q[index] = -q_index;
