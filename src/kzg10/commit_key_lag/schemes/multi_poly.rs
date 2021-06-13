@@ -25,14 +25,14 @@ impl<E: PairingEngine> CommitKeyLagrange<E> {
         let domain_elements: Vec<_> = domain.elements().collect();
         // Compute the aggregate witness for polynomials
         let witness_poly = self.compute_aggregate_witness_lagrange(
-            polynomials,
+            polynomials.into_iter().map(|x| x.evals.clone()).collect(),
             point,
             transcript,
             &domain_elements,
         );
 
         // Commit to witness polynomial
-        let witness_commitment = self.commit_lagrange(&witness_poly.0.evals)?;
+        let witness_commitment = self.commit_lagrange(&witness_poly.0)?;
 
         let aggregate_proof = AggregateProof {
             commitment_to_witness: witness_commitment,

@@ -3,9 +3,10 @@ use ark_poly::EvaluationDomain;
 
 use crate::{
     kzg10::{
-        commit_key_lag::lagrange::LagrangeBasis, errors::KZG10Error,
-        proof::AggregateProofMultiPoint, CommitKeyLagrange, Commitment, LagrangeCommitter,
-        MultiPointProver,
+        commit_key_lag::lagrange::{vec_add_scalar, LagrangeBasis},
+        errors::KZG10Error,
+        proof::AggregateProofMultiPoint,
+        CommitKeyLagrange, Commitment, LagrangeCommitter, MultiPointProver,
     },
     transcript::TranscriptProtocol,
     util::powers_of,
@@ -66,10 +67,11 @@ impl<E: PairingEngine, T: TranscriptProtocol<E>> MultiPointProver<E, T> for Comm
             .zip(points)
             .zip(evaluations)
             .map(|((poly, point), evaluation)| {
-                let lb = LagrangeBasis::<E>::from(poly).add_scalar(&-*evaluation);
+                let lb = LagrangeBasis::<E>::from(poly).add_scalar(&evaluation);
+
                 let witness_poly = LagrangeBasis::<E>::divide_by_linear_vanishing_from_point(
                     point,
-                    &lb,
+                    &lb.0,
                     &inv,
                     &domain_elements,
                 );
@@ -124,7 +126,7 @@ impl<E: PairingEngine, T: TranscriptProtocol<E>> MultiPointProver<E, T> for Comm
         let sum_quotient = d_comm;
         let helper_evaluation = h_t;
         let aggregated_witness_poly = self.compute_aggregate_witness_lagrange(
-            &[h_x.0, g_x.0],
+            vec![h_x.0, g_x.0],
             &t,
             transcript,
             &domain_elements,

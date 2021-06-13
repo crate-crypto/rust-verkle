@@ -1,5 +1,5 @@
 use ark_ec::PairingEngine;
-use ark_poly::Evaluations;
+use ark_poly::{Evaluations, GeneralEvaluationDomain};
 
 use crate::kzg10::{
     commit_key_lag::lagrange::LagrangeBasis, errors::KZG10Error, proof::Proof, CommitKeyLagrange,
@@ -15,12 +15,11 @@ impl<E: PairingEngine> CommitKeyLagrange<E> {
         value: &E::Fr,
         point: &E::Fr,
     ) -> Result<Proof<E>, KZG10Error> {
-        let lagrange_poly = LagrangeBasis::<E>::from(polynomial);
-        let domain_elements: Vec<_> = lagrange_poly.domain().elements().collect();
+        let domain_elements: Vec<_> = polynomial.domain().elements().collect();
         let inv = Self::compute_inv(&domain_elements);
-        let witness_poly = LagrangeBasis::divide_by_linear_vanishing_from_point(
+        let witness_poly = LagrangeBasis::<E>::divide_by_linear_vanishing_from_point(
             point,
-            &lagrange_poly,
+            &polynomial.evals,
             &inv,
             &domain_elements,
         );

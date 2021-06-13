@@ -1,5 +1,11 @@
 use super::{lagrange::LagrangeBasis, CommitKeyLagrange};
-use crate::{transcript::TranscriptProtocol, util};
+use crate::{
+    kzg10::commit_key_lag::lagrange::{
+        eval_point_outside_domain, vec_add_scalar, vec_add_vec, vec_mul_scalar,
+    },
+    transcript::TranscriptProtocol,
+    util,
+};
 use ark_ec::PairingEngine;
 use ark_ff::Zero;
 use ark_poly::{EvaluationDomain, Evaluations, GeneralEvaluationDomain};
@@ -7,7 +13,7 @@ use ark_poly::{EvaluationDomain, Evaluations, GeneralEvaluationDomain};
 impl<E: PairingEngine> CommitKeyLagrange<E> {
     pub(crate) fn compute_aggregate_witness_lagrange(
         &self,
-        polynomials: &[Evaluations<E::Fr>],
+        polynomials: Vec<Vec<E::Fr>>,
         point: &E::Fr,
         transcript: &mut dyn TranscriptProtocol<E>,
         domain_elements: &[E::Fr],
@@ -20,12 +26,18 @@ impl<E: PairingEngine> CommitKeyLagrange<E> {
         assert_eq!(powers.len(), polynomials.len());
 
         use rayon::prelude::*;
-        let numerator: LagrangeBasis<E> = polynomials
+        let numerator: Vec<E::Fr> = polynomials
             .into_par_iter()
             .zip(powers.into_par_iter())
-            .map(|(poly, challenge)| LagrangeBasis::from(poly) * &challenge)
-            .fold(|| LagrangeBasis::zero(domain_size), |res, val| res + val)
-            .reduce(|| LagrangeBasis::zero(domain_size), |res, val| res + val);
+            .map(|(poly, challenge)| vec_mul_scalar::<E>(poly, &challenge))
+            .fold(
+                || vec![E::Fr::zero(); domain_size],
+                |res, val| vec_add_vec::<E>(res, val),
+            )
+            .reduce(
+                || vec![E::Fr::zero(); domain_size],
+                |res, val| vec_add_vec::<E>(res, val),
+            );
 
         self.compute_lagrange_quotient(point, numerator, domain_elements)
     }
@@ -33,7 +45,7 @@ impl<E: PairingEngine> CommitKeyLagrange<E> {
     pub(crate) fn compute_lagrange_quotient(
         &self,
         point: &E::Fr,
-        poly: LagrangeBasis<E>,
+        poly: Vec<E::Fr>,
         domain_elements: &[E::Fr],
     ) -> LagrangeBasis<E> {
         let domain_size = domain_elements.len();
@@ -47,10 +59,10 @@ impl<E: PairingEngine> CommitKeyLagrange<E> {
                 LagrangeBasis::divide_by_linear_vanishing(index, &poly, &inv, &domain_elements)
             }
             None => {
-                let value = poly.evaluate_point_outside_domain(point);
+                let value = eval_point_outside_domain::<E>(&poly, point);
                 let mut q = vec![E::Fr::zero(); domain_size];
                 for i in 0..domain_size {
-                    q[i] = (poly.0.evals[i] - value) / (domain_elements[i] - point)
+                    q[i] = (poly[i] - value) / (domain_elements[i] - point)
                 }
                 let domain = GeneralEvaluationDomain::new(domain_elements.len()).unwrap();
                 let evaluations = Evaluations::from_vec_and_domain(q, domain);
@@ -164,9 +176,9 @@ mod test {
 
         // eval form
         let evaluations = Evaluations::from_vec_and_domain(domain.fft(&poly.coeffs), domain);
-        let lagrange_poly = LagrangeBasis::<Bls12_381>::from(evaluations);
+        let lagrange_poly = evaluations.evals.clone();
         let inv = CommitKeyLagrange::<Bls12_381>::compute_inv(&domain_elements);
-        let got_witness_lagrange = LagrangeBasis::divide_by_linear_vanishing(
+        let got_witness_lagrange = LagrangeBasis::<Bls12_381>::divide_by_linear_vanishing(
             index,
             &lagrange_poly,
             &inv,
@@ -272,19 +284,19 @@ mod test {
             let poly_a = Polynomial::rand(degree, &mut OsRng);
             let evaluations_a = Evaluations::from_vec_and_domain(domain.fft(&poly_a), domain);
             let lagrange_poly = LagrangeBasis::<Bls12_381>::from(&evaluations_a);
-            let poly_a_eval = lagrange_poly.0.evals[index];
+            let poly_a_eval = lagrange_poly.0[index];
 
             let poly_b = Polynomial::rand(degree, &mut OsRng);
             let evaluations_b =
                 Evaluations::from_vec_and_domain(domain.fft(&poly_b.coeffs), domain);
             let lagrange_poly = LagrangeBasis::<Bls12_381>::from(&evaluations_b);
-            let poly_b_eval = lagrange_poly.0.evals[index];
+            let poly_b_eval = lagrange_poly.0[index];
 
             let poly_c = Polynomial::rand(degree, &mut OsRng);
             let evaluations_c =
                 Evaluations::from_vec_and_domain(domain.fft(&poly_c.coeffs), domain);
             let lagrange_poly = LagrangeBasis::<Bls12_381>::from(&evaluations_c);
-            let poly_c_eval = lagrange_poly.0.evals[index];
+            let poly_c_eval = lagrange_poly.0[index];
 
             let l_proof = lagrange_proving_key
                 .open_multiple_lagrange(
@@ -353,7 +365,11 @@ mod test {
 
         let got_quotient = lagrange_proving_key
             .compute_aggregate_witness_lagrange(
-                &[evaluations_a, evaluations_b, evaluations_c],
+                vec![
+                    evaluations_a.evals,
+                    evaluations_b.evals,
+                    evaluations_c.evals,
+                ],
                 &point,
                 &mut Transcript::new(b"agg_flatten"),
                 &domain_elements,
