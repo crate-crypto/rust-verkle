@@ -1,6 +1,8 @@
 use crate::{
     kzg10::{
-        commit_key_lag::lagrange::{vec_add_scalar, LagrangeBasis},
+        commit_key_lag::lagrange::{
+            eval_point_outside_domain, vec_add_scalar, vec_add_vec, vec_mul_scalar, LagrangeBasis,
+        },
         errors::KZG10Error,
         proof::AggregateProofMultiPoint,
         CommitKeyLagrange, Commitment, LagrangeCommitter, MultiPointProver,
@@ -105,17 +107,24 @@ impl<E: PairingEngine, T: TranscriptProtocol<E>> MultiPointProver<E, T> for Comm
             .collect();
         end_timer!(each_wit_time);
 
-        let g_x: LagrangeBasis<E> = each_witness
+        use ark_ff::Zero;
+        let g_x: Vec<E::Fr> = each_witness
             .into_par_iter()
             .zip(r_i.par_iter())
-            .map(|(poly, challenge)| poly * challenge)
-            .fold(|| LagrangeBasis::zero(domain_size), |res, val| res + val)
-            .reduce(|| LagrangeBasis::zero(domain_size), |res, val| res + val);
+            .map(|(poly, challenge)| vec_mul_scalar::<E>(poly, challenge))
+            .fold(
+                || vec![E::Fr::zero(); domain_size],
+                |res, val| vec_add_vec::<E>(res, val),
+            )
+            .reduce(
+                || vec![E::Fr::zero(); domain_size],
+                |res, val| vec_add_vec::<E>(res, val),
+            );
         end_timer!(g_x_comp);
 
         let g_x_commit_comp = start_timer!(|| "commit g_x");
         // Commit to to this poly_sum witness
-        let d_comm = LagrangeCommitter::commit_lagrange(self, g_x.values())?;
+        let d_comm = LagrangeCommitter::commit_lagrange(self, &g_x)?;
         end_timer!(g_x_commit_comp);
 
         let r_d_trans = start_timer!(|| " transcript : `r` and `[g(x)]`");
@@ -135,24 +144,30 @@ impl<E: PairingEngine, T: TranscriptProtocol<E>> MultiPointProver<E, T> for Comm
             .zip(denominator)
             .map(|(r_i, den)| r_i * den);
 
-        let h_x: LagrangeBasis<E> = helper_coefficients
+        let h_x: Vec<E::Fr> = helper_coefficients
             .zip(lagrange_polynomials.par_iter())
-            .map(|(helper_scalars, poly)| LagrangeBasis::from(poly) * &helper_scalars)
-            .fold(|| LagrangeBasis::zero(domain_size), |res, val| res + val)
-            .reduce(|| LagrangeBasis::zero(domain_size), |res, val| res + val);
+            .map(|(helper_scalars, poly)| (LagrangeBasis::<E>::from(poly) * &helper_scalars).0)
+            .fold(
+                || vec![E::Fr::zero(); domain_size],
+                |res, val| vec_add_vec::<E>(res, val),
+            )
+            .reduce(
+                || vec![E::Fr::zero(); domain_size],
+                |res, val| vec_add_vec::<E>(res, val),
+            );
         end_timer!(h_x_comp);
         // XXX: The prover only computes the commitment to add it to the transcript
         // Can we remove this, and say that since h_t is added to the transcript
         // then this is fine?
         let h_x_comp = start_timer!(|| "commit h(x)");
 
-        let E = LagrangeCommitter::commit_lagrange(self, &h_x.values())?;
+        let E = LagrangeCommitter::commit_lagrange(self, &h_x)?;
         end_timer!(h_x_comp);
 
         let g_t_h_t_comp = start_timer!(|| "compute h(t) and g(t)");
         // Evaluate both polynomials at the point `t`
-        let h_t = h_x.evaluate_point_outside_domain(&t);
-        let g_t = g_x.evaluate_point_outside_domain(&t);
+        let h_t = eval_point_outside_domain::<E>(&h_x, &t);
+        let g_t = eval_point_outside_domain::<E>(&g_x, &t);
         end_timer!(g_t_h_t_comp);
         // We can now aggregate both proofs into an aggregate proof
 
@@ -167,7 +182,7 @@ impl<E: PairingEngine, T: TranscriptProtocol<E>> MultiPointProver<E, T> for Comm
         let sum_quotient = d_comm;
         let helper_evaluation = h_t;
         let aggregated_witness_poly = self.compute_aggregate_witness_lagrange(
-            vec![h_x.0, g_x.0],
+            vec![h_x, g_x],
             &t,
             transcript,
             &domain_elements,
@@ -176,7 +191,7 @@ impl<E: PairingEngine, T: TranscriptProtocol<E>> MultiPointProver<E, T> for Comm
 
         let agg_comm_time = start_timer!(|| "[k(x)]");
         let aggregated_witness =
-            LagrangeCommitter::commit_lagrange(self, &aggregated_witness_poly.values())?;
+            LagrangeCommitter::commit_lagrange(self, &aggregated_witness_poly)?;
         end_timer!(agg_comm_time);
         Ok(AggregateProofMultiPoint {
             sum_quotient,
