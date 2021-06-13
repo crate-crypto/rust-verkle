@@ -92,7 +92,7 @@ impl<E: PairingEngine, T: TranscriptProtocol<E>> MultiPointProver<E, T> for Comm
 
                 let witness_poly = LagrangeBasis::<E>::divide_by_linear_vanishing_from_point(
                     point,
-                    &poly.evals,
+                    &poly.evals.clone(), // Lets get rid of this clone when we change the signature to receive vectors
                     &inv,
                     &domain_elements,
                 );
