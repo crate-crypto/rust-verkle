@@ -79,9 +79,8 @@ impl<E: PairingEngine, T: TranscriptProtocol<E>> MultiPointProver<E, T> for Comm
         let each_witness: Vec<_> = lagrange_polynomials
             .into_par_iter()
             .zip(points)
-            .zip(evaluations)
             .enumerate()
-            .map(|(i, ((poly, point), evaluation))| {
+            .map(|(i, (poly, point))| {
                 let g_x_comp_time = if i == 0 || i == 1 || i == 2 {
                     Some(start_timer!(|| format!(
                         "g_x component : {}/{}",
@@ -90,11 +89,10 @@ impl<E: PairingEngine, T: TranscriptProtocol<E>> MultiPointProver<E, T> for Comm
                 } else {
                     None
                 };
-                let lb = LagrangeBasis::<E>::from(poly).add_scalar(&evaluation);
 
                 let witness_poly = LagrangeBasis::<E>::divide_by_linear_vanishing_from_point(
                     point,
-                    &lb.0,
+                    &poly.evals,
                     &inv,
                     &domain_elements,
                 );
