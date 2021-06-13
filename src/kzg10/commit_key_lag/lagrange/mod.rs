@@ -103,7 +103,7 @@ impl<E: PairingEngine> LagrangeBasis<E> {
         // i = 0
         if 0 != index {
             q[0] = (f_x[0] - y) * domain_elements[0] * inv[index];
-            q_index += -domain_elements[domain_size - index] * &q[0]
+            q_index += domain_elements[domain_size - index] * &q[0]
         }
 
         // preconditions:
@@ -114,7 +114,7 @@ impl<E: PairingEngine> LagrangeBasis<E> {
             assert!(i != 0);
 
             q[i] = (f_x[i] - y) * domain_elements[domain_size - i] * inv[index - i];
-            q_index += -domain_elements[(i.wrapping_sub(index)).rem_euclid(domain_size)] * &q[i]
+            q_index += domain_elements[(i.wrapping_sub(index)).rem_euclid(domain_size)] * &q[i]
         }
 
         // preconditions:
@@ -126,10 +126,10 @@ impl<E: PairingEngine> LagrangeBasis<E> {
             q[i] = (f_x[i] - y)
                 * domain_elements[domain_size - i]
                 * inv[index.wrapping_sub(i).rem_euclid(domain_size)];
-            q_index += -domain_elements[i - index] * &q[i]
+            q_index += domain_elements[i - index] * &q[i]
         }
 
-        q[index] = q_index;
+        q[index] = -q_index;
 
         q
     }
