@@ -90,10 +90,10 @@ impl<E: PairingEngine> LagrangeBasis<E> {
         domain_elements: &[E::Fr],
     ) -> Vec<E::Fr> {
         let domain_size = domain_elements.len();
-        let inv_size = inv.len();
 
         assert!(index < domain_size);
         assert_eq!(inv.len(), domain_size);
+        assert_eq!(f_x.len(), domain_size);
 
         let y = f_x[index];
         let mut q = vec![E::Fr::zero(); domain_size];
