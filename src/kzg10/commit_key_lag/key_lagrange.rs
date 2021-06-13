@@ -182,7 +182,9 @@ mod test {
             &inv,
             &domain_elements,
         );
-        let got_witness = got_witness_lagrange.interpolate();
+
+        let got_witness =
+            Evaluations::from_vec_and_domain(got_witness_lagrange, domain).interpolate();
 
         assert_eq!(got_witness, expected_witness);
     }
@@ -361,18 +363,17 @@ mod test {
             &mut Transcript::new(b"agg_flatten"),
         );
 
-        let got_quotient = lagrange_proving_key
-            .compute_aggregate_witness_lagrange(
-                vec![
-                    evaluations_a.evals,
-                    evaluations_b.evals,
-                    evaluations_c.evals,
-                ],
-                &point,
-                &mut Transcript::new(b"agg_flatten"),
-                &domain_elements,
-            )
-            .interpolate();
+        let got_quotient = lagrange_proving_key.compute_aggregate_witness_lagrange(
+            vec![
+                evaluations_a.evals,
+                evaluations_b.evals,
+                evaluations_c.evals,
+            ],
+            &point,
+            &mut Transcript::new(b"agg_flatten"),
+            &domain_elements,
+        );
+        let got_quotient = Evaluations::from_vec_and_domain(got_quotient, domain).interpolate();
 
         assert_eq!(expected_quotient, got_quotient)
     }
