@@ -118,7 +118,7 @@ impl<E: PairingEngine, T: TranscriptProtocol<E>> MultiPointProver<E, T> for Comm
         let d_comm = LagrangeCommitter::commit_lagrange(self, g_x.values())?;
         end_timer!(g_x_commit_comp);
 
-        let r_d_trans = start_timer!(|| "append `r` and `[g(x)]` to transcript");
+        let r_d_trans = start_timer!(|| " transcript : `r` and `[g(x)]`");
         transcript.append_scalar(b"r", &r);
         transcript.append_point(b"D", &d_comm.0);
         end_timer!(r_d_trans);
