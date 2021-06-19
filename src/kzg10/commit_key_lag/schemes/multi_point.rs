@@ -73,12 +73,40 @@ impl<E: PairingEngine, T: TranscriptProtocol<E>> MultiPointProver<E, T> for Comm
         let r_i = powers_of::<E::Fr>(&r, num_polynomials - 1);
         end_timer!(r_power_comp);
 
+        let sort_group_comp = start_timer!(|| "sorting combinations");
+        use itertools::Itertools;
+        let grouped_witness = lagrange_polynomials
+            .into_iter()
+            .zip(r_i.iter())
+            .zip(points.into_iter())
+            .into_group_map_by(|x| x.1);
+
+        end_timer!(sort_group_comp);
         let g_x_comp = start_timer!(|| "compute g_x");
         let each_wit_time = start_timer!(|| "each g_x component");
         let lag_len = lagrange_polynomials.len();
-        let each_witness: Vec<_> = lagrange_polynomials
+        use ark_poly::Evaluations;
+        let grouped_polys_by_point: Vec<_> = grouped_witness
             .into_par_iter()
-            .zip(points)
+            .map(|(point, val)| {
+                // Aggregate the polynomial using the challenges
+                let eval_challenges = val.into_iter().map(|((evaluations, challenge), _)| {
+                    evaluations.evals.iter().map(move |x| *x * challenge)
+                });
+                use ark_ff::Zero;
+                let mut evals = vec![E::Fr::zero(); domain_size];
+
+                // for each scaled polynomial, we summate
+                for scaled_poly in eval_challenges {
+                    for (eval, scaled_poly) in evals.iter_mut().zip(scaled_poly) {
+                        *eval += scaled_poly;
+                    }
+                }
+                (evals, point)
+            })
+            .collect();
+        let each_witness: Vec<_> = grouped_polys_by_point
+            .into_par_iter()
             .enumerate()
             .map(|(i, (poly, point))| {
                 let g_x_comp_time = if i == 0 || i == 1 || i == 2 {
@@ -92,7 +120,7 @@ impl<E: PairingEngine, T: TranscriptProtocol<E>> MultiPointProver<E, T> for Comm
 
                 let witness_poly = LagrangeBasis::<E>::divide_by_linear_vanishing_from_point(
                     point,
-                    &poly.evals.clone(), // Lets get rid of this clone when we change the signature to receive vectors
+                    &poly,
                     &inv,
                     &domain_elements,
                 );
@@ -108,8 +136,6 @@ impl<E: PairingEngine, T: TranscriptProtocol<E>> MultiPointProver<E, T> for Comm
         use ark_ff::Zero;
         let g_x: Vec<E::Fr> = each_witness
             .into_par_iter()
-            .zip(r_i.par_iter())
-            .map(|(poly, challenge)| vec_mul_scalar::<E>(poly, challenge))
             .fold(
                 || vec![E::Fr::zero(); domain_size],
                 |res, val| vec_add_vec::<E>(res, val),
