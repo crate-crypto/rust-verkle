@@ -19,10 +19,10 @@ fn main() {
     let domain: GeneralEvaluationDomain<Fr> = GeneralEvaluationDomain::new(degree).unwrap();
 
     let mut polys = Vec::with_capacity(num_polys);
-    let poly_a = Polynomial::rand(degree, &mut rand_core::OsRng);
-    let evaluations = Evaluations::from_vec_and_domain(domain.fft(&poly_a), domain);
     for _ in 0..num_polys {
-        polys.push(evaluations.clone());
+        let poly_a = Polynomial::rand(degree, &mut rand_core::OsRng);
+        let evaluations = Evaluations::from_vec_and_domain(domain.fft(&poly_a), domain);
+        polys.push(evaluations);
     }
 
     let mut points = Vec::with_capacity(num_polys);
