@@ -8,10 +8,7 @@ mod test {
     // Value = 0000000000000000000000000000000000000000000000000000000000000000
     #[test]
     pub fn k0v0() {
-        let leaf = LeafNode {
-            key: Key::zero(),
-            value: Value::zero(),
-        };
+        let leaf = LeafNode::new(Key::zero(), Value::zero());
         let hash = leaf.hash().to_hex();
         assert_eq!(
             hash,
@@ -22,10 +19,7 @@ mod test {
     // Value = 0000000000000000000000000000000000000000000000000000000000000000
     #[test]
     pub fn k1v0() {
-        let leaf = LeafNode {
-            key: Key::one(),
-            value: Value::zero(),
-        };
+        let leaf = LeafNode::new(Key::one(), Value::zero());
         let hash = leaf.hash().to_hex();
         assert_eq!(
             hash,
@@ -36,10 +30,7 @@ mod test {
     // Value = 0000000000000000000000000000000000000000000000000000000000000001
     #[test]
     pub fn k1v1() {
-        let leaf = LeafNode {
-            key: Key::one(),
-            value: Value::one(),
-        };
+        let leaf = LeafNode::new(Key::one(), Value::one());
         let hash = leaf.hash().to_hex();
         assert_eq!(
             hash,
@@ -51,10 +42,7 @@ mod test {
     // See `values[i] = int.from_bytes(node[i]["hash"], "little") % MODULUS`
     #[test]
     pub fn k1v1_fr() {
-        let leaf = LeafNode {
-            key: Key::one(),
-            value: Value::one(),
-        };
+        let leaf = LeafNode::new(Key::one(), Value::one());
 
         let leaf_bytes = leaf.hash().to_fr().into_repr().to_bytes_be();
         assert_eq!(

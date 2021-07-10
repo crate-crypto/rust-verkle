@@ -1,4 +1,4 @@
-use crate::{Key, Value};
+use crate::{trie::node::leaf::LeafExtensionNode, Key, Value};
 
 use super::indexer::{ChildDataIndex, ChildMap, DataIndex, NodeSlotMap, ParentDataIndex};
 use crate::trie::{
@@ -25,8 +25,9 @@ impl<'a> VerkleTrie<'a> {
         for instruction in instructions {
             match instruction {
                 Ins::UpdateLeaf(node_index, leaf_node) => {
-                    let node = self.data_indexer.get_mut(node_index);
-                    *node = Node::Leaf(leaf_node);
+                    // let node = self.data_indexer.get_mut(node_index);
+                    // *node = Node::Leaf(leaf_node);
+                    todo!()
                 }
                 Ins::UpdateInternalChild { pointer, data } => {
                     let internal_node = self.data_indexer.get_mut(pointer).as_mut_internal();
@@ -37,6 +38,11 @@ impl<'a> VerkleTrie<'a> {
                 Ins::ResetComm { pointer } => {
                     let internal_node = self.data_indexer.get_mut(pointer).as_mut_internal();
                     internal_node.commitment = None;
+                }
+                Ins::UpdateLeafExt(node_index, path_index, value) => {
+                    // Index the value
+                    let val_idx = self.data_indexer.index(Node::Value(value));
+                    self.child_map.add_child(node_index, path_index, val_idx)
                 }
             }
         }
@@ -55,6 +61,12 @@ pub enum Ins {
     // To update a leaf, we need the position of the leaf in the arena
     // and what data we should update the leaf with
     UpdateLeaf(DataIndex, LeafNode),
+    // Update a leaf extension node
+    // We give :
+    // the index to that leaf extension node
+    // The path indice that we should insert this node at
+    // The Value of the node
+    UpdateLeafExt(DataIndex, usize, Value),
     // Instruction to update an internal node
     UpdateInternalChild { pointer: DataIndex, data: ChildData },
     // Set the internal node's commitment to nil.
@@ -73,7 +85,7 @@ impl<'a> VerkleTrie<'a> {
         key: Key,
         value: Value,
     ) -> Vec<Ins> {
-        let leaf_node = LeafNode { key, value };
+        let leaf_node = LeafExtensionNode::new(key, value);
 
         let mut path_indices = key.path_indices(width);
         let mut paths_passed = 0; // XXX: When we use for loops, this can be replaced with enumerate
@@ -110,7 +122,7 @@ impl<'a> VerkleTrie<'a> {
                         pointer: current_node_index,
                         data: ChildData {
                             path_index: index,
-                            data_index: data_indexer.index(Node::Leaf(leaf_node)),
+                            data_index: data_indexer.index(Node::LeafExt(leaf_node)),
                         },
                     };
                     instructions.push(inst);
@@ -133,19 +145,33 @@ impl<'a> VerkleTrie<'a> {
                 continue;
             }
 
-            let leaf = *child.as_leaf();
-            // Check if the leaf node is equal to the key
-            // in which case, we update the leaf
-            if leaf.key == key {
-                let instr = Ins::UpdateLeaf(child_data_index, leaf_node);
-                instructions.push(instr);
-                break;
-            }
+            let leaf = *child.as_leaf_ext();
 
             // The keys are not the same, this means that they share `n` path indices
             // we need to create `n-1` internal nodes and link them together
-            // XXX: We can pass in an offset here to skip `n` path bits
-            let (shared_path, p_diff_a, p_diff_b) = Key::path_difference(&leaf.key, &key, width);
+            let (shared_path, p_diff_a, p_diff_b) = Key::path_difference(leaf.key(), &key, width);
+
+            // We can use the path difference to check for differences
+            // If they share all but one path, then this key is added into
+            // the extension
+            if shared_path.len() == Key::max_num_paths(width) - 1 {
+                // We now need to update the leaf extension node
+
+                let instr = Ins::UpdateLeafExt(child_data_index, p_diff_b.unwrap(), value);
+                instructions.push(instr);
+                break;
+            } else if shared_path.len() == Key::max_num_paths(width) {
+                // This means they are exactly the same keys and is a key update
+                // XXX: We should make path_difference return an enum
+                // enum Difference {Same, Extension,Diff }
+                // Same would return the last path and means that they are the same key
+                // Extension would return the differing paths. We get this when they only differ by one path
+                // Diff would return the shared_path, and the differing paths. This means they differ by more than one path
+                let last_path = shared_path.last().unwrap();
+                let instr = Ins::UpdateLeafExt(child_data_index, *last_path, value);
+                instructions.push(instr);
+                break;
+            }
 
             // path_difference returns all shared_paths.
             // Even shared paths before the current internal node.
@@ -194,7 +220,7 @@ impl<'a> VerkleTrie<'a> {
 
             // The last instruction is to point the last node at the two leaves
             let index_leaf_a = child_data_index;
-            let index_leaf_b = data_indexer.index(Node::Leaf(leaf_node));
+            let index_leaf_b = data_indexer.index(Node::LeafExt(leaf_node));
             let inst = Ins::UpdateInternalChild {
                 pointer: current_node_index,
                 data: ChildData {

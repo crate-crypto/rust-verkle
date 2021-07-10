@@ -103,7 +103,7 @@ pub fn find_commitment_path(
         evaluation_points.push(commitment.to_hash().to_fr())
     }
     // Add the last node which should be a leaf as an evaluation point by hashing
-    let leaf_hash = sm.get(last_node_index).as_leaf().hash();
+    let leaf_hash = sm.get(last_node_index).as_leaf_ext().hash();
     evaluation_points.push(leaf_hash.to_fr());
 
     // Convert the path_bits to Field elements to be evaluated at
@@ -146,20 +146,22 @@ pub fn find_termination_path(
             Node::Internal(_) => {
                 curr_node = node_index;
             }
-            Node::Leaf(leaf) => {
+            Node::LeafExt(leaf) => {
                 // A key has been found, however it may not be the key we are looking for
-                if &leaf.key != key {
-                    return Err(NodeError::WrongLeafNode {
-                        leaf_found: leaf.key,
-                    });
-                }
-                return Ok(TerminationPath {
-                    path_bits,
-                    node_indices,
-                });
+                todo!()
+                // if leaf.key() != key {
+                //     return Err(NodeError::WrongLeafNode {
+                //         leaf_found: leaf.key().clone(),
+                //     });
+                // }
+                // return Ok(TerminationPath {
+                //     path_bits,
+                //     node_indices,
+                // });
             }
             Node::Hashed(_) => return Err(NodeError::UnexpectedHashNode),
             Node::Empty => return Err(NodeError::UnexpectedEmptyNode),
+            Node::Value(_) => todo!(),
         }
     }
 

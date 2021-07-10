@@ -29,8 +29,7 @@ impl Hash {
     pub fn from_leaf(leaf: &LeafNode) -> Hash {
         let mut hasher = HashFunction::new();
 
-        hasher.update(leaf.key.as_bytes());
-        hasher.update(leaf.value.as_bytes());
+        hasher.update(leaf.as_bytes());
 
         let res: [u8; 32] = hasher.finalize().try_into().unwrap();
         Hash(res)

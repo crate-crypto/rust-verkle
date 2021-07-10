@@ -1,4 +1,6 @@
-use self::{hashed::HashedNode, internal::InternalNode, leaf::LeafNode};
+use crate::Value;
+
+use self::{hashed::HashedNode, internal::InternalNode, leaf::LeafExtensionNode};
 
 pub mod empty;
 pub mod errors;
@@ -9,22 +11,25 @@ pub mod leaf;
 pub enum Node {
     Internal(InternalNode),
     Hashed(HashedNode),
-    Leaf(LeafNode),
+    LeafExt(LeafExtensionNode),
+    Value(Value),
     Empty,
 }
 
 pub const EMPTY_NODE_TYPE: u8 = 0;
-pub const LEAF_NODE_TYPE: u8 = 1;
+pub const LEAF_EXT_NODE_TYPE: u8 = 1;
 pub const INTERNAL_NODE_TYPE: u8 = 2;
 pub const HASHED_NODE_TYPE: u8 = 3;
+pub const VALUE_NODE_TYPE: u8 = 4;
 
 impl Node {
     pub const fn node_type(&self) -> u8 {
         match self {
             Node::Empty => EMPTY_NODE_TYPE,
-            Node::Leaf(_) => LEAF_NODE_TYPE,
+            Node::LeafExt(_) => LEAF_EXT_NODE_TYPE,
             Node::Internal(_) => INTERNAL_NODE_TYPE,
             Node::Hashed(_) => HASHED_NODE_TYPE,
+            Node::Value(_) => VALUE_NODE_TYPE,
         }
     }
 }
@@ -52,8 +57,8 @@ impl Node {
             panic!("not an internal node")
         }
     }
-    pub fn as_leaf(&self) -> &LeafNode {
-        if let Node::Leaf(leaf) = self {
+    pub fn as_leaf_ext(&self) -> &LeafExtensionNode {
+        if let Node::LeafExt(leaf) = self {
             leaf
         } else {
             panic!("not an internal node")

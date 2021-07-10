@@ -20,8 +20,10 @@ impl<'a> VerkleTrie<'a> {
             match child {
                 Node::Internal(_) => current_node_index = child_data_index,
                 Node::Hashed(_) => unreachable!("Should not have a hashed node here"),
-                Node::Leaf(leaf) => return leaf.get(&key).map(ToOwned::to_owned),
+                // Node::LeafExt(leaf) => return leaf.get(&key).map(ToOwned::to_owned),
+                Node::LeafExt(leaf) => todo!(),
                 Node::Empty => unreachable!("soon to be deprecated, empty is implicit"),
+                Node::Value(_) => todo!(),
             }
         }
         Err(NodeError::LeafKeyNotFound)

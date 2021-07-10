@@ -1,4 +1,6 @@
-use crate::{Hash, Key, Value};
+use std::collections::BTreeMap;
+
+use crate::{Hash, Key, Value, VerkleCommitment};
 
 use super::errors::NodeError;
 
@@ -8,11 +10,19 @@ use super::errors::NodeError;
 ///
 #[derive(Debug, Copy, Clone)]
 pub struct LeafNode {
-    pub key: Key,
-    pub value: Value,
+    pub(crate) key: Key,
+    pub(crate) value: Value,
+    commitment: Option<VerkleCommitment>,
 }
 
 impl LeafNode {
+    pub fn new(key: Key, value: Value) -> LeafNode {
+        Self {
+            key,
+            value,
+            commitment: None,
+        }
+    }
     pub fn get(&self, key: &Key) -> Result<&Value, NodeError> {
         if &self.key != key {
             Err(NodeError::LeafNodeKeyMismatch)
@@ -24,6 +34,60 @@ impl LeafNode {
     pub fn hash(&self) -> Hash {
         Hash::from_leaf(self)
     }
+
+    pub fn key(&self) -> &Key {
+        &self.key
+    }
+
+    pub fn as_bytes(&self) -> Vec<u8> {
+        [self.key.as_bytes(), self.value.as_bytes()].concat()
+    }
+}
+#[derive(Debug, Copy, Clone)]
+pub struct LeafExtensionNode {
+    // This key is never exposed directly,
+    // we only ever use it as a stem
+    key: Key,
+    commitment: Option<VerkleCommitment>,
+}
+
+impl LeafExtensionNode {
+    pub fn new(key: Key, value: Value) -> LeafExtensionNode {
+        // We save the key and compute the stem on the fly
+        // When we need it.
+        //
+        // - When hashing stem + value
+        // -
+
+        // Compute the index to store this value
+
+        Self {
+            key,
+            commitment: None,
+        }
+    }
+
+    // fn slot(key : Key)
+    // pub fn get(&self, key: &Key) -> Result<&Value, NodeError> {
+    //     // First check
+    //     if &self.key != key {
+    //         Err(NodeError::LeafNodeKeyMismatch)
+    //     } else {
+    //         Ok(&self.value)
+    //     }
+    // }
+
+    pub fn hash(&self) -> Hash {
+        todo!()
+    }
+
+    pub fn key(&self) -> &Key {
+        &self.key
+    }
+
+    // pub fn as_bytes(&self) -> Vec<u8> {
+    //     [self.key.as_bytes(), self.value.as_bytes()].concat()
+    // }
 }
 
 #[cfg(test)]
@@ -33,10 +97,7 @@ mod interop {
     fn key0val0() {
         let key0 = Key::one();
         let val0 = Value::zero();
-        let leaf = LeafNode {
-            key: key0,
-            value: val0,
-        };
+        let leaf = LeafNode::new(key0, val0);
         let hash = leaf.hash().to_hex();
         assert_eq!(
             "58e8f2a1f78f0a591feb75aebecaaa81076e4290894b1c445cc32953604db089",
@@ -47,10 +108,7 @@ mod interop {
     fn hash_fr() {
         let key0 = Key::one();
         let val0 = Value::one();
-        let leaf = LeafNode {
-            key: key0,
-            value: val0,
-        };
+        let leaf = LeafNode::new(key0, val0);
         use num_bigint::BigUint;
         use num_traits::Num;
         // let hash = dbg!(leaf.hash().to_hex());
@@ -74,10 +132,7 @@ mod interop {
             0, 0, 0, 0, //
         ]);
         let val = Value::one();
-        let leaf = LeafNode {
-            key: key_be,
-            value: val,
-        };
+        let leaf = LeafNode::new(key_be, val);
         use num_bigint::BigUint;
         use num_traits::Num;
 

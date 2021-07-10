@@ -113,13 +113,14 @@ pub fn compute_evaluations(
                 let eval = hashed_node.hash().to_fr();
                 polynomial_eval[i] = eval;
             }
-            Node::Leaf(leaf_node) => {
+            Node::LeafExt(leaf_node) => {
                 let eval = leaf_node.hash().to_fr();
                 polynomial_eval[i] = eval;
             }
             Node::Empty => {
                 // do nothing
             }
+            Node::Value(_) => todo!(),
         }
     }
     polynomial_eval

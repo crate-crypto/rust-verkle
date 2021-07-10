@@ -84,6 +84,18 @@ impl Key {
     pub fn as_bytes(&self) -> &[u8] {
         self.0.as_bytes()
     }
+    // XXX: Lets add a test for this incase the key is ever changed
+    pub const fn size_in_bits() -> usize {
+        256
+    }
+    // Returns the maximum number of paths that a given
+    // key and width will produce.
+    // 256 bits with a width of 10 will produce 26
+    // 256 bits with a width of 8 will produce 32
+    pub fn max_num_paths(width: usize) -> usize {
+        let key_size = Key::size_in_bits();
+        (key_size / width) + (key_size % width != 0) as usize
+    }
     pub fn as_string(&self) -> String {
         self.0.as_string()
     }

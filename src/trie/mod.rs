@@ -46,7 +46,7 @@ pub trait VerkleTrait {
 
 #[cfg(test)]
 mod test {
-    use crate::trie::node::{EMPTY_NODE_TYPE, INTERNAL_NODE_TYPE, LEAF_NODE_TYPE};
+    use crate::trie::node::{EMPTY_NODE_TYPE, INTERNAL_NODE_TYPE};
 
     use super::verkle::VerkleTrie;
     use super::VerkleTrait;
@@ -77,143 +77,143 @@ mod test {
             tree.insert_single(Key::one(), Value::zero());
         }
     }
-
-    #[test]
-    fn basic_insert_key() {
-        let width = 8;
-        let (ck, _) = test_kzg(width);
-        let mut tree = VerkleTrie::new(width, &ck);
-
-        let value = Value::from_arr([1u8; 32]);
-        tree.insert_single(Key::zero(), value);
-
-        let child_data_index = tree.child_map.child(tree.root_index, 0).unwrap();
-        let child_node = tree.data_indexer.get(child_data_index);
-
-        let leaf_node = child_node.as_leaf();
-
-        assert_eq!(leaf_node.key, Key::zero());
-        assert_eq!(leaf_node.value, value);
-    }
-
-    #[test]
-    fn basic_get() {
-        let width = 10;
-        let (ck, _) = test_kzg(width);
-        let mut tree = VerkleTrie::new(width, &ck);
-
-        tree.insert_single(Key::zero(), Value::one());
-        let val = tree.get(&Key::zero()).unwrap();
-        assert_eq!(val, Value::one());
-
-        assert!(tree.get(&Key::one()).is_err());
-
-        tree.insert_single(Key::one(), Value::one());
-        let val = tree.get(&Key::one()).unwrap();
-        assert_eq!(val, Value::one());
-    }
-
-    #[test]
-    fn longest_path_insert() {
-        // This solely tests whether we get an OOM error, this will not happen with
-        // this implementation, but may happen if children are eagerly allocated.
-        let width = 10;
-        let (ck, _) = test_kzg(width);
-        let mut tree = VerkleTrie::new(width, &ck);
-
-        let zero = Key::from_arr([
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0,
-        ]);
-
-        let first_value = Value::from_arr([1u8; 32]);
-
-        let one = Key::from_arr([
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 1,
-        ]);
-        let second_value = Value::from_arr([2u8; 32]);
-
-        tree.insert_single(zero, first_value);
-        tree.insert_single(one, second_value);
-    }
-
-    #[test]
-    fn check_longest_path_insert() {
-        let width = 10;
-        let (ck, _) = test_kzg(width);
-        let mut tree = VerkleTrie::new(width, &ck);
-
-        let zero = Key::from_arr([
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0,
-        ]);
-
-        let first_value = Value::from_arr([1u8; 32]);
-
-        let one = Key::from_arr([
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 1,
-        ]);
-        let second_value = Value::from_arr([2u8; 32]);
-
-        tree.insert_single(zero, first_value);
-        tree.insert_single(one, second_value);
-
-        // All children should be empty except for the first one which should be
-        // an internal node. This repeats until the last children
-        // Since we are offsetting by 10 bits, and the key is 256 bits.
-        // We should have 26 children altogether.
-
-        let mut vec = vec![EMPTY_NODE_TYPE; 1 << width];
-        vec[0] = INTERNAL_NODE_TYPE;
-
-        let mut child_data_index = tree.root_index;
-
-        // All of the nodes are exactly the same, except for the last child
-        // Recursively Check 25 times that we have a branch node and the first child is also a branch node
-        for _ in 0..25 {
-            let child_types = InternalNode::children_types(
-                child_data_index,
-                1 << width,
-                &tree.data_indexer,
-                &tree.child_map,
-            );
-
-            assert_eq!(child_types, vec);
-
-            // extract the first child as the new internal
-            child_data_index = tree.child_map.child(child_data_index, 0).unwrap();
-            let child_node = tree.data_indexer.get(child_data_index);
-            assert_eq!(child_node.node_type(), INTERNAL_NODE_TYPE);
-        }
-
-        // The last inner node should have two leaves
-        let mut vec = vec![EMPTY_NODE_TYPE; 1 << width];
-        vec[0] = LEAF_NODE_TYPE;
-        vec[16] = LEAF_NODE_TYPE;
-
-        let child_types = InternalNode::children_types(
-            child_data_index,
-            1 << width,
-            &tree.data_indexer,
-            &tree.child_map,
-        );
-        assert_eq!(child_types, vec);
-
-        let first_child = tree.child_map.child(child_data_index, 0).unwrap();
-        let second_child = tree.child_map.child(child_data_index, 16).unwrap();
-
-        let first_node = tree.data_indexer.get(first_child);
-        let second_node = tree.data_indexer.get(second_child);
-
-        let first_leaf_node = first_node.as_leaf();
-        let second_leaf_node = second_node.as_leaf();
-
-        assert_eq!(first_leaf_node.key, Key::zero());
-        assert_eq!(first_leaf_node.value, first_value);
-
-        assert_eq!(second_leaf_node.key, Key::one());
-        assert_eq!(second_leaf_node.value, second_value);
-    }
 }
+//     #[test]
+//     fn basic_insert_key() {
+//         let width = 8;
+//         let (ck, _) = test_kzg(width);
+//         let mut tree = VerkleTrie::new(width, &ck);
+
+//         let value = Value::from_arr([1u8; 32]);
+//         tree.insert_single(Key::zero(), value);
+
+//         let child_data_index = tree.child_map.child(tree.root_index, 0).unwrap();
+//         let child_node = tree.data_indexer.get(child_data_index);
+
+//         let leaf_node = child_node.as_leaf();
+
+//         assert_eq!(leaf_node.key, Key::zero());
+//         assert_eq!(leaf_node.value, value);
+//     }
+
+//     #[test]
+//     fn basic_get() {
+//         let width = 10;
+//         let (ck, _) = test_kzg(width);
+//         let mut tree = VerkleTrie::new(width, &ck);
+
+//         tree.insert_single(Key::zero(), Value::one());
+//         let val = tree.get(&Key::zero()).unwrap();
+//         assert_eq!(val, Value::one());
+
+//         assert!(tree.get(&Key::one()).is_err());
+
+//         tree.insert_single(Key::one(), Value::one());
+//         let val = tree.get(&Key::one()).unwrap();
+//         assert_eq!(val, Value::one());
+//     }
+
+//     #[test]
+//     fn longest_path_insert() {
+//         // This solely tests whether we get an OOM error, this will not happen with
+//         // this implementation, but may happen if children are eagerly allocated.
+//         let width = 10;
+//         let (ck, _) = test_kzg(width);
+//         let mut tree = VerkleTrie::new(width, &ck);
+
+//         let zero = Key::from_arr([
+//             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+//             0, 0, 0,
+//         ]);
+
+//         let first_value = Value::from_arr([1u8; 32]);
+
+//         let one = Key::from_arr([
+//             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+//             0, 0, 1,
+//         ]);
+//         let second_value = Value::from_arr([2u8; 32]);
+
+//         tree.insert_single(zero, first_value);
+//         tree.insert_single(one, second_value);
+//     }
+
+//     #[test]
+//     fn check_longest_path_insert() {
+//         let width = 10;
+//         let (ck, _) = test_kzg(width);
+//         let mut tree = VerkleTrie::new(width, &ck);
+
+//         let zero = Key::from_arr([
+//             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+//             0, 0, 0,
+//         ]);
+
+//         let first_value = Value::from_arr([1u8; 32]);
+
+//         let one = Key::from_arr([
+//             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+//             0, 0, 1,
+//         ]);
+//         let second_value = Value::from_arr([2u8; 32]);
+
+//         tree.insert_single(zero, first_value);
+//         tree.insert_single(one, second_value);
+
+//         // All children should be empty except for the first one which should be
+//         // an internal node. This repeats until the last children
+//         // Since we are offsetting by 10 bits, and the key is 256 bits.
+//         // We should have 26 children altogether.
+
+//         let mut vec = vec![EMPTY_NODE_TYPE; 1 << width];
+//         vec[0] = INTERNAL_NODE_TYPE;
+
+//         let mut child_data_index = tree.root_index;
+
+//         // All of the nodes are exactly the same, except for the last child
+//         // Recursively Check 25 times that we have a branch node and the first child is also a branch node
+//         for _ in 0..25 {
+//             let child_types = InternalNode::children_types(
+//                 child_data_index,
+//                 1 << width,
+//                 &tree.data_indexer,
+//                 &tree.child_map,
+//             );
+
+//             assert_eq!(child_types, vec);
+
+//             // extract the first child as the new internal
+//             child_data_index = tree.child_map.child(child_data_index, 0).unwrap();
+//             let child_node = tree.data_indexer.get(child_data_index);
+//             assert_eq!(child_node.node_type(), INTERNAL_NODE_TYPE);
+//         }
+
+//         // The last inner node should have two leaves
+//         let mut vec = vec![EMPTY_NODE_TYPE; 1 << width];
+//         vec[0] = LEAF_NODE_TYPE;
+//         vec[16] = LEAF_NODE_TYPE;
+
+//         let child_types = InternalNode::children_types(
+//             child_data_index,
+//             1 << width,
+//             &tree.data_indexer,
+//             &tree.child_map,
+//         );
+//         assert_eq!(child_types, vec);
+
+//         let first_child = tree.child_map.child(child_data_index, 0).unwrap();
+//         let second_child = tree.child_map.child(child_data_index, 16).unwrap();
+
+//         let first_node = tree.data_indexer.get(first_child);
+//         let second_node = tree.data_indexer.get(second_child);
+
+//         let first_leaf_node = first_node.as_leaf();
+//         let second_leaf_node = second_node.as_leaf();
+
+//         assert_eq!(first_leaf_node.key, Key::zero());
+//         assert_eq!(first_leaf_node.value, first_value);
+
+//         assert_eq!(second_leaf_node.key(), Key::one());
+//         assert_eq!(second_leaf_node.value, second_value);
+//     }
+// }
