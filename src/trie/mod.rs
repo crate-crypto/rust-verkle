@@ -7,6 +7,7 @@ use crate::{verkle::VerklePath, Key, Value, VerkleCommitment};
 
 pub mod node;
 pub mod verkle;
+use ark_bls12_381::Fr;
 pub use verkle::VerkleTrie;
 
 /// Trait to describe the VerkleTrie implementation.
@@ -24,11 +25,11 @@ pub trait VerkleTrait {
     /// then one updates a different key.
     ///
     /// Update assumes that all commitments in the trie are updated
-    fn insert(&mut self, kv: impl Iterator<Item = (Key, Value)>) -> VerkleCommitment;
+    fn insert(&mut self, kv: impl Iterator<Item = (Key, Value)>) -> Fr;
     /// Inserts a single value and computes it's root using pippenger.
     // XXX: Can we remove this and just use update? or use update under the hood
     // update should be cheaper since it is a single value
-    fn insert_single(&mut self, key: Key, value: Value) -> VerkleCommitment;
+    fn insert_single(&mut self, key: Key, value: Value) -> Fr;
     /// Gets the value at the `Key` if it exists
     /// Returns an error if it does not exist
     // XXX: This should return a reference to &Value, as the data might be large
@@ -38,46 +39,53 @@ pub trait VerkleTrait {
     // fn update(&mut self, key : Key, value : Value);
 
     /// Computes the root of the trie
-    fn compute_root(&mut self) -> VerkleCommitment;
+    fn compute_root(&mut self) -> Fr;
 
     /// Creates a verkle path which can be used to create a verkle proof
     fn create_verkle_path(&mut self, key: &Key) -> Result<VerklePath, NodeError>;
 }
 
-#[cfg(test)]
-mod test {
-    use crate::trie::node::{EMPTY_NODE_TYPE, INTERNAL_NODE_TYPE};
+// #[cfg(test)]
+// mod test {
+//     use crate::trie::node::{EMPTY_NODE_TYPE, INTERNAL_NODE_TYPE};
 
-    use super::verkle::VerkleTrie;
-    use super::VerkleTrait;
-    use crate::kzg10::{commit_key_coeff::CommitKey, OpeningKey, PublicParameters};
-    use crate::trie::node::internal::InternalNode;
-    use crate::{Key, Value};
-    use ark_bls12_381::{Bls12_381, Fr};
+//     use super::verkle::VerkleTrie;
+//     use super::VerkleTrait;
+//     use crate::kzg10::{
+//         commit_key_lag::srs::PublicParameters, commit_key_lag::CommitKeyLagrange as CommitKey,
+//         OpeningKey,
+//     };
+//     use crate::trie::node::internal::InternalNode;
+//     use crate::{Key, Value};
+//     use ark_bls12_381::{Bls12_381, Fr};
 
-    // use crate::kzg10::{CommitKey, OpeningKey, PublicParameters};
-    // Creates a proving key and verifier key based on a specified degree
-    fn test_kzg(width: usize) -> (CommitKey<Bls12_381>, OpeningKey<Bls12_381>) {
-        let degree = (1 << width) - 1;
-        let srs = PublicParameters::<Bls12_381>::setup_from_secret(
-            degree,
-            Fr::from(8927347823478352432985u128),
-        )
-        .unwrap();
-        (srs.commit_key, srs.opening_key)
-    }
+//     // use crate::kzg10::{CommitKey, OpeningKey, PublicParameters};
+//     // Creates a proving key and verifier key based on a specified degree
+//     fn test_kzg(width: usize) -> (CommitKey<Bls12_381>, OpeningKey<Bls12_381>) {
+//         let degree = (1 << width) - 1;
+//         let srs = PublicParameters::<Bls12_381>::setup_from_secret(
+//             degree,
+//             Fr::from(8927347823478352432985u128),
+//         )
+//         .unwrap();
+//         (srs.commit_key, srs.opening_key)
+//     }
 
-    #[test]
-    fn basic_same_insert() {
-        let width = 10;
-        let (ck, _) = test_kzg(width);
-        let mut tree = VerkleTrie::new(width, &ck);
+// #[test]
+// fn basic_same_insert() {
+//     let width = 8;
+//     let (ck, _) = test_kzg(width);
+//     let mut tree = VerkleTrie::new(width, &ck);
+//     let one = Key::from_arr([
+//         1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+//         0, 0, 0,
+//     ]);
+//     let root = tree.compute_root();
+//     // (one, Value::zero())
+//     // let root = tree.insert(vec![(Key::zero(), Value::zero())].into_iter());
+//     dbg!(hex::encode(ark_ff::to_bytes!(root).unwrap()));
+// }
 
-        for _ in 0..100 {
-            tree.insert_single(Key::one(), Value::zero());
-        }
-    }
-}
 //     #[test]
 //     fn basic_insert_key() {
 //         let width = 8;

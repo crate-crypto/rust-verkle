@@ -1,4 +1,6 @@
-use crate::{trie::node::leaf::LeafExtensionNode, Key, Value};
+use crate::{hash::Hash, trie::node::leaf::LeafExtensionNode, Key, Value, VerkleCommitment};
+use ark_bls12_381::Fr;
+use ark_ff::Zero;
 
 use super::indexer::{ChildDataIndex, ChildMap, DataIndex, NodeSlotMap, ParentDataIndex};
 use crate::trie::{
@@ -24,11 +26,6 @@ impl<'a> VerkleTrie<'a> {
     fn process_instructions(&mut self, instructions: Vec<Ins>) {
         for instruction in instructions {
             match instruction {
-                Ins::UpdateLeaf(node_index, leaf_node) => {
-                    // let node = self.data_indexer.get_mut(node_index);
-                    // *node = Node::Leaf(leaf_node);
-                    todo!()
-                }
                 Ins::UpdateInternalChild { pointer, data } => {
                     let internal_node = self.data_indexer.get_mut(pointer).as_mut_internal();
                     internal_node.commitment = None;
@@ -40,9 +37,30 @@ impl<'a> VerkleTrie<'a> {
                     internal_node.commitment = None;
                 }
                 Ins::UpdateLeafExt(node_index, path_index, value) => {
-                    // Index the value
+                    // Figure out the difference between the old value and the new value
+                    let old_value = match self.child_map.child(node_index, path_index) {
+                        Some(child_index) => {
+                            let node = self.data_indexer.get(child_index);
+                            Hash::from_value(node.as_value()).to_fr()
+                        }
+                        None => Fr::zero(),
+                    };
+
+                    let delta = Hash::from_value(&value).to_fr() - old_value;
+
+                    // Index and insert the new value
                     let val_idx = self.data_indexer.index(Node::Value(value));
-                    self.child_map.add_child(node_index, path_index, val_idx)
+                    self.child_map.add_child(node_index, path_index, val_idx);
+
+                    // Compute the change in the commitment
+
+                    let delta_comm = self.ck.commit_lagrange_single(delta, path_index).unwrap();
+                    let leaf_ext = self.data_indexer.get_mut(node_index).as_mut_leaf_ext();
+                    let old_commitment =
+                        leaf_ext.commitment.unwrap_or(VerkleCommitment::identity());
+
+                    let new_comm = old_commitment.0 + delta_comm.0;
+                    leaf_ext.commitment = Some(VerkleCommitment::from_affine(new_comm))
                 }
             }
         }
@@ -57,10 +75,6 @@ pub struct ChildData {
 
 #[derive(Debug)]
 pub enum Ins {
-    // Instruction to update a leaf
-    // To update a leaf, we need the position of the leaf in the arena
-    // and what data we should update the leaf with
-    UpdateLeaf(DataIndex, LeafNode),
     // Update a leaf extension node
     // We give :
     // the index to that leaf extension node
@@ -86,6 +100,8 @@ impl<'a> VerkleTrie<'a> {
         value: Value,
     ) -> Vec<Ins> {
         let leaf_node = LeafExtensionNode::new(key, value);
+        let _key_indices: Vec<_> = key.path_indices(width).collect();
+        let key_last_path = *_key_indices.last().unwrap();
 
         let mut path_indices = key.path_indices(width);
         let mut paths_passed = 0; // XXX: When we use for loops, this can be replaced with enumerate
@@ -118,11 +134,16 @@ impl<'a> VerkleTrie<'a> {
                     // We just need to update the internal node at this position
                     // with a leaf node.
 
+                    let leaf_ext_node = data_indexer.index(Node::LeafExt(leaf_node));
+
+                    let inst = Ins::UpdateLeafExt(leaf_ext_node, key_last_path, value);
+                    instructions.push(inst);
+
                     let inst = Ins::UpdateInternalChild {
                         pointer: current_node_index,
                         data: ChildData {
                             path_index: index,
-                            data_index: data_indexer.index(Node::LeafExt(leaf_node)),
+                            data_index: leaf_ext_node,
                         },
                     };
                     instructions.push(inst);
@@ -221,6 +242,10 @@ impl<'a> VerkleTrie<'a> {
             // The last instruction is to point the last node at the two leaves
             let index_leaf_a = child_data_index;
             let index_leaf_b = data_indexer.index(Node::LeafExt(leaf_node));
+
+            let inst = Ins::UpdateLeafExt(index_leaf_b, key_last_path, value);
+            instructions.push(inst);
+
             let inst = Ins::UpdateInternalChild {
                 pointer: current_node_index,
                 data: ChildData {

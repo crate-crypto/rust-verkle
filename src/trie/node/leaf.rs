@@ -39,7 +39,7 @@ impl LeafNode {
         &self.key
     }
 
-    pub fn as_bytes(&self) -> Vec<u8> {
+    pub fn to_bytes(&self) -> Vec<u8> {
         [self.key.as_bytes(), self.value.as_bytes()].concat()
     }
 }
@@ -48,7 +48,7 @@ pub struct LeafExtensionNode {
     // This key is never exposed directly,
     // we only ever use it as a stem
     key: Key,
-    commitment: Option<VerkleCommitment>,
+    pub commitment: Option<VerkleCommitment>,
 }
 
 impl LeafExtensionNode {
@@ -67,27 +67,24 @@ impl LeafExtensionNode {
         }
     }
 
-    // fn slot(key : Key)
-    // pub fn get(&self, key: &Key) -> Result<&Value, NodeError> {
-    //     // First check
-    //     if &self.key != key {
-    //         Err(NodeError::LeafNodeKeyMismatch)
-    //     } else {
-    //         Ok(&self.value)
-    //     }
-    // }
+    pub fn hash(&self, width: usize) -> Hash {
+        use crate::hash::Hashable;
+        let eval = self.commitment.unwrap().to_hash().to_fr();
+        let mut stem_as_bytes = self.stem(width);
+        stem_as_bytes.extend(ark_ff::to_bytes!(eval).unwrap());
 
-    pub fn hash(&self) -> Hash {
-        todo!()
+        Hash::from_bytes(&stem_as_bytes)
     }
 
     pub fn key(&self) -> &Key {
         &self.key
     }
 
-    // pub fn as_bytes(&self) -> Vec<u8> {
-    //     [self.key.as_bytes(), self.value.as_bytes()].concat()
-    // }
+    pub fn stem(&self, width: usize) -> Vec<u8> {
+        assert_eq!(width, 8);
+
+        self.key.as_bytes()[0..31].to_vec()
+    }
 }
 
 #[cfg(test)]

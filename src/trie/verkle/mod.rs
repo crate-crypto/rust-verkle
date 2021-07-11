@@ -1,9 +1,10 @@
 /// This is the default implementation of the VerkleTrie trait
 ///
 use self::indexer::{ChildMap, DataIndex, NodeSlotMap};
-use crate::hash::Hashable;
+use crate::hash::{Hash, Hashable};
 use crate::trie::node::internal::InternalNode;
 use crate::trie::VerkleTrait;
+use crate::HashFunction;
 use crate::{kzg10::LagrangeCommitter, trie::node::errors::NodeError};
 use crate::{trie::node::Node, verkle::VerklePath, Key, Value, VerkleCommitment};
 use ark_bls12_381::Bls12_381;
@@ -55,18 +56,27 @@ impl<'a> VerkleTrait for VerkleTrie<'a> {
         self._get(key)
     }
 
-    fn insert(&mut self, key_values: impl Iterator<Item = (Key, Value)>) -> VerkleCommitment {
+    fn insert(&mut self, key_values: impl Iterator<Item = (Key, Value)>) -> Fr {
         for kv in key_values {
             self._insert(kv.0, kv.1);
         }
         self.compute_root()
     }
 
-    fn insert_single(&mut self, key: Key, value: Value) -> VerkleCommitment {
+    fn insert_single(&mut self, key: Key, value: Value) -> Fr {
         self.insert(std::iter::once((key, value)))
     }
 
-    fn compute_root(&mut self) -> VerkleCommitment {
+    fn compute_root(&mut self) -> Fr {
+        let mut children = self.child_map.children(self.root_index);
+        if children.len() == 0 {
+            return Fr::zero();
+        } else if children.len() == 1 {
+            let (_, child_data_index) = children.pop().unwrap();
+            let node = self.data_indexer.get(child_data_index);
+            let leaf_ext = node.as_leaf_ext();
+            return leaf_ext.hash(self.width).to_fr();
+        }
         commitment(
             self.root_index,
             self.width,
@@ -74,6 +84,8 @@ impl<'a> VerkleTrait for VerkleTrie<'a> {
             &self.child_map,
             self.ck,
         )
+        .to_hash()
+        .to_fr()
     }
 
     fn create_verkle_path(&mut self, key: &Key) -> Result<VerklePath, NodeError> {
@@ -82,7 +94,7 @@ impl<'a> VerkleTrait for VerkleTrie<'a> {
 }
 
 use ark_bls12_381::Fr;
-use ark_ff::Zero;
+use ark_ff::{to_bytes, Zero};
 
 pub fn compute_evaluations(
     data_index: DataIndex,
@@ -114,8 +126,7 @@ pub fn compute_evaluations(
                 polynomial_eval[i] = eval;
             }
             Node::LeafExt(leaf_node) => {
-                let eval = leaf_node.hash().to_fr();
-                polynomial_eval[i] = eval;
+                polynomial_eval[i] = leaf_node.hash(width).to_fr();
             }
             Node::Empty => {
                 // do nothing
@@ -145,6 +156,31 @@ pub fn commitment(
     let node = sm.get_mut(data_index).as_mut_internal();
     node.commitment = Some(kzg10_commitment);
     kzg10_commitment
+}
+
+pub fn leaf_ext_commitment(
+    // the data index for this internal node
+    data_index: DataIndex,
+    width: usize,
+    sm: &mut NodeSlotMap,
+    child_map: &ChildMap,
+    ck: &dyn LagrangeCommitter<Bls12_381>,
+) -> VerkleCommitment {
+    // Get the children for this leaf extension node
+    let children = child_map.children(data_index);
+    let mut polynomial_eval = vec![Fr::zero(); 1 << width];
+
+    for (i, child_data_index) in children.into_iter() {
+        let child = sm.get(child_data_index);
+        match child {
+            Node::Internal(_) | Node::Hashed(_) | Node::LeafExt(_) | Node::Empty => {
+                unimplemented!("leaf extension nodes should only have values")
+            }
+            Node::Value(val) => polynomial_eval[i] = Hash::from_value(&val).to_fr(),
+        }
+    }
+
+    ck.commit_lagrange(&polynomial_eval).unwrap()
 }
 
 // XXX: We can remove this and just use compute_evaluations

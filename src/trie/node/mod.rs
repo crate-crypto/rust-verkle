@@ -50,6 +50,13 @@ impl Node {
         }
     }
 
+    pub fn as_value(&self) -> &Value {
+        if let Node::Value(val) = self {
+            val
+        } else {
+            panic!("not a value node")
+        }
+    }
     pub fn as_mut_internal(&mut self) -> &mut InternalNode {
         if let Node::Internal(internal) = self {
             internal
@@ -58,6 +65,13 @@ impl Node {
         }
     }
     pub fn as_leaf_ext(&self) -> &LeafExtensionNode {
+        if let Node::LeafExt(leaf) = self {
+            leaf
+        } else {
+            panic!("not an internal node")
+        }
+    }
+    pub fn as_mut_leaf_ext(&mut self) -> &mut LeafExtensionNode {
         if let Node::LeafExt(leaf) = self {
             leaf
         } else {

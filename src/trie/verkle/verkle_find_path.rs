@@ -39,6 +39,7 @@ pub fn commitment_from_poly(
     kzg10_commitment
 }
 
+//XXX: This has not been modified for the new structure
 pub fn find_commitment_path(
     data_index: DataIndex,
     sm: &mut NodeSlotMap,
@@ -103,7 +104,7 @@ pub fn find_commitment_path(
         evaluation_points.push(commitment.to_hash().to_fr())
     }
     // Add the last node which should be a leaf as an evaluation point by hashing
-    let leaf_hash = sm.get(last_node_index).as_leaf_ext().hash();
+    let leaf_hash = sm.get(last_node_index).as_leaf_ext().hash(width);
     evaluation_points.push(leaf_hash.to_fr());
 
     // Convert the path_bits to Field elements to be evaluated at
