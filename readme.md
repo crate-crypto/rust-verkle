@@ -6,59 +6,21 @@ This is a proof of concept implementation of Verkle Tries. Any and all mistakes 
 
 ## Note on Performance
 
-There are still a few places in the code where performance can be improved:
-
-- Upon inserting a single leaf, a multi scalar is currently being done
+- This new code currently has less benchmarks
 - Parallelism is not currently being used, in places where it could be.
 
-## Note on Differences with reference
+## Note on Differences with references
 
 - The code has been intentionally implemented in a different way in most places to check for consistency and any misunderstandings. For example, recursion is not used as much when inserting leaves. This means that the code will be more verbose as we need to compute exactly when the algorithm will stop ahead of time.
 
-- An arena is used to allocate node data, which further changes the way the code looks. 
-
-- Consistency between implementations has not been tested and most likely will not be the case as hash_to_fr for example, is implemented differently in golang. 
-
+- There are intuitively natural differences due to the language being used, for example, BTreeMap is used in places where the python implementation uses a dictionary and then sorts it.
 ## About
 
-This implementation references the go-verkle implementation : https://github.com/gballet/go-verkle
+This implementation references the ethereum research and go-verkle implementations:
 
-It also uses the kzg scheme referenced here for multi-point proofs: https://notes.ethereum.org/nrQqhVpQRi6acQckwm1Ryg
+-  https://github.com/ethereum/research/blob/master/verkle_trie_eip/verkle_trie.py
+-  https://github.com/gballet/go-verkle
 
-## Usage
-
-```rust
-use verkle_trie::{dummy_setup, Key, Value, VerkleTrie};
-
-    // Trusted setup
-    let srs_poly_degree = 1024;
-    let (commit_key, opening_key) = dummy_setup(srs_poly_degree);
-
-    // Create a trie and insert two values
-    let width = 10;
-    let mut trie = VerkleTrie::new(width);
-    trie.insert(Key::one(), Value::one());
-    trie.insert(Key::zero(), Value::one());
-
-    // Create a VerklePath for key
-    let verkle_path = trie.create_path(&Key::one(), &commit_key).unwrap();
-
-    // Create a VerkleProof
-    let verkle_proof = verkle_path.create_proof(&commit_key);
-
-    // Verification here means that the KZG10 proof passed
-    //
-    // To "finish" the proof, the verifier should check the hash of leaf node themselves
-    let ok = verkle_proof.verify(
-        &opening_key,
-        &verkle_path.commitments,
-        &verkle_path.omega_path_indices,
-        &verkle_path.node_roots,
-    );
-
-    assert!(ok);
-
-```
 
 ## License
 
