@@ -1,7 +1,4 @@
-// XXX: We can remove this method, since width is fixed to 8
-// pub fn bit_extraction(bytes: &[u8]) -> Vec<u8> {
-//     bytes.to_vec()
-// }
+// TODO this file has a lot of redundant code since we no longer use a variable width tree
 
 // Remove duplicate code below and move into trie module
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]

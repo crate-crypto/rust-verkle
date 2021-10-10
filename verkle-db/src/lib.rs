@@ -1,6 +1,9 @@
 // TODO impl SqLite as a key value and make the database optional
 // TODO One can also impl Sqlite in verkle repo and use tables
-
+///The traits in this file do not need to be implemented
+/// If these methods are implemented, then it allows one to
+/// use the default higher level trait implementations
+/// that the verkle trie needs. (See database.rs)
 mod sled_impl;
 pub use sled_impl::DB as SledDb;
 
