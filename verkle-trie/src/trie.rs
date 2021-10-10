@@ -1,23 +1,16 @@
-// use std::collections::{HashMap, HashSet};
 use std::convert::TryInto;
 
-use crate::database::memory_db::MemoryDb;
 use crate::database::{BranchMeta, Flush, Meta, ReadOnlyHigherDb, ReadWriteHigherDb, StemMeta};
-use crate::{
-    byte_arr::{Key, Value},
-    group_to_field, SRS,
-};
+use crate::{byte_arr::Key, group_to_field, SRS};
 use crate::{two_pow_128, Committer};
-use ark_ec::ProjectiveCurve;
 use ark_ff::{PrimeField, Zero};
 use ark_serialize::CanonicalSerialize;
-use bandersnatch::{EdwardsAffine, EdwardsProjective, Fq, Fr};
-use verkle_db::BareMetalDiskDb;
+use bandersnatch::{EdwardsProjective, Fr};
 
 #[derive(Debug, Clone)]
 // The trie implements the logic to insert values, fetch values, and create paths to said values
 pub struct Trie<Storage, PolyCommit: Committer> {
-    pub storage: Storage, // TODO: Make this private
+    pub(crate) storage: Storage,
     committer: PolyCommit,
 }
 
@@ -727,344 +720,339 @@ impl<Storage: ReadWriteHigherDb + Flush, PolyCommit: Committer> Trie<Storage, Po
         self.storage.flush()
     }
 }
+#[cfg(test)]
+mod tests {
+    use std::convert::TryInto;
 
-pub struct BasicCommitter;
-impl Committer for BasicCommitter {
-    fn commit_lagrange(&self, evaluations: &[Fr]) -> EdwardsProjective {
-        let mut res = EdwardsProjective::zero();
-        for (val, point) in evaluations.iter().zip(SRS.iter()) {
-            res += point.mul(val.into_repr())
+    use ark_ec::ProjectiveCurve;
+    use ark_ff::{PrimeField, Zero};
+    use ark_serialize::CanonicalSerialize;
+    use bandersnatch::{EdwardsProjective, Fr};
+
+    use crate::database::memory_db::MemoryDb;
+    use crate::database::ReadOnlyHigherDb;
+    use crate::{group_to_field, two_pow_128, SRS};
+    use crate::{trie::Trie, BasicCommitter};
+
+    #[test]
+    // Inserting where the key and value are all zeros
+    // The zeroes cancel out a lot of components, so this is a general fuzz test
+    // and hopefully the easiest to pass
+    fn insert_key0value0() {
+        let db = MemoryDb::new();
+
+        let mut trie = Trie::new(db, BasicCommitter);
+
+        let key = [0u8; 32];
+        let stem: [u8; 31] = key[0..31].try_into().unwrap();
+
+        let ins = trie.create_insert_instructions(key, key);
+        trie.process_instructions(ins);
+
+        // Value at that leaf should be zero
+        assert_eq!(trie.storage.get_leaf(key).unwrap(), key);
+
+        // There should be one stem child at index 0 which should hold the value of 0
+        let mut stem_children = trie.storage.get_stem_children(stem);
+        assert_eq!(stem_children.len(), 1);
+
+        let (stem_index, leaf_value) = stem_children.pop().unwrap();
+        assert_eq!(stem_index, 0);
+        assert_eq!(leaf_value, key);
+
+        // Checking correctness of the stem commitments and hashes
+        let stem_meta = trie.storage.get_stem_meta(stem).unwrap();
+
+        // C1 = (value_low + 2^128) * G0 + value_high * G1
+        let value_low = Fr::from_le_bytes_mod_order(&[0u8; 16]) + two_pow_128();
+
+        let C_1 = SRS[0].mul(value_low.into_repr());
+        assert_eq!(C_1, stem_meta.C_1);
+        assert_eq!(group_to_field(&C_1), stem_meta.hash_c1);
+
+        // C_2 is not being used so it is the identity point
+        let C_2 = EdwardsProjective::zero();
+        assert_eq!(stem_meta.C_2, C_2);
+        assert_eq!(group_to_field(&C_2), stem_meta.hash_c2);
+
+        // The stem commitment is: 1 * G_0 + stem * G_1 + group_to_field(C1) * G_2 + group_to_field(C2) * G_3
+        let stem_comm_0 = SRS[0];
+        let stem_comm_1 = SRS[1].mul(Fr::from_le_bytes_mod_order(&stem).into_repr());
+        let stem_comm_2 = SRS[2].mul(group_to_field(&C_1).into_repr());
+        let stem_comm_3 = SRS[3].mul(group_to_field(&C_2).into_repr());
+        let stem_comm = stem_comm_0 + stem_comm_1 + stem_comm_2 + stem_comm_3;
+        assert_eq!(stem_meta.stem_commitment, stem_comm);
+
+        // Root is computed as the hash of the stem_commitment * G_0
+        // G_0 since the stem is situated at the first index in the child
+        let hash_stem_comm = group_to_field(&stem_meta.stem_commitment);
+        let root_comm = SRS[0].mul(hash_stem_comm.into_repr());
+        let root = group_to_field(&root_comm);
+
+        assert_eq!(root, trie.compute_root())
+    }
+
+    #[test]
+    // Test when the key is 1 to 32
+    fn insert_key1_val1() {
+        use tempfile::tempdir;
+        let temp_dir = tempdir().unwrap();
+        use crate::database::ReadOnlyHigherDb;
+
+        let db = MemoryDb::new();
+        let mut trie = Trie::new(db, BasicCommitter);
+
+        let key = [
+            1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24,
+            25, 26, 27, 28, 29, 30, 31, 32,
+        ];
+        let stem: [u8; 31] = key[0..31].try_into().unwrap();
+
+        let ins = trie.create_insert_instructions(key, key);
+        trie.process_instructions(ins);
+
+        // Value at that leaf should be [1,32]
+        assert_eq!(trie.storage.get_leaf(key).unwrap(), key);
+
+        // There should be one stem child at index 32 which should hold the value of [1,32]
+        let mut stem_children = trie.storage.get_stem_children(stem);
+        assert_eq!(stem_children.len(), 1);
+
+        let (stem_index, leaf_value) = stem_children.pop().unwrap();
+        assert_eq!(stem_index, 32);
+        assert_eq!(leaf_value, key);
+
+        // Checking correctness of the stem commitments and hashes
+        let stem_meta = trie.storage.get_stem_meta(stem).unwrap();
+
+        // C1 = (value_low + 2^128) * G_64 + value_high * G_65
+        let value_low =
+            Fr::from_le_bytes_mod_order(&[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16])
+                + two_pow_128();
+        let value_high = Fr::from_le_bytes_mod_order(&[
+            17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32,
+        ]);
+
+        let C_1 = SRS[64].mul(value_low.into_repr()) + SRS[65].mul(value_high.into_repr());
+
+        assert_eq!(C_1, stem_meta.C_1);
+        assert_eq!(group_to_field(&C_1), stem_meta.hash_c1);
+
+        // C_2 is not being used so it is the identity point
+        let C_2 = EdwardsProjective::zero();
+        assert_eq!(stem_meta.C_2, C_2);
+        assert_eq!(group_to_field(&C_2), stem_meta.hash_c2);
+
+        // The stem commitment is: 1 * G_0 + stem * G_1 + group_to_field(C1) * G_2 + group_to_field(C2) * G_3
+        let stem_comm_0 = SRS[0];
+        let stem_comm_1 = SRS[1].mul(Fr::from_le_bytes_mod_order(&stem).into_repr());
+        let stem_comm_2 = SRS[2].mul(group_to_field(&C_1).into_repr());
+        let stem_comm_3 = SRS[3].mul(group_to_field(&C_2).into_repr());
+        let stem_comm = stem_comm_0 + stem_comm_1 + stem_comm_2 + stem_comm_3;
+        assert_eq!(stem_meta.stem_commitment, stem_comm);
+
+        // Root is computed as the hash of the stem_commitment * G_1
+        // G_1 since the stem is situated at the second index in the child (key starts with 1)
+        let hash_stem_comm = group_to_field(&stem_meta.stem_commitment);
+        let root_comm = SRS[1].mul(hash_stem_comm.into_repr());
+        let root = group_to_field(&root_comm);
+
+        assert_eq!(root, trie.compute_root())
+    }
+
+    #[test]
+    // Test when we insert two leaves under the same stem
+    fn insert_same_stem_two_leaves() {
+        use crate::database::ReadOnlyHigherDb;
+        let db = MemoryDb::new();
+        let mut trie = Trie::new(db, BasicCommitter);
+
+        let key_a = [
+            1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24,
+            25, 26, 27, 28, 29, 30, 31, 32,
+        ];
+        let stem_a: [u8; 31] = key_a[0..31].try_into().unwrap();
+        let key_b = [
+            1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24,
+            25, 26, 27, 28, 29, 30, 31, 128,
+        ];
+        let stem_b: [u8; 31] = key_b[0..31].try_into().unwrap();
+        assert_eq!(stem_a, stem_b);
+        let stem = stem_a;
+
+        let ins = trie.create_insert_instructions(key_a, key_a);
+        trie.process_instructions(ins);
+        let ins = trie.create_insert_instructions(key_b, key_b);
+        trie.process_instructions(ins);
+
+        // Fetch both leaves to ensure they have been inserted
+        assert_eq!(trie.storage.get_leaf(key_a).unwrap(), key_a);
+        assert_eq!(trie.storage.get_leaf(key_b).unwrap(), key_b);
+
+        // There should be two stem children, one at index 32 and the other at index 128
+        let mut stem_children = trie.storage.get_stem_children(stem);
+        assert_eq!(stem_children.len(), 2);
+
+        for (stem_index, leaf_value) in stem_children {
+            if stem_index == 32 {
+                assert_eq!(leaf_value, key_a);
+            } else if stem_index == 128 {
+                assert_eq!(leaf_value, key_b);
+            } else {
+                panic!("unexpected stem index {}", stem_index)
+            }
         }
-        res
+
+        // Checking correctness of the stem commitments and hashes
+        let stem_meta = trie.storage.get_stem_meta(stem).unwrap();
+
+        // C1 = (value_low + 2^128) * G_64 + value_high * G_65
+        let value_low =
+            Fr::from_le_bytes_mod_order(&[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16])
+                + two_pow_128();
+        let value_high = Fr::from_le_bytes_mod_order(&[
+            17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32,
+        ]);
+
+        let C_1 = SRS[64].mul(value_low.into_repr()) + SRS[65].mul(value_high.into_repr());
+
+        assert_eq!(C_1, stem_meta.C_1);
+        assert_eq!(group_to_field(&C_1), stem_meta.hash_c1);
+
+        // C2 = (value_low + 2^128) * G_0 + value_high * G_1
+        let value_low =
+            Fr::from_le_bytes_mod_order(&[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16])
+                + two_pow_128();
+        let value_high = Fr::from_le_bytes_mod_order(&[
+            17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 128,
+        ]);
+
+        let C_2 = SRS[0].mul(value_low.into_repr()) + SRS[1].mul(value_high.into_repr());
+
+        assert_eq!(stem_meta.C_2, C_2);
+        assert_eq!(group_to_field(&C_2), stem_meta.hash_c2);
+
+        // The stem commitment is: 1 * G_0 + stem * G_1 + group_to_field(C1) * G_2 + group_to_field(C2) * G_3
+        let stem_comm_0 = SRS[0];
+        let stem_comm_1 = SRS[1].mul(Fr::from_le_bytes_mod_order(&stem).into_repr());
+        let stem_comm_2 = SRS[2].mul(group_to_field(&C_1).into_repr());
+        let stem_comm_3 = SRS[3].mul(group_to_field(&C_2).into_repr());
+        let stem_comm = stem_comm_0 + stem_comm_1 + stem_comm_2 + stem_comm_3;
+        assert_eq!(stem_meta.stem_commitment, stem_comm);
+
+        // Root is computed as the hash of the stem_commitment * G_1
+        let hash_stem_comm = group_to_field(&stem_meta.stem_commitment);
+        let root_comm = SRS[1].mul(hash_stem_comm.into_repr());
+        let root = group_to_field(&root_comm);
+
+        assert_eq!(root, trie.compute_root())
+    }
+    #[test]
+    // Test where we insert two leaves, which correspond to two stems
+    // TODO: Is this manual test needed, or can we add it as a consistency test?
+    fn insert_key1_val1_key2_val2() {
+        use crate::database::ReadOnlyHigherDb;
+
+        let db = MemoryDb::new();
+        let mut trie = Trie::new(db, BasicCommitter);
+
+        let key_a = [0u8; 32];
+        let stem_a: [u8; 31] = key_a[0..31].try_into().unwrap();
+        let key_b = [1u8; 32];
+        let stem_b: [u8; 31] = key_b[0..31].try_into().unwrap();
+
+        let ins = trie.create_insert_instructions(key_a, key_a);
+        trie.process_instructions(ins);
+        let ins = trie.create_insert_instructions(key_b, key_b);
+        trie.process_instructions(ins);
+
+        let a_meta = trie.storage.get_stem_meta(stem_a).unwrap();
+        let b_meta = trie.storage.get_stem_meta(stem_b).unwrap();
+
+        let root_comm = SRS[0].mul(a_meta.hash_stem_commitment.into_repr())
+            + SRS[1].mul(b_meta.hash_stem_commitment.into_repr());
+
+        let expected_root = group_to_field(&root_comm);
+        let got_root = trie.compute_root();
+        assert_eq!(expected_root, got_root);
     }
 
-    fn scalar_mul(&self, value: Fr, lagrange_index: usize) -> EdwardsProjective {
-        SRS[lagrange_index].mul(value.into_repr())
+    #[test]
+    // Test where keys create the longest path
+    fn insert_longest_path() {
+        let db = MemoryDb::new();
+        let mut trie = Trie::new(db, BasicCommitter);
+
+        let key_a = [0u8; 32];
+        let mut key_b = [0u8; 32];
+        key_b[30] = 1;
+
+        trie.insert(key_a, key_a);
+        trie.insert(key_b, key_b);
+
+        let mut byts = [0u8; 32];
+        trie.compute_root().serialize(&mut byts[..]).unwrap();
+        assert_eq!(
+            hex::encode(&byts),
+            "be3b3fd9809c2223963c57ac207093b1508532550967baae8585b5913a1d3f06"
+        );
     }
-}
+    #[test]
+    // Test where keys create the longest path and the new key traverses that path
+    fn insert_and_traverse_longest_path() {
+        let db = MemoryDb::new();
+        let mut trie = Trie::new(db, BasicCommitter);
 
-#[test]
-// Inserting where the key and value are all zeros
-// The zeroes cancel out a lot of components, so this is a general fuzz test
-// and hopefully the easiest to pass
-fn insert_key0value0() {
-    use tempfile::tempdir;
-    let temp_dir = tempdir().unwrap();
-    use crate::database::ReadOnlyHigherDb;
+        let key_a = [0u8; 32];
+        let ins = trie.create_insert_instructions(key_a, key_a);
+        trie.process_instructions(ins);
 
-    let db = MemoryDb::new();
+        let mut key_b = [0u8; 32];
+        key_b[30] = 1;
 
-    let mut trie = Trie::new(db, BasicCommitter);
+        let ins = trie.create_insert_instructions(key_b, key_b);
+        trie.process_instructions(ins);
+        // Since those inner nodes were already created with key_b
+        // The insertion algorithm will traverse these inner nodes
+        // and later signal an update is needed, once it is inserted
+        let mut key_c = [0u8; 32];
+        key_c[29] = 1;
 
-    let key = [0u8; 32];
-    let stem: [u8; 31] = key[0..31].try_into().unwrap();
+        let ins = trie.create_insert_instructions(key_c, key_c);
+        trie.process_instructions(ins);
 
-    let ins = trie.create_insert_instructions(key, key);
-    trie.process_instructions(ins);
+        let mut byts = [0u8; 32];
+        trie.compute_root().serialize(&mut byts[..]).unwrap();
+        assert_eq!(
+            hex::encode(&byts),
+            "815293804a110d967ecd2758204beaa3c5601397814cb2eb56d2ef0589ea620b"
+        );
+    }
 
-    // Value at that leaf should be zero
-    assert_eq!(trie.storage.get_leaf(key).unwrap(), key);
+    #[test]
+    fn empty_trie() {
+        // An empty tree should return zero as the root
 
-    // There should be one stem child at index 0 which should hold the value of 0
-    let mut stem_children = trie.storage.get_stem_children(stem);
-    assert_eq!(stem_children.len(), 1);
+        let db = MemoryDb::new();
+        let trie = Trie::new(db, BasicCommitter);
 
-    let (stem_index, leaf_value) = stem_children.pop().unwrap();
-    assert_eq!(stem_index, 0);
-    assert_eq!(leaf_value, key);
+        assert_eq!(trie.compute_root(), Fr::zero())
+    }
 
-    // Checking correctness of the stem commitments and hashes
-    let stem_meta = trie.storage.get_stem_meta(stem).unwrap();
+    #[test]
+    fn simple_rel_paths() {
+        let parent = vec![0, 1, 2];
+        let rel = vec![5, 6, 7];
+        let expected = vec![
+            vec![0, 1, 2, 5],
+            vec![0, 1, 2, 5, 6],
+            vec![0, 1, 2, 5, 6, 7],
+        ];
+        let result = super::paths_from_relative(parent, rel);
 
-    // C1 = (value_low + 2^128) * G0 + value_high * G1
-    let value_low = Fr::from_le_bytes_mod_order(&[0u8; 16]) + two_pow_128();
-
-    let C_1 = SRS[0].mul(value_low.into_repr());
-    assert_eq!(C_1, stem_meta.C_1);
-    assert_eq!(group_to_field(&C_1), stem_meta.hash_c1);
-
-    // C_2 is not being used so it is the identity point
-    let C_2 = EdwardsProjective::zero();
-    assert_eq!(stem_meta.C_2, C_2);
-    assert_eq!(group_to_field(&C_2), stem_meta.hash_c2);
-
-    // The stem commitment is: 1 * G_0 + stem * G_1 + group_to_field(C1) * G_2 + group_to_field(C2) * G_3
-    let stem_comm_0 = SRS[0];
-    let stem_comm_1 = SRS[1].mul(Fr::from_le_bytes_mod_order(&stem).into_repr());
-    let stem_comm_2 = SRS[2].mul(group_to_field(&C_1).into_repr());
-    let stem_comm_3 = SRS[3].mul(group_to_field(&C_2).into_repr());
-    let stem_comm = stem_comm_0 + stem_comm_1 + stem_comm_2 + stem_comm_3;
-    assert_eq!(stem_meta.stem_commitment, stem_comm);
-
-    // Root is computed as the hash of the stem_commitment * G_0
-    // G_0 since the stem is situated at the first index in the child
-    let hash_stem_comm = group_to_field(&stem_meta.stem_commitment);
-    let root_comm = SRS[0].mul(hash_stem_comm.into_repr());
-    let root = group_to_field(&root_comm);
-
-    assert_eq!(root, trie.compute_root())
-}
-
-#[test]
-// Test when the key is 1 to 32
-fn insert_key1_val1() {
-    use tempfile::tempdir;
-    let temp_dir = tempdir().unwrap();
-    use crate::database::ReadOnlyHigherDb;
-
-    let db = MemoryDb::new();
-    let mut trie = Trie::new(db, BasicCommitter);
-
-    let key = [
-        1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25,
-        26, 27, 28, 29, 30, 31, 32,
-    ];
-    let stem: [u8; 31] = key[0..31].try_into().unwrap();
-
-    let ins = trie.create_insert_instructions(key, key);
-    trie.process_instructions(ins);
-
-    // Value at that leaf should be [1,32]
-    assert_eq!(trie.storage.get_leaf(key).unwrap(), key);
-
-    // There should be one stem child at index 32 which should hold the value of [1,32]
-    let mut stem_children = trie.storage.get_stem_children(stem);
-    assert_eq!(stem_children.len(), 1);
-
-    let (stem_index, leaf_value) = stem_children.pop().unwrap();
-    assert_eq!(stem_index, 32);
-    assert_eq!(leaf_value, key);
-
-    // Checking correctness of the stem commitments and hashes
-    let stem_meta = trie.storage.get_stem_meta(stem).unwrap();
-
-    // C1 = (value_low + 2^128) * G_64 + value_high * G_65
-    let value_low =
-        Fr::from_le_bytes_mod_order(&[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16])
-            + two_pow_128();
-    let value_high = Fr::from_le_bytes_mod_order(&[
-        17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32,
-    ]);
-
-    let C_1 = SRS[64].mul(value_low.into_repr()) + SRS[65].mul(value_high.into_repr());
-
-    assert_eq!(C_1, stem_meta.C_1);
-    assert_eq!(group_to_field(&C_1), stem_meta.hash_c1);
-
-    // C_2 is not being used so it is the identity point
-    let C_2 = EdwardsProjective::zero();
-    assert_eq!(stem_meta.C_2, C_2);
-    assert_eq!(group_to_field(&C_2), stem_meta.hash_c2);
-
-    // The stem commitment is: 1 * G_0 + stem * G_1 + group_to_field(C1) * G_2 + group_to_field(C2) * G_3
-    let stem_comm_0 = SRS[0];
-    let stem_comm_1 = SRS[1].mul(Fr::from_le_bytes_mod_order(&stem).into_repr());
-    let stem_comm_2 = SRS[2].mul(group_to_field(&C_1).into_repr());
-    let stem_comm_3 = SRS[3].mul(group_to_field(&C_2).into_repr());
-    let stem_comm = stem_comm_0 + stem_comm_1 + stem_comm_2 + stem_comm_3;
-    assert_eq!(stem_meta.stem_commitment, stem_comm);
-
-    // Root is computed as the hash of the stem_commitment * G_1
-    // G_1 since the stem is situated at the second index in the child (key starts with 1)
-    let hash_stem_comm = group_to_field(&stem_meta.stem_commitment);
-    let root_comm = SRS[1].mul(hash_stem_comm.into_repr());
-    let root = group_to_field(&root_comm);
-
-    assert_eq!(root, trie.compute_root())
-}
-
-#[test]
-// Test when we insert two leaves under the same stem
-fn insert_same_stem_two_leaves() {
-    use crate::database::ReadOnlyHigherDb;
-    let db = MemoryDb::new();
-    let mut trie = Trie::new(db, BasicCommitter);
-
-    let key_a = [
-        1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25,
-        26, 27, 28, 29, 30, 31, 32,
-    ];
-    let stem_a: [u8; 31] = key_a[0..31].try_into().unwrap();
-    let key_b = [
-        1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25,
-        26, 27, 28, 29, 30, 31, 128,
-    ];
-    let stem_b: [u8; 31] = key_b[0..31].try_into().unwrap();
-    assert_eq!(stem_a, stem_b);
-    let stem = stem_a;
-
-    let ins = trie.create_insert_instructions(key_a, key_a);
-    trie.process_instructions(ins);
-    let ins = trie.create_insert_instructions(key_b, key_b);
-    trie.process_instructions(ins);
-
-    // Fetch both leaves to ensure they have been inserted
-    assert_eq!(trie.storage.get_leaf(key_a).unwrap(), key_a);
-    assert_eq!(trie.storage.get_leaf(key_b).unwrap(), key_b);
-
-    // There should be two stem children, one at index 32 and the other at index 128
-    let mut stem_children = trie.storage.get_stem_children(stem);
-    assert_eq!(stem_children.len(), 2);
-
-    for (stem_index, leaf_value) in stem_children {
-        if stem_index == 32 {
-            assert_eq!(leaf_value, key_a);
-        } else if stem_index == 128 {
-            assert_eq!(leaf_value, key_b);
-        } else {
-            panic!("unexpected stem index {}", stem_index)
+        assert_eq!(result.len(), expected.len());
+        for (got, expected) in result.into_iter().zip(expected) {
+            assert_eq!(got, expected)
         }
-    }
-
-    // Checking correctness of the stem commitments and hashes
-    let stem_meta = trie.storage.get_stem_meta(stem).unwrap();
-
-    // C1 = (value_low + 2^128) * G_64 + value_high * G_65
-    let value_low =
-        Fr::from_le_bytes_mod_order(&[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16])
-            + two_pow_128();
-    let value_high = Fr::from_le_bytes_mod_order(&[
-        17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32,
-    ]);
-
-    let C_1 = SRS[64].mul(value_low.into_repr()) + SRS[65].mul(value_high.into_repr());
-
-    assert_eq!(C_1, stem_meta.C_1);
-    assert_eq!(group_to_field(&C_1), stem_meta.hash_c1);
-
-    // C2 = (value_low + 2^128) * G_0 + value_high * G_1
-    let value_low =
-        Fr::from_le_bytes_mod_order(&[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16])
-            + two_pow_128();
-    let value_high = Fr::from_le_bytes_mod_order(&[
-        17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 128,
-    ]);
-
-    let C_2 = SRS[0].mul(value_low.into_repr()) + SRS[1].mul(value_high.into_repr());
-
-    assert_eq!(stem_meta.C_2, C_2);
-    assert_eq!(group_to_field(&C_2), stem_meta.hash_c2);
-
-    // The stem commitment is: 1 * G_0 + stem * G_1 + group_to_field(C1) * G_2 + group_to_field(C2) * G_3
-    let stem_comm_0 = SRS[0];
-    let stem_comm_1 = SRS[1].mul(Fr::from_le_bytes_mod_order(&stem).into_repr());
-    let stem_comm_2 = SRS[2].mul(group_to_field(&C_1).into_repr());
-    let stem_comm_3 = SRS[3].mul(group_to_field(&C_2).into_repr());
-    let stem_comm = stem_comm_0 + stem_comm_1 + stem_comm_2 + stem_comm_3;
-    assert_eq!(stem_meta.stem_commitment, stem_comm);
-
-    // Root is computed as the hash of the stem_commitment * G_1
-    let hash_stem_comm = group_to_field(&stem_meta.stem_commitment);
-    let root_comm = SRS[1].mul(hash_stem_comm.into_repr());
-    let root = group_to_field(&root_comm);
-
-    assert_eq!(root, trie.compute_root())
-}
-#[test]
-// Test where we insert two leaves, which correspond to two stems
-// TODO: Is this manual test needed, or can we add it as a consistency test?
-fn insert_key1_val1_key2_val2() {
-    use crate::database::ReadOnlyHigherDb;
-
-    let db = MemoryDb::new();
-    let mut trie = Trie::new(db, BasicCommitter);
-
-    let key_a = [0u8; 32];
-    let stem_a: [u8; 31] = key_a[0..31].try_into().unwrap();
-    let key_b = [1u8; 32];
-    let stem_b: [u8; 31] = key_b[0..31].try_into().unwrap();
-
-    let ins = trie.create_insert_instructions(key_a, key_a);
-    trie.process_instructions(ins);
-    let ins = trie.create_insert_instructions(key_b, key_b);
-    trie.process_instructions(ins);
-
-    let a_meta = trie.storage.get_stem_meta(stem_a).unwrap();
-    let b_meta = trie.storage.get_stem_meta(stem_b).unwrap();
-
-    let root_comm = SRS[0].mul(a_meta.hash_stem_commitment.into_repr())
-        + SRS[1].mul(b_meta.hash_stem_commitment.into_repr());
-
-    let expected_root = group_to_field(&root_comm);
-    let got_root = trie.compute_root();
-    assert_eq!(expected_root, got_root);
-}
-
-#[test]
-// Test where keys create the longest path
-fn insert_longest_path() {
-    let db = MemoryDb::new();
-    let mut trie = Trie::new(db, BasicCommitter);
-
-    let key_a = [0u8; 32];
-    let mut key_b = [0u8; 32];
-    key_b[30] = 1;
-
-    trie.insert(key_a, key_a);
-    trie.insert(key_b, key_b);
-
-    let mut byts = [0u8; 32];
-    trie.compute_root().serialize(&mut byts[..]).unwrap();
-    assert_eq!(
-        hex::encode(&byts),
-        "be3b3fd9809c2223963c57ac207093b1508532550967baae8585b5913a1d3f06"
-    );
-}
-#[test]
-// Test where keys create the longest path and the new key traverses that path
-fn insert_and_traverse_longest_path() {
-    let db = MemoryDb::new();
-    let mut trie = Trie::new(db, BasicCommitter);
-
-    let key_a = [0u8; 32];
-    let ins = trie.create_insert_instructions(key_a, key_a);
-    trie.process_instructions(ins);
-
-    let mut key_b = [0u8; 32];
-    key_b[30] = 1;
-
-    let ins = trie.create_insert_instructions(key_b, key_b);
-    trie.process_instructions(ins);
-    // Since those inner nodes were already created with key_b
-    // The insertion algorithm will traverse these inner nodes
-    // and later signal an update is needed, once it is inserted
-    let mut key_c = [0u8; 32];
-    key_c[29] = 1;
-
-    let ins = trie.create_insert_instructions(key_c, key_c);
-    trie.process_instructions(ins);
-
-    let mut byts = [0u8; 32];
-    trie.compute_root().serialize(&mut byts[..]).unwrap();
-    assert_eq!(
-        hex::encode(&byts),
-        "815293804a110d967ecd2758204beaa3c5601397814cb2eb56d2ef0589ea620b"
-    );
-}
-
-#[test]
-fn empty_trie() {
-    // An empty tree should return zero as the root
-
-    let db = MemoryDb::new();
-    let trie = Trie::new(db, BasicCommitter);
-
-    assert_eq!(trie.compute_root(), Fr::zero())
-}
-
-#[test]
-fn simple_rel_paths() {
-    let parent = vec![0, 1, 2];
-    let rel = vec![5, 6, 7];
-    let expected = vec![
-        vec![0, 1, 2, 5],
-        vec![0, 1, 2, 5, 6],
-        vec![0, 1, 2, 5, 6, 7],
-    ];
-    let result = paths_from_relative(parent, rel);
-
-    assert_eq!(result.len(), expected.len());
-    for (got, expected) in result.into_iter().zip(expected) {
-        assert_eq!(got, expected)
     }
 }

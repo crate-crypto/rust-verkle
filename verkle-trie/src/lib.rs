@@ -8,6 +8,8 @@ pub mod trie;
 pub type Key = [u8; 32];
 pub type Value = [u8; 32];
 
+use ark_ec::ProjectiveCurve;
+use ark_ff::{PrimeField, Zero};
 use ark_serialize::CanonicalSerialize;
 use bandersnatch::{EdwardsProjective, Fr};
 
@@ -54,10 +56,24 @@ pub trait Committer {
     // compute value * G for a specific generator in the SRS
     fn scalar_mul(&self, value: Fr, lagrange_index: usize) -> EdwardsProjective;
 }
+// A Basic Commit struct to be used in tests.
+// In production, we will use the Precomputed points
+pub(crate) struct BasicCommitter;
+impl Committer for BasicCommitter {
+    fn commit_lagrange(&self, evaluations: &[Fr]) -> EdwardsProjective {
+        let mut res = EdwardsProjective::zero();
+        for (val, point) in evaluations.iter().zip(SRS.iter()) {
+            res += point.mul(val.into_repr())
+        }
+        res
+    }
+
+    fn scalar_mul(&self, value: Fr, lagrange_index: usize) -> EdwardsProjective {
+        SRS[lagrange_index].mul(value.into_repr())
+    }
+}
 
 pub(crate) fn group_to_field(point: &EdwardsProjective) -> Fr {
-    use ark_ff::PrimeField;
-    use ark_ff::Zero;
     if point.is_zero() {
         return Fr::zero();
     }
@@ -76,7 +92,6 @@ use once_cell::sync::Lazy;
 
 // TODO: change this into a constant
 pub(crate) fn two_pow_128() -> Fr {
-    use ark_ff::PrimeField;
     let mut arr = [0u8; 17];
     arr[0] = 1;
     Fr::from_be_bytes_mod_order(&arr)
@@ -86,8 +101,6 @@ pub(crate) fn two_pow_128() -> Fr {
 // TODO: change SRS to CRS. There is no structure
 pub static SRS: Lazy<[EdwardsProjective; 256]> = Lazy::new(|| {
     let mut points = [EdwardsProjective::default(); 256];
-    use ark_ec::ProjectiveCurve;
-    use ark_ff::PrimeField;
     let gen = EdwardsProjective::prime_subgroup_generator();
 
     for i in 0..256 {
