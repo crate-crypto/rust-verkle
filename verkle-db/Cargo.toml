@@ -1,5 +1,6 @@
 [package]
 name = "verkle-db"
+authors = ["Kevaundray Wedderburn <kevtheappdev@gmail.com>"]
 version = "0.1.0"
 edition = "2018"
 
