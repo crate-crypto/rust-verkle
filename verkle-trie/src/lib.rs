@@ -1,47 +1,48 @@
+#[deny(unreachable_patterns)]
 mod byte_arr;
 pub mod database;
 pub mod precompute;
-#[deny(unreachable_patterns)]
-mod proof;
+pub mod proof;
 pub mod trie;
-pub struct Key([u8; 32]);
-pub struct Value([u8; 32]);
 
-pub struct VerklePath;
+pub type Key = [u8; 32];
+pub type Value = [u8; 32];
+
 use ark_serialize::CanonicalSerialize;
 use bandersnatch::{EdwardsProjective, Fr};
 
+pub const FLUSH_BATCH: u32 = 20_000;
+
 pub trait TrieTrait {
-    /// Inserts multiple values into the trie, recomputes the root
-    /// using the pippenger.
-    ///
-    /// Note: it is not possible to insert a value without recomputing the root
-    /// This avoids any complications where one may insert without updating the root, and
-    /// then one updates a different key.
-    ///
-    /// Update assumes that all commitments in the trie are updated
-
+    /// Inserts multiple values into the trie, returning the recomputed root.
+    /// If the number of items is below FLUSH_BATCH, they will be persisted
+    /// atomically
     fn insert(&mut self, kv: impl Iterator<Item = (Key, Value)>) -> Fr;
-    /// Inserts a single value and computes it's root using pippenger.
 
+    /// Inserts a single value and returns the root.
     fn insert_single(&mut self, key: Key, value: Value) -> Fr {
         self.insert(vec![(key, value)].into_iter())
     }
     /// Gets the value at the `Key` if it exists
     /// Returns an error if it does not exist
-    // XXX: This should return a reference to &Value, as the data might be large
-    fn get(&self, key: &Key) -> Result<Value, std::io::Error>;
+    fn get(&self, key: &Key) -> Result<Value, ()>;
 
+    // It's possible to have an update API, where we update the
+    // values already in the database and return those which are not
+    // It's more efficient to make batch updates since no new
+    // nodes are being added, and we can skip intermediate updates for a node
+    // We can also alternatively, just return an error if the key's stem is missing
     // // updates a key's value and recomputes the delta
-    // fn update(&mut self, key : Key, value : Value);
+    // fn update(&mut self, kv: impl Iterator<Item = (Key, Value)>);
 
-    /// Computes the root of the trie
-    // For computing the root, we can make a call to the leaf table.
-    // If there is only one or zero leaves, we return the leave value or 0 respectively
+    /// Returns the root of the trie
     fn compute_root(&mut self) -> Fr;
 
-    /// Creates a verkle path which can be used to create a verkle proof
-    fn create_verkle_proof(&mut self, key: &Key) -> Result<VerklePath, std::io::Error>;
+    /// Creates a verkle proof over many keys
+    fn create_verkle_proof(
+        &mut self,
+        key: impl Iterator<Item = Key>,
+    ) -> Result<proof::VerkleProof, ()>;
 }
 
 // This is the function that commits to the branch nodes and computes the delta optimisation
