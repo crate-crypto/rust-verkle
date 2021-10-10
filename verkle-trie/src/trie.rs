@@ -711,6 +711,15 @@ impl<Storage: ReadWriteHigherDb, PolyCommit: Committer> Trie<Storage, PolyCommit
     }
 }
 
+impl<Storage: ReadWriteHigherDb, PolyCommit: Committer> Trie<Storage, PolyCommit> {
+    pub fn create_verkle_proof(
+        &self,
+        keys: impl Iterator<Item = [u8; 32]>,
+    ) -> crate::proof::VerkleProof {
+        use crate::proof::prover;
+        prover::create_verkle_proof(&self.storage, keys.collect())
+    }
+}
 impl<Storage: ReadWriteHigherDb + Flush, PolyCommit: Committer> Trie<Storage, PolyCommit> {
     // TODO: maybe make this private, and automatically flush
     // TODO after each insert. This will promote users to use insert()

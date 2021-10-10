@@ -3,9 +3,9 @@ use std::collections::{BTreeMap, BTreeSet};
 
 mod key_path_finder;
 mod opening_data;
-mod prover;
+pub(crate) mod prover;
 
-mod verifier;
+pub(crate) mod verifier;
 
 // Given a polynomial `f`
 // - `commitment` denotes the commitment to `f`
