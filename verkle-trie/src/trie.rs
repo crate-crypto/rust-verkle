@@ -1,6 +1,6 @@
 use std::convert::TryInto;
 
-use crate::database::{BranchMeta, Flush, Meta, ReadOnlyHigherDb, ReadWriteHigherDb, StemMeta};
+use crate::database::{BranchMeta, Flush, Meta, ReadWriteHigherDb, StemMeta};
 use crate::{byte_arr::Key, group_to_field, SRS};
 use crate::{two_pow_128, Committer};
 use ark_ff::{PrimeField, Zero};
@@ -45,13 +45,13 @@ enum Ins {
         // This is the internal node which references the stem of the leaf we just modified
         branch_id: BranchId,
 
-        // This is thr index of the stem in the inner node
+        // This is the index of the stem in the inner node
         branch_child_index: u8,
         //
         // We know the key for the child node since we have the leaf
     },
 
-    // ChianInsert is only initiated when the key being inserted shares < 31 indices with an
+    // ChainInsert is only initiated when the key being inserted shares < 31 indices with an
     // existing key
     ChainInsert {
         starting_depth: u8,
