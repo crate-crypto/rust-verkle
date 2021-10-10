@@ -795,8 +795,6 @@ mod tests {
     #[test]
     // Test when the key is 1 to 32
     fn insert_key1_val1() {
-        use tempfile::tempdir;
-        let temp_dir = tempdir().unwrap();
         use crate::database::ReadOnlyHigherDb;
 
         let db = MemoryDb::new();
@@ -890,7 +888,7 @@ mod tests {
         assert_eq!(trie.storage.get_leaf(key_b).unwrap(), key_b);
 
         // There should be two stem children, one at index 32 and the other at index 128
-        let mut stem_children = trie.storage.get_stem_children(stem);
+        let stem_children = trie.storage.get_stem_children(stem);
         assert_eq!(stem_children.len(), 2);
 
         for (stem_index, leaf_value) in stem_children {
