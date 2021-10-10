@@ -1,34 +1,65 @@
-We want to store the commitment for the stem/leaf etc
-We can do this by storing 33 byte keys and using the 33rd byte to link to extra data. This will make it less efficient to query
-a stem for all of their leaves however, because it will also get the extra data for each leaf too
+# Verkle Trie 
 
-Maybe this is fine, since if we want to get a leaf, we probably want the extra data to prove it's membership
+**This code has not been reviewed and is not safe to use in non-research capacities.**
 
-MILESTONE 1:
+This is a proof of concept implementation of Verkle Tries. Any and all mistakes made are mine and are not reflective of the protocol.
 
-- Get a database working without caching
+## Note on Performance
 
+There are still a few places in the code where performance can be improved:
 
-Note, it might be possible to identify a branch node as (depth, position) where depth \in [0,32] and position \in [0,256]
+- Upon inserting a single leaf, a multi scalar is currently being done
+- Parallelism is not currently being used, in places where it could be.
 
+## Note on Differences with reference
 
-MILESTONE N:
+- The code has been intentionally implemented in a different way in most places to check for consistency and any misunderstandings. For example, recursion is not used as much when inserting leaves. This means that the code will be more verbose as we need to compute exactly when the algorithm will stop ahead of time.
 
-- Adding graphing software would be cool
-- - Try implementing the materialised path schema (changes the way the trie works!)
-- We can also store the projective form of the point instead of the affine form
-- Use serialise_unchecked instead of serialise_uncompressed. Careful for when we are importing a database from somewhere else
-# Assumptions
+- An arena is used to allocate node data, which further changes the way the code looks. 
 
-- There will not be more than 2^64 internal/branch nodes. They are indexed using 8 bytes. The theoretical limit is 256^31 = 2^248. This limit can be changed at a later date by padding all of the previous 8 byte branch IDs.
+- Consistency between implementations has not been tested and most likely will not be the case as hash_to_fr for example, is implemented differently in golang. 
 
-- Above assumption is wrong now, we don't hash because neighboring nodes will have differing keys. Hash([0,0]) is not close to Hash([0,0,1]). But do we lose anything by having variable sized keys?
+## About
 
-IDEA: For database we have two traits, one for BatchInsert, but with store(key, value) and a flush method 
-Then another with just a single store_all() method.
+This implementation references the go-verkle implementation : https://github.com/gballet/go-verkle
 
-We can then create a struct which takes the store_all method and creates a higher db from it
+It also uses the kzg scheme referenced here for multi-point proofs: https://notes.ethereum.org/nrQqhVpQRi6acQckwm1Ryg
 
-Quesiton:
+## Usage
 
-Should the cache be populated everytime the program starts? - Depends on useage. If it's going to be used in something like a node, then yep, but if its going to be used as a cli tool, this might be a very expensive startup that would happen multiple times. How expensive would this be for a large trie?
+```rust
+use verkle_trie::{dummy_setup, Key, Value, VerkleTrie};
+
+    // Trusted setup
+    let srs_poly_degree = 1024;
+    let (commit_key, opening_key) = dummy_setup(srs_poly_degree);
+
+    // Create a trie and insert two values
+    let width = 10;
+    let mut trie = VerkleTrie::new(width);
+    trie.insert(Key::one(), Value::one());
+    trie.insert(Key::zero(), Value::one());
+
+    // Create a VerklePath for key
+    let verkle_path = trie.create_path(&Key::one(), &commit_key).unwrap();
+
+    // Create a VerkleProof
+    let verkle_proof = verkle_path.create_proof(&commit_key);
+
+    // Verification here means that the KZG10 proof passed
+    //
+    // To "finish" the proof, the verifier should check the hash of leaf node themselves
+    let ok = verkle_proof.verify(
+        &opening_key,
+        &verkle_path.commitments,
+        &verkle_path.omega_path_indices,
+        &verkle_path.node_roots,
+    );
+
+    assert!(ok);
+
+```
+
+## License
+
+MIT/APACHE
