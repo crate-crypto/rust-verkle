@@ -4,10 +4,13 @@
 /// If these methods are implemented, then it allows one to
 /// use the default higher level trait implementations
 /// that the verkle trie needs. (See database.rs)
+#[cfg(feature = "sled_db")]
 mod sled_impl;
+#[cfg(feature = "sled_db")]
 pub use sled_impl::DB as SledDb;
-
+#[cfg(feature = "rocks_db")]
 mod rocksdb_impl;
+#[cfg(feature = "rocks_db")]
 pub use rocksdb_impl::DB as RocksDb;
 
 // Bare metal database assumes the most basic functionality for a key value database
