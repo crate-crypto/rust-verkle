@@ -12,7 +12,7 @@ bandersnatch = "0.1.1"
 ark-ff = { version = "^0.3.0", default-features = false }
 ark-ec = { version = "^0.3.0", default-features = false }
 ark-serialize = { version = "^0.3.0", default-features = false }
-verkle-db = { path = "../verkle-db" }
+verkle-db = { path = "../verkle-db", default-features = false }
 once_cell = "1.8.0"
 hex = "0.4.3"
 rand_chacha = { version = "0.3.0", default-features = false }
