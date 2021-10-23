@@ -4,7 +4,6 @@ use crate::database::{BranchMeta, Flush, Meta, ReadWriteHigherDb, StemMeta};
 use crate::{byte_arr::Key, group_to_field, SRS};
 use crate::{two_pow_128, Committer};
 use ark_ff::{PrimeField, Zero};
-use ark_serialize::CanonicalSerialize;
 use bandersnatch::{EdwardsProjective, Fr};
 
 #[derive(Debug, Clone)]
@@ -189,8 +188,12 @@ impl<Storage: ReadWriteHigherDb, PolyCommit: Committer> Trie<Storage, PolyCommit
 
             // Case3a: Lets check if this key belongs under the stem
             if shared_path.len() == 31 {
+                // TODO this is the only place here, where we require a get_leaf
+                // TODO should we just allow users to update keys to be the same
+                // TODO value and catch it maybe when we compute the delta?
+                // TODO rationale is that get_leaf only gets a single 32 bytes
+                // TODO and database work in pages of ~4Kb
                 // The new key and the old child belong under the same stem
-
                 let leaf_val = self.storage.get_leaf(key_bytes);
                 let old_leaf_val = match leaf_val {
                     Some(old_val) => {
@@ -383,9 +386,6 @@ impl<Storage: ReadWriteHigherDb, PolyCommit: Committer> Trie<Storage, PolyCommit
                         bottom_inode_depth,
                     );
 
-                    let mut dbg_root = [0u8; 32];
-                    bottom_branch_root.serialize(&mut dbg_root[..]).unwrap();
-
                     //3) We now have the root for the branch node which holds the two stem nodes.
                     // We now need to create a chain of branch nodes up to the parent, updating their commitments
                     // along the way
@@ -436,9 +436,6 @@ impl<Storage: ReadWriteHigherDb, PolyCommit: Committer> Trie<Storage, PolyCommit
                     let updated_top_comm = top_parent.commitment
                         + self.committer.scalar_mul(delta, child_index as usize);
                     let top_parent_root = group_to_field(&updated_top_comm);
-
-                    let mut dbg_root = [0u8; 32];
-                    top_parent_root.serialize(&mut dbg_root[..]).unwrap();
 
                     self.storage.insert_branch(
                         parent_branch_node.clone(),
@@ -540,15 +537,17 @@ impl<Storage: ReadWriteHigherDb, PolyCommit: Committer> Trie<Storage, PolyCommit
         let new_value_high_16 = update_leaf.new_value[16..32].to_vec();
 
         let (old_value_low_16, old_value_high_16) = match update_leaf.old_val {
-            Some(val) => (val[0..16].to_vec(), val[16..32].to_vec()),
-            None => (vec![0u8; 16], vec![0u8; 16]),
+            Some(val) => (
+                Fr::from_le_bytes_mod_order(&val[0..16]) + two_pow_128(),
+                Fr::from_le_bytes_mod_order(&val[16..32]),
+            ),
+            None => (Fr::zero(), Fr::zero()),
         };
 
         // We need to compute two deltas
-        let delta_low = Fr::from_le_bytes_mod_order(&new_value_low_16) + two_pow_128()
-            - Fr::from_le_bytes_mod_order(&old_value_low_16);
-        let delta_high = Fr::from_le_bytes_mod_order(&new_value_high_16)
-            - Fr::from_le_bytes_mod_order(&old_value_high_16);
+        let delta_low =
+            Fr::from_le_bytes_mod_order(&new_value_low_16) + two_pow_128() - old_value_low_16;
+        let delta_high = Fr::from_le_bytes_mod_order(&new_value_high_16) - old_value_high_16;
 
         // We need to compute which group elements in the srs are being used
         // We know that the first 128 values are mapped to the first 256 group elements
@@ -576,21 +575,14 @@ impl<Storage: ReadWriteHigherDb, PolyCommit: Committer> Trie<Storage, PolyCommit
 
         let (C_1, old_hash_c1, C_2, old_hash_c2, stem_comm, old_hash_stem_comm) =
             match self.storage.get_stem_meta(stem) {
-                Some(comm_val) => {
-                    let C_1 = comm_val.C_1;
-                    let C_2 = comm_val.C_2;
-
-                    let stem_comm = comm_val.stem_commitment;
-
-                    (
-                        C_1,
-                        comm_val.hash_c1,
-                        C_2,
-                        comm_val.hash_c2,
-                        stem_comm,
-                        Some(comm_val.hash_stem_commitment),
-                    )
-                }
+                Some(comm_val) => (
+                    comm_val.C_1,
+                    comm_val.hash_c1,
+                    comm_val.C_2,
+                    comm_val.hash_c2,
+                    comm_val.stem_commitment,
+                    Some(comm_val.hash_stem_commitment),
+                ),
                 None => {
                     // This is the first leaf for the stem, so the C1, C2 commitments will be zero
                     // The stem commitment will be 1 * G_1 + stem * G_2
@@ -1044,6 +1036,32 @@ mod tests {
         let trie = Trie::new(db, BasicCommitter);
 
         assert_eq!(trie.compute_root(), Fr::zero())
+    }
+
+    #[test]
+    fn simple_update() {
+        let db = MemoryDb::new();
+        let mut trie = Trie::new(db, BasicCommitter);
+
+        let key_a = [
+            1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24,
+            25, 26, 27, 28, 29, 30, 31, 32,
+        ];
+
+        let old_value = key_a;
+        let new_value = [0u8; 32];
+
+        trie.insert(key_a, old_value);
+        trie.insert(key_a, new_value);
+
+        let mut byts = [0u8; 32];
+        let root = trie.compute_root();
+        root.serialize(&mut byts[..]).unwrap();
+
+        assert_eq!(
+            "864060e7ddc4e32d78a4488dfb07540d9dd8c7b215dbf91fe48755df30c97008",
+            hex::encode(byts)
+        )
     }
 
     #[test]
