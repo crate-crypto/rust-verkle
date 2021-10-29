@@ -4,7 +4,7 @@ use std::collections::{BTreeMap, BTreeSet};
 mod key_path_finder;
 mod opening_data;
 pub(crate) mod prover;
-
+pub mod stateless_updater;
 pub(crate) mod verifier;
 
 // Given a polynomial `f`
@@ -62,6 +62,8 @@ pub struct VerificationHint {
 // Auxillary information that the verifier needs in order to update the root statelessly
 pub struct UpdateHint {
     depths_and_ext_by_stem: BTreeMap<[u8; 31], (ExtPresent, u8)>,
+    // This will be used to get the old commitment for a particular node
+    // So that we can compute the delta between it and the new commitment
     commitments_by_path: BTreeMap<Vec<u8>, EdwardsProjective>,
     other_stems_by_prefix: BTreeMap<Vec<u8>, [u8; 31]>,
 }
@@ -72,9 +74,15 @@ pub struct VerkleProof {
     // Commitments sorted by their paths and then their indices
     // The root is taken out when we serialise, so the verifier does not receive it
     comms_sorted: Vec<EdwardsProjective>,
+    //
+    // TODO: We are missing the IPA proof structure
 }
 
 impl VerkleProof {
+    pub fn from_bytes(bytes: &[u8]) -> VerkleProof {
+        todo!()
+    }
+
     pub fn check(
         self,
         keys: Vec<[u8; 32]>,
