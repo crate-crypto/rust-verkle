@@ -490,6 +490,11 @@ impl<Storage: ReadWriteHigherDb, PolyCommit: Committer> Trie<Storage, PolyCommit
         let root_node = self.storage.get_branch_meta(&vec![]).unwrap();
         return root_node.hash_commitment;
     }
+    pub fn compute_root_commitment(&self) -> EdwardsProjective {
+        // TODO: This is needed for proofs, can we remove the root hash as the root?
+        let root_node = self.storage.get_branch_meta(&vec![]).unwrap();
+        return root_node.commitment;
+    }
     // Store the leaf, we return data on the old leaf, so that we can do the delta optimisation
     //
     // If a leaf was not updated, this function will return None
