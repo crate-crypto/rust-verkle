@@ -11,9 +11,22 @@ pub type Value = [u8; 32];
 use ark_ec::ProjectiveCurve;
 use ark_ff::{PrimeField, Zero};
 use ark_serialize::CanonicalSerialize;
-use bandersnatch::{EdwardsProjective, Fr};
+pub use bandersnatch::{EdwardsProjective, Fr};
+pub use trie::Trie;
 
 pub const FLUSH_BATCH: u32 = 20_000;
+
+pub trait ToBytes {
+    fn to_bytes(&self) -> Vec<u8>;
+}
+
+impl ToBytes for EdwardsProjective {
+    fn to_bytes(&self) -> Vec<u8> {
+        let mut bytes = [0u8; 32];
+        self.serialize(&mut bytes[..]).unwrap();
+        bytes.to_vec()
+    }
+}
 
 pub trait TrieTrait {
     /// Inserts multiple values into the trie, returning the recomputed root.
@@ -55,10 +68,20 @@ pub trait Committer {
     fn commit_lagrange(&self, evaluations: &[Fr]) -> EdwardsProjective;
     // compute value * G for a specific generator in the SRS
     fn scalar_mul(&self, value: Fr, lagrange_index: usize) -> EdwardsProjective;
+
+    fn commit_sparse(&self, val_indices: Vec<(Fr, usize)>) -> EdwardsProjective {
+        let mut result = EdwardsProjective::default();
+
+        for (value, lagrange_index) in val_indices {
+            result += self.scalar_mul(value, lagrange_index)
+        }
+
+        return result;
+    }
 }
 // A Basic Commit struct to be used in tests.
 // In production, we will use the Precomputed points
-pub(crate) struct BasicCommitter;
+pub struct BasicCommitter;
 impl Committer for BasicCommitter {
     fn commit_lagrange(&self, evaluations: &[Fr]) -> EdwardsProjective {
         let mut res = EdwardsProjective::zero();
