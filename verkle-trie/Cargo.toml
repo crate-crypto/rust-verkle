@@ -9,6 +9,7 @@ edition = "2018"
 [dependencies]
 tempfile = "3.2.0"
 bandersnatch = "0.1.1"
+ipa-multipoint = { git = "https://github.com/crate-crypto/ipa_multipoint" }
 ark-ff = { version = "^0.3.0", default-features = false }
 ark-ec = { version = "^0.3.0", default-features = false }
 ark-serialize = { version = "^0.3.0", default-features = false }

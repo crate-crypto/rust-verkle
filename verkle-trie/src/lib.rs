@@ -8,9 +8,12 @@ pub mod trie;
 pub type Key = [u8; 32];
 pub type Value = [u8; 32];
 
+use std::convert::TryInto;
+
 use ark_ec::ProjectiveCurve;
 use ark_ff::{PrimeField, Zero};
 use ark_serialize::CanonicalSerialize;
+use bandersnatch::EdwardsAffine;
 pub use bandersnatch::{EdwardsProjective, Fr};
 pub use trie::Trie;
 
@@ -120,34 +123,12 @@ pub(crate) fn two_pow_128() -> Fr {
     Fr::from_be_bytes_mod_order(&arr)
 }
 
-// TODO: This is insecure, it is used to test interopability with the python code
-// TODO: change SRS to CRS. There is no structure
 pub static SRS: Lazy<[EdwardsProjective; 256]> = Lazy::new(|| {
-    let mut points = [EdwardsProjective::default(); 256];
-    let gen = EdwardsProjective::prime_subgroup_generator();
-
-    for i in 0..256 {
-        points[i] = gen.mul(Fr::from((i + 1) as u64).into_repr());
-    }
-
-    points
+    use ipa_multipoint::multiproof::CRS;
+    const SEED: &'static [u8] = b"eth_verkle_oct_2021";
+    let crs = CRS::new(256, SEED);
+    crs.G.try_into().unwrap()
 });
-// TODO: This is secure, but we cannot use it yet, since the python code does not
-// TODO have this method
-// pub static SRS: Lazy<[EdwardsProjective; 256]> = Lazy::new(|| {
-//     let mut points = [EdwardsProjective::default(); 256];
-//     use ark_std::rand::SeedableRng;
-//     use ark_std::UniformRand;
-//     use rand_chacha::ChaCha20Rng;
-
-//     let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
-
-//     for i in 0..256 {
-//         points[i] = EdwardsProjective::rand(&mut rng);
-//     }
-
-//     points
-// });
 
 #[test]
 fn consistent_group_to_field() {
