@@ -1,7 +1,7 @@
 use crate::{
     group_to_field,
     proof::{ExtPresent, UpdateHint, VerifierQuery},
-    two_pow_128,
+    TWO_POW_128,
 };
 use ark_ff::{One, PrimeField, Zero};
 use bandersnatch::{EdwardsProjective, Fr};
@@ -93,7 +93,7 @@ pub fn create_verifier_queries(
 
                 let (value_low, value_high) = match value {
                     Some(val) => {
-                        let value_low = Fr::from_le_bytes_mod_order(&val[0..16]) + two_pow_128();
+                        let value_low = Fr::from_le_bytes_mod_order(&val[0..16]) + TWO_POW_128;
                         let value_high = Fr::from_le_bytes_mod_order(&val[16..32]);
                         (value_low, value_high)
                     }

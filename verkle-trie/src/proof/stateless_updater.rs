@@ -6,7 +6,7 @@ use std::collections::HashSet;
 use std::{collections::BTreeMap, convert::TryInto, ops::Neg};
 
 use crate::BasicCommitter;
-use crate::{group_to_field, proof::ExtPresent, two_pow_128, Committer, SRS};
+use crate::{group_to_field, proof::ExtPresent, Committer, SRS, TWO_POW_128};
 
 use super::{UpdateHint, VerkleProof};
 // TODO fix all panics and return Results instead
@@ -115,15 +115,15 @@ pub(crate) fn update_root<C: Committer>(
 
                 let (old_value_low_16, old_value_high_16) = match old_value {
                     Some(val) => (
-                        Fr::from_le_bytes_mod_order(&val[0..16]) + two_pow_128(),
+                        Fr::from_le_bytes_mod_order(&val[0..16]) + TWO_POW_128,
                         Fr::from_le_bytes_mod_order(&val[16..32]),
                     ),
                     None => (Fr::zero(), Fr::zero()), // The extension can be present, but it's suffix can be missing
                 };
 
                 // We need to compute two deltas
-                let delta_low = Fr::from_le_bytes_mod_order(&new_value_low_16) + two_pow_128()
-                    - old_value_low_16;
+                let delta_low =
+                    Fr::from_le_bytes_mod_order(&new_value_low_16) + TWO_POW_128 - old_value_low_16;
                 let delta_high =
                     Fr::from_le_bytes_mod_order(&new_value_high_16) - old_value_high_16;
 
@@ -201,7 +201,7 @@ pub(crate) fn update_root<C: Committer>(
                     let new_value_high_16 = new_value[16..32].to_vec();
 
                     // We need to compute two deltas
-                    let value_low = Fr::from_le_bytes_mod_order(&new_value_low_16) + two_pow_128();
+                    let value_low = Fr::from_le_bytes_mod_order(&new_value_low_16) + TWO_POW_128;
                     let value_high = Fr::from_le_bytes_mod_order(&new_value_high_16);
 
                     let position = suffix;

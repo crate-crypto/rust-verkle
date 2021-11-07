@@ -2,7 +2,7 @@ use super::{ExtPresent, ProverQuery};
 use crate::{
     database::{Meta, ReadOnlyHigherDb},
     proof::key_path_finder::{KeyNotFound, KeyPathFinder, KeyState},
-    two_pow_128,
+    TWO_POW_128,
 };
 use ark_ff::{One, PrimeField, Zero};
 use bandersnatch::Fr;
@@ -296,7 +296,7 @@ impl SuffixOpeningData {
 
             let (value_low, value_high) = match value {
                 Some(bytes) => (
-                    Fr::from_le_bytes_mod_order(&bytes[0..16]) + two_pow_128(),
+                    Fr::from_le_bytes_mod_order(&bytes[0..16]) + TWO_POW_128,
                     Fr::from_le_bytes_mod_order(&bytes[16..32]),
                 ),
                 None => (Fr::zero(), Fr::zero()),
@@ -440,7 +440,7 @@ fn get_half_of_stem_children_children_hashes<Storage: ReadOnlyHigherDb>(
 
         let (lower, upper) = match leaf_val {
             Some(bytes) => {
-                let lower = Fr::from_le_bytes_mod_order(&bytes[0..16]) + two_pow_128();
+                let lower = Fr::from_le_bytes_mod_order(&bytes[0..16]) + TWO_POW_128;
                 let upper = Fr::from_le_bytes_mod_order(&bytes[16..32]);
                 (lower, upper)
             }

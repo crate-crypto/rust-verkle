@@ -2,7 +2,7 @@ use std::convert::TryInto;
 
 use crate::database::{BranchMeta, Flush, Meta, ReadWriteHigherDb, StemMeta};
 use crate::{byte_arr::Key, group_to_field, SRS};
-use crate::{two_pow_128, Committer};
+use crate::{Committer, TWO_POW_128};
 use ark_ff::{PrimeField, Zero};
 use bandersnatch::{EdwardsProjective, Fr};
 
@@ -543,7 +543,7 @@ impl<Storage: ReadWriteHigherDb, PolyCommit: Committer> Trie<Storage, PolyCommit
 
         let (old_value_low_16, old_value_high_16) = match update_leaf.old_val {
             Some(val) => (
-                Fr::from_le_bytes_mod_order(&val[0..16]) + two_pow_128(),
+                Fr::from_le_bytes_mod_order(&val[0..16]) + TWO_POW_128,
                 Fr::from_le_bytes_mod_order(&val[16..32]),
             ),
             None => (Fr::zero(), Fr::zero()),
@@ -551,7 +551,7 @@ impl<Storage: ReadWriteHigherDb, PolyCommit: Committer> Trie<Storage, PolyCommit
 
         // We need to compute two deltas
         let delta_low =
-            Fr::from_le_bytes_mod_order(&new_value_low_16) + two_pow_128() - old_value_low_16;
+            Fr::from_le_bytes_mod_order(&new_value_low_16) + TWO_POW_128 - old_value_low_16;
         let delta_high = Fr::from_le_bytes_mod_order(&new_value_high_16) - old_value_high_16;
 
         // We need to compute which group elements in the srs are being used
@@ -737,7 +737,7 @@ mod tests {
 
     use crate::database::memory_db::MemoryDb;
     use crate::database::ReadOnlyHigherDb;
-    use crate::{group_to_field, two_pow_128, SRS};
+    use crate::{group_to_field, SRS, TWO_POW_128};
     use crate::{trie::Trie, BasicCommitter};
 
     #[test]
@@ -770,7 +770,7 @@ mod tests {
         let stem_meta = trie.storage.get_stem_meta(stem).unwrap();
 
         // C1 = (value_low + 2^128) * G0 + value_high * G1
-        let value_low = Fr::from_le_bytes_mod_order(&[0u8; 16]) + two_pow_128();
+        let value_low = Fr::from_le_bytes_mod_order(&[0u8; 16]) + TWO_POW_128;
 
         let C_1 = SRS[0].mul(value_low.into_repr());
         assert_eq!(C_1, stem_meta.C_1);
@@ -832,7 +832,7 @@ mod tests {
         // C1 = (value_low + 2^128) * G_64 + value_high * G_65
         let value_low =
             Fr::from_le_bytes_mod_order(&[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16])
-                + two_pow_128();
+                + TWO_POW_128;
         let value_high = Fr::from_le_bytes_mod_order(&[
             17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32,
         ]);
@@ -913,7 +913,7 @@ mod tests {
         // C1 = (value_low + 2^128) * G_64 + value_high * G_65
         let value_low =
             Fr::from_le_bytes_mod_order(&[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16])
-                + two_pow_128();
+                + TWO_POW_128;
         let value_high = Fr::from_le_bytes_mod_order(&[
             17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32,
         ]);
@@ -926,7 +926,7 @@ mod tests {
         // C2 = (value_low + 2^128) * G_0 + value_high * G_1
         let value_low =
             Fr::from_le_bytes_mod_order(&[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16])
-                + two_pow_128();
+                + TWO_POW_128;
         let value_high = Fr::from_le_bytes_mod_order(&[
             17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 128,
         ]);

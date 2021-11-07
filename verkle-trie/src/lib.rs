@@ -11,7 +11,7 @@ pub type Value = [u8; 32];
 use std::convert::TryInto;
 
 use ark_ec::ProjectiveCurve;
-use ark_ff::{PrimeField, Zero};
+use ark_ff::{BigInteger256, PrimeField, Zero};
 use ark_serialize::CanonicalSerialize;
 use bandersnatch::EdwardsAffine;
 pub use bandersnatch::{EdwardsProjective, Fr};
@@ -62,6 +62,7 @@ pub trait TrieTrait {
         key: impl Iterator<Item = Key>,
     ) -> Result<proof::VerkleProof, ()>;
 }
+// TODO: add a verkle config file, containing the db, committer and the crs
 
 // This is the function that commits to the branch nodes and computes the delta optimisation
 // XXX: For consistency with the PCS, ensure that this component uses the same SRS as the PCS
@@ -114,15 +115,15 @@ pub(crate) fn group_to_field(point: &EdwardsProjective) -> Fr {
 use smallvec::SmallVec;
 pub type SmallVec32 = SmallVec<[u8; 32]>;
 
+const TWO_POW_128_BIGINT: BigInteger256 = BigInteger256([
+    3195623856215021945,
+    6342950750355062753,
+    18424290587888592554,
+    1249884543737537366,
+]);
+pub const TWO_POW_128: Fr = Fr::new(TWO_POW_128_BIGINT);
+
 use once_cell::sync::Lazy;
-
-// TODO: change this into a constant
-pub(crate) fn two_pow_128() -> Fr {
-    let mut arr = [0u8; 17];
-    arr[0] = 1;
-    Fr::from_be_bytes_mod_order(&arr)
-}
-
 pub static SRS: Lazy<[EdwardsProjective; 256]> = Lazy::new(|| {
     use ipa_multipoint::multiproof::CRS;
     const SEED: &'static [u8] = b"eth_verkle_oct_2021";
@@ -143,4 +144,11 @@ fn consistent_group_to_field() {
         .serialize(&mut bytes[..])
         .unwrap();
     assert_eq!(hex::encode(&bytes), expected);
+}
+#[test]
+fn test_two_pow128_constant() {
+    let mut arr = [0u8; 17];
+    arr[0] = 1;
+    let expected = Fr::from_be_bytes_mod_order(&arr);
+    assert_eq!(TWO_POW_128, expected)
 }
