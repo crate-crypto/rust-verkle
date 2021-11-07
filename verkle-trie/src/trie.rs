@@ -998,7 +998,7 @@ mod tests {
         trie.compute_root().serialize(&mut byts[..]).unwrap();
         assert_eq!(
             hex::encode(&byts),
-            "be3b3fd9809c2223963c57ac207093b1508532550967baae8585b5913a1d3f06"
+            "ab124cd04cdb4e18f797d826969537b5f0c0037fd167a5f2eafbc6206d2d1b02"
         );
     }
     #[test]
@@ -1029,7 +1029,7 @@ mod tests {
         trie.compute_root().serialize(&mut byts[..]).unwrap();
         assert_eq!(
             hex::encode(&byts),
-            "815293804a110d967ecd2758204beaa3c5601397814cb2eb56d2ef0589ea620b"
+            "117ff4b8cb99ae8bce1680dd33a840d49d0d5bea8529f63ea253d9abd985d602"
         );
     }
 
@@ -1044,6 +1044,28 @@ mod tests {
     }
 
     #[test]
+    fn simple_insert() {
+        let db = MemoryDb::new();
+        let mut trie = Trie::new(db, BasicCommitter);
+
+        let key_a = [
+            1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24,
+            25, 26, 27, 28, 29, 30, 31, 32,
+        ];
+
+        trie.insert(key_a, key_a);
+
+        let mut byts = [0u8; 32];
+        let root = trie.compute_root();
+        root.serialize(&mut byts[..]).unwrap();
+
+        assert_eq!(
+            "d949e1bb56100d77923a642d080c26775b85f9bc457cec7f3234d140ced15e0d",
+            hex::encode(byts)
+        )
+    }
+
+    #[test]
     fn simple_update() {
         let db = MemoryDb::new();
         let mut trie = Trie::new(db, BasicCommitter);
@@ -1053,18 +1075,15 @@ mod tests {
             25, 26, 27, 28, 29, 30, 31, 32,
         ];
 
-        let old_value = key_a;
-        let new_value = [0u8; 32];
-
-        trie.insert(key_a, old_value);
-        trie.insert(key_a, new_value);
+        trie.insert(key_a, [0u8; 32]);
+        trie.insert(key_a, key_a);
 
         let mut byts = [0u8; 32];
         let root = trie.compute_root();
         root.serialize(&mut byts[..]).unwrap();
 
         assert_eq!(
-            "864060e7ddc4e32d78a4488dfb07540d9dd8c7b215dbf91fe48755df30c97008",
+            "d949e1bb56100d77923a642d080c26775b85f9bc457cec7f3234d140ced15e0d",
             hex::encode(byts)
         )
     }
