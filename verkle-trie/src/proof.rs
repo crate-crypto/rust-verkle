@@ -105,11 +105,9 @@ impl VerkleProof {
 #[cfg(test)]
 mod test {
 
-    use crate::database::memory_db::MemoryDb;
-    use crate::database::ReadOnlyHigherDb;
+    use crate::database::{memory_db::MemoryDb, ReadOnlyHigherDb};
     use crate::proof::{prover, verifier};
-    use crate::TestConfig;
-    use crate::{trie::Trie, TestCommitter};
+    use crate::{trie::Trie, TestCommitter, TestConfig};
 
     #[test]
     fn basic_proof_true() {
