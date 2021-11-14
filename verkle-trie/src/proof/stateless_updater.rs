@@ -1,6 +1,5 @@
 use crate::constants::TWO_POW_128;
-use crate::TestCommitter;
-use crate::{group_to_field, proof::ExtPresent, Committer};
+use crate::{committer::Committer, group_to_field, proof::ExtPresent};
 use ark_ec::group::Group;
 use ark_ff::{One, PrimeField, Zero};
 use ark_serialize::CanonicalSerialize;
@@ -577,8 +576,8 @@ mod test {
     use crate::database::ReadOnlyHigherDb;
     use crate::proof::prover;
     use crate::proof::stateless_updater::update_root;
+    use crate::{committer::test::TestCommitter, trie::Trie};
     use crate::{group_to_field, TestConfig};
-    use crate::{trie::Trie, TestCommitter};
 
     #[test]
     fn basic_update() {

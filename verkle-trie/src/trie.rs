@@ -3,7 +3,7 @@ use std::convert::TryInto;
 use crate::constants::{CRS, TWO_POW_128};
 use crate::database::{BranchMeta, Flush, Meta, ReadWriteHigherDb, StemMeta};
 use crate::group_to_field;
-use crate::{Committer, Config};
+use crate::{committer::Committer, Config};
 use ark_ff::{PrimeField, Zero};
 use bandersnatch::{EdwardsProjective, Fr};
 
@@ -758,8 +758,8 @@ mod tests {
     use crate::constants::{CRS, TWO_POW_128};
     use crate::database::memory_db::MemoryDb;
     use crate::database::ReadOnlyHigherDb;
+    use crate::{committer::test::TestCommitter, trie::Trie};
     use crate::{group_to_field, TestConfig};
-    use crate::{trie::Trie, TestCommitter};
 
     #[test]
     // Inserting where the key and value are all zeros
