@@ -1,5 +1,4 @@
 use ark_ff::BigInteger256;
-use ark_serialize::CanonicalSerialize;
 pub use bandersnatch::Fr;
 use ipa_multipoint::multiproof::CRS;
 

@@ -60,7 +60,7 @@ pub type SmallVec32 = SmallVec<[u8; 32]>;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ark_ff::PrimeField;
+
     use ark_serialize::CanonicalSerialize;
     #[test]
     fn consistent_group_to_field() {

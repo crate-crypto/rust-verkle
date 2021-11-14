@@ -758,7 +758,7 @@ mod tests {
     use crate::constants::{CRS, TWO_POW_128};
     use crate::database::memory_db::MemoryDb;
     use crate::database::ReadOnlyHigherDb;
-    use crate::{committer::test::TestCommitter, trie::Trie};
+    use crate::trie::Trie;
     use crate::{group_to_field, TestConfig};
 
     #[test]

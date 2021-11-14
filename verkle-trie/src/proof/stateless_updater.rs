@@ -1,11 +1,8 @@
 use crate::constants::TWO_POW_128;
 use crate::{committer::Committer, group_to_field, proof::ExtPresent};
-use ark_ec::group::Group;
 use ark_ff::{One, PrimeField, Zero};
-use ark_serialize::CanonicalSerialize;
 use bandersnatch::{EdwardsProjective, Fr};
 use std::collections::{BTreeMap, HashSet};
-use std::{convert::TryInto, ops::Neg};
 
 use super::{UpdateHint, VerkleProof};
 // TODO fix all panics and return Results instead

@@ -1,9 +1,7 @@
-use crate::committer::{precompute::PrecomputeLagrange, test::TestCommitter, Committer};
+use crate::committer::{precompute::PrecomputeLagrange, test::TestCommitter};
 use crate::constants::CRS;
 
 use ark_ec::ProjectiveCurve;
-use ark_ff::{PrimeField, Zero};
-use bandersnatch::{EdwardsProjective, Fr};
 
 /// Generic configuration file to initialise a verkle trie struct
 #[derive(Debug, Clone)]

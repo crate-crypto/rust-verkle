@@ -107,7 +107,7 @@ mod test {
 
     use crate::database::{memory_db::MemoryDb, ReadOnlyHigherDb};
     use crate::proof::{prover, verifier};
-    use crate::{committer::test::TestCommitter, trie::Trie, TestConfig};
+    use crate::{trie::Trie, TestConfig};
 
     #[test]
     fn basic_proof_true() {
