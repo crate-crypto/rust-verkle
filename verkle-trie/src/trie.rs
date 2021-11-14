@@ -124,7 +124,7 @@ impl<Storage: ReadWriteHigherDb, PolyCommit: Committer> Trie<Storage, PolyCommit
     fn create_insert_instructions(&self, key_bytes: [u8; 32], value_bytes: [u8; 32]) -> Vec<Ins> {
         let mut instructions = Vec::new();
 
-        let path_indices = key_bytes.into_iter().cloned();
+        let path_indices = key_bytes.into_iter();
 
         let mut current_node_index = vec![];
 
@@ -738,9 +738,9 @@ fn path_difference(key_a: [u8; 31], key_b: [u8; 31]) -> (Vec<u8>, Option<u8>, Op
 
     for (p_a, p_b) in key_a.into_iter().zip(key_b.into_iter()) {
         if p_a != p_b {
-            return (same_path_indices, Some(*p_a), Some(*p_b));
+            return (same_path_indices, Some(p_a), Some(p_b));
         }
-        same_path_indices.push(*p_a)
+        same_path_indices.push(p_a)
     }
 
     (same_path_indices, None, None)
