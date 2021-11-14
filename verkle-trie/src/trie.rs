@@ -2,7 +2,7 @@ use std::convert::TryInto;
 
 use crate::constants::{CRS, TWO_POW_128};
 use crate::database::{BranchMeta, Flush, Meta, ReadWriteHigherDb, StemMeta};
-use crate::{byte_arr, group_to_field};
+use crate::group_to_field;
 use crate::{Committer, Config};
 use ark_ff::{PrimeField, Zero};
 use bandersnatch::{EdwardsProjective, Fr};
@@ -184,10 +184,8 @@ impl<Storage: ReadWriteHigherDb, PolyCommit: Committer> Trie<Storage, PolyCommit
             // Case3b: The existing node does not have this key stored, however the stem shares a path with this key. In which case, we need to create branch nodes
             // to represent this.
 
-            let (shared_path, path_diff_old, path_diff_new) = byte_arr::path_difference(
-                child.stem().unwrap(),
-                key_bytes[0..31].try_into().unwrap(),
-            );
+            let (shared_path, path_diff_old, path_diff_new) =
+                path_difference(child.stem().unwrap(), key_bytes[0..31].try_into().unwrap());
 
             // Case3a: Lets check if this key belongs under the stem
             if shared_path.len() == 31 {
@@ -729,6 +727,25 @@ impl<Storage: ReadWriteHigherDb + Flush, PolyCommit: Committer> Trie<Storage, Po
         self.storage.flush()
     }
 }
+// Returns a list of all of the path indices where the two stems
+// are the same and the next path index where they both differ for each
+// stem.
+// XXX: Clean up
+fn path_difference(key_a: [u8; 31], key_b: [u8; 31]) -> (Vec<u8>, Option<u8>, Option<u8>) {
+    const AVERAGE_NUMBER_OF_SHARED_INDICES: usize = 3;
+
+    let mut same_path_indices = Vec::with_capacity(AVERAGE_NUMBER_OF_SHARED_INDICES);
+
+    for (p_a, p_b) in key_a.into_iter().zip(key_b.into_iter()) {
+        if p_a != p_b {
+            return (same_path_indices, Some(*p_a), Some(*p_b));
+        }
+        same_path_indices.push(*p_a)
+    }
+
+    (same_path_indices, None, None)
+}
+
 #[cfg(test)]
 mod tests {
     use std::convert::TryInto;

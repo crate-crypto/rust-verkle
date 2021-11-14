@@ -1,5 +1,4 @@
 #[deny(unreachable_patterns)]
-mod byte_arr; //XXX: This module can be refactored significantly, it was initially here because we had multiple widths. Now that we only have one, its much simpler
 pub mod config;
 pub mod constants;
 pub mod database;
