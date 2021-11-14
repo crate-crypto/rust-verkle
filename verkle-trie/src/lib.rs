@@ -60,7 +60,6 @@ pub type SmallVec32 = SmallVec<[u8; 32]>;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::constants::TWO_POW_128;
     use ark_ff::PrimeField;
     use ark_serialize::CanonicalSerialize;
     #[test]
@@ -76,12 +75,5 @@ mod tests {
             .serialize(&mut bytes[..])
             .unwrap();
         assert_eq!(hex::encode(&bytes), expected);
-    }
-    #[test]
-    fn test_two_pow128_constant() {
-        let mut arr = [0u8; 17];
-        arr[0] = 1;
-        let expected = Fr::from_be_bytes_mod_order(&arr);
-        assert_eq!(TWO_POW_128, expected)
     }
 }
