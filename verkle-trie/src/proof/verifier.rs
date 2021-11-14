@@ -1,7 +1,8 @@
+use super::VerkleProof;
 use crate::{
+    constants::TWO_POW_128,
     group_to_field,
     proof::{ExtPresent, UpdateHint, VerifierQuery},
-    TWO_POW_128,
 };
 use ark_ff::{One, PrimeField, Zero};
 use bandersnatch::{EdwardsProjective, Fr};
@@ -10,7 +11,6 @@ use std::{
     convert::TryInto,
 };
 
-use super::VerkleProof;
 // TODO Document this better and refactor
 pub fn create_verifier_queries(
     proof: VerkleProof,

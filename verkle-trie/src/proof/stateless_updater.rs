@@ -1,12 +1,12 @@
+use crate::constants::TWO_POW_128;
+use crate::TestCommitter;
+use crate::{group_to_field, proof::ExtPresent, Committer};
 use ark_ec::group::Group;
 use ark_ff::{One, PrimeField, Zero};
 use ark_serialize::CanonicalSerialize;
 use bandersnatch::{EdwardsProjective, Fr};
-use std::collections::HashSet;
-use std::{collections::BTreeMap, convert::TryInto, ops::Neg};
-
-use crate::TestCommitter;
-use crate::{group_to_field, proof::ExtPresent, Committer, TWO_POW_128};
+use std::collections::{BTreeMap, HashSet};
+use std::{convert::TryInto, ops::Neg};
 
 use super::{UpdateHint, VerkleProof};
 // TODO fix all panics and return Results instead

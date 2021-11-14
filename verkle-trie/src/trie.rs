@@ -1,8 +1,9 @@
 use std::convert::TryInto;
 
+use crate::constants::{CRS, TWO_POW_128};
 use crate::database::{BranchMeta, Flush, Meta, ReadWriteHigherDb, StemMeta};
-use crate::{byte_arr::Key, group_to_field, CRS};
-use crate::{Committer, Config, TWO_POW_128};
+use crate::{byte_arr::Key, group_to_field};
+use crate::{Committer, Config};
 use ark_ff::{PrimeField, Zero};
 use bandersnatch::{EdwardsProjective, Fr};
 
@@ -737,9 +738,10 @@ mod tests {
     use ark_serialize::CanonicalSerialize;
     use bandersnatch::{EdwardsProjective, Fr};
 
+    use crate::constants::{CRS, TWO_POW_128};
     use crate::database::memory_db::MemoryDb;
     use crate::database::ReadOnlyHigherDb;
-    use crate::{group_to_field, TestConfig, CRS, TWO_POW_128};
+    use crate::{group_to_field, TestConfig};
     use crate::{trie::Trie, TestCommitter};
 
     #[test]

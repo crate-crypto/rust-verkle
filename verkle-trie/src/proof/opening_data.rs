@@ -1,8 +1,8 @@
 use super::{ExtPresent, ProverQuery};
 use crate::{
+    constants::TWO_POW_128,
     database::{Meta, ReadOnlyHigherDb},
     proof::key_path_finder::{KeyNotFound, KeyPathFinder, KeyState},
-    TWO_POW_128,
 };
 use ark_ff::{One, PrimeField, Zero};
 use bandersnatch::Fr;
