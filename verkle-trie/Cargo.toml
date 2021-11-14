@@ -23,6 +23,7 @@ criterion = "0.3.4"
 sha2 = "0.9.3"
 itertools = "0.10.1"
 [dev-dependencies]
+ark-std = "^0.3.0"
 
 [profile.bench]
 debug = true
