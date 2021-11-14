@@ -108,12 +108,13 @@ mod test {
     use crate::database::memory_db::MemoryDb;
     use crate::database::ReadOnlyHigherDb;
     use crate::proof::{prover, verifier};
-    use crate::{trie::Trie, BasicCommitter};
+    use crate::TestConfig;
+    use crate::{trie::Trie, TestCommitter};
 
     #[test]
     fn basic_proof_true() {
         let db = MemoryDb::new();
-        let mut trie = Trie::new(db, BasicCommitter);
+        let mut trie = Trie::new(TestConfig::new(db));
 
         let mut keys = Vec::new();
         for i in 0..=3 {
@@ -134,7 +135,7 @@ mod test {
     #[test]
     fn prover_queries_match_verifier_queries() {
         let db = MemoryDb::new();
-        let mut trie = Trie::new(db, BasicCommitter);
+        let mut trie = Trie::new(TestConfig::new(db));
 
         let mut keys = Vec::new();
         for i in 0..=3 {

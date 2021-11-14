@@ -1,8 +1,8 @@
 use std::convert::TryInto;
 
 use crate::database::{BranchMeta, Flush, Meta, ReadWriteHigherDb, StemMeta};
-use crate::{byte_arr::Key, group_to_field, SRS};
-use crate::{Committer, TWO_POW_128};
+use crate::{byte_arr::Key, group_to_field, CRS};
+use crate::{Committer, Config, TWO_POW_128};
 use ark_ff::{PrimeField, Zero};
 use bandersnatch::{EdwardsProjective, Fr};
 
@@ -89,11 +89,13 @@ enum Ins {
 
 impl<Storage: ReadWriteHigherDb, PolyCommit: Committer> Trie<Storage, PolyCommit> {
     // Creates a new Trie object
-    pub fn new(mut db: Storage, pc: PolyCommit) -> Self {
+    pub fn new(config: Config<Storage, PolyCommit>) -> Self {
         // TODO: We should have a way to populate the cache from the persistent db here.
         // TODO: we first check if it is an new database and if it is not
         // TODO: then we pull in all nodes on level 3 or lower
         // TODO: This way, if it is not in the cache, we know it is not in the key-value db either
+        let mut db = config.db;
+        let pc = config.committer;
 
         // Add the root node to the database with the root index, if the database does not have it
         // If the root is missing, then it means it is a fresh database
@@ -592,7 +594,7 @@ impl<Storage: ReadWriteHigherDb, PolyCommit: Committer> Trie<Storage, PolyCommit
                     // This is the first leaf for the stem, so the C1, C2 commitments will be zero
                     // The stem commitment will be 1 * G_1 + stem * G_2
 
-                    let stem_comm = SRS[0]
+                    let stem_comm = CRS[0]
                         + self
                             .committer
                             .scalar_mul(Fr::from_le_bytes_mod_order(&stem), 1);
@@ -737,8 +739,8 @@ mod tests {
 
     use crate::database::memory_db::MemoryDb;
     use crate::database::ReadOnlyHigherDb;
-    use crate::{group_to_field, SRS, TWO_POW_128};
-    use crate::{trie::Trie, BasicCommitter};
+    use crate::{group_to_field, TestConfig, CRS, TWO_POW_128};
+    use crate::{trie::Trie, TestCommitter};
 
     #[test]
     // Inserting where the key and value are all zeros
@@ -747,7 +749,7 @@ mod tests {
     fn insert_key0value0() {
         let db = MemoryDb::new();
 
-        let mut trie = Trie::new(db, BasicCommitter);
+        let mut trie = Trie::new(TestConfig::new(db));
 
         let key = [0u8; 32];
         let stem: [u8; 31] = key[0..31].try_into().unwrap();
@@ -772,7 +774,7 @@ mod tests {
         // C1 = (value_low + 2^128) * G0 + value_high * G1
         let value_low = Fr::from_le_bytes_mod_order(&[0u8; 16]) + TWO_POW_128;
 
-        let C_1 = SRS[0].mul(value_low.into_repr());
+        let C_1 = CRS[0].mul(value_low.into_repr());
         assert_eq!(C_1, stem_meta.C_1);
         assert_eq!(group_to_field(&C_1), stem_meta.hash_c1);
 
@@ -782,17 +784,17 @@ mod tests {
         assert_eq!(group_to_field(&C_2), stem_meta.hash_c2);
 
         // The stem commitment is: 1 * G_0 + stem * G_1 + group_to_field(C1) * G_2 + group_to_field(C2) * G_3
-        let stem_comm_0 = SRS[0];
-        let stem_comm_1 = SRS[1].mul(Fr::from_le_bytes_mod_order(&stem).into_repr());
-        let stem_comm_2 = SRS[2].mul(group_to_field(&C_1).into_repr());
-        let stem_comm_3 = SRS[3].mul(group_to_field(&C_2).into_repr());
+        let stem_comm_0 = CRS[0];
+        let stem_comm_1 = CRS[1].mul(Fr::from_le_bytes_mod_order(&stem).into_repr());
+        let stem_comm_2 = CRS[2].mul(group_to_field(&C_1).into_repr());
+        let stem_comm_3 = CRS[3].mul(group_to_field(&C_2).into_repr());
         let stem_comm = stem_comm_0 + stem_comm_1 + stem_comm_2 + stem_comm_3;
         assert_eq!(stem_meta.stem_commitment, stem_comm);
 
         // Root is computed as the hash of the stem_commitment * G_0
         // G_0 since the stem is situated at the first index in the child
         let hash_stem_comm = group_to_field(&stem_meta.stem_commitment);
-        let root_comm = SRS[0].mul(hash_stem_comm.into_repr());
+        let root_comm = CRS[0].mul(hash_stem_comm.into_repr());
         let root = group_to_field(&root_comm);
 
         assert_eq!(root, trie.compute_root())
@@ -804,7 +806,7 @@ mod tests {
         use crate::database::ReadOnlyHigherDb;
 
         let db = MemoryDb::new();
-        let mut trie = Trie::new(db, BasicCommitter);
+        let mut trie = Trie::new(TestConfig::new(db));
 
         let key = [
             1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24,
@@ -837,7 +839,7 @@ mod tests {
             17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32,
         ]);
 
-        let C_1 = SRS[64].mul(value_low.into_repr()) + SRS[65].mul(value_high.into_repr());
+        let C_1 = CRS[64].mul(value_low.into_repr()) + CRS[65].mul(value_high.into_repr());
 
         assert_eq!(C_1, stem_meta.C_1);
         assert_eq!(group_to_field(&C_1), stem_meta.hash_c1);
@@ -848,17 +850,17 @@ mod tests {
         assert_eq!(group_to_field(&C_2), stem_meta.hash_c2);
 
         // The stem commitment is: 1 * G_0 + stem * G_1 + group_to_field(C1) * G_2 + group_to_field(C2) * G_3
-        let stem_comm_0 = SRS[0];
-        let stem_comm_1 = SRS[1].mul(Fr::from_le_bytes_mod_order(&stem).into_repr());
-        let stem_comm_2 = SRS[2].mul(group_to_field(&C_1).into_repr());
-        let stem_comm_3 = SRS[3].mul(group_to_field(&C_2).into_repr());
+        let stem_comm_0 = CRS[0];
+        let stem_comm_1 = CRS[1].mul(Fr::from_le_bytes_mod_order(&stem).into_repr());
+        let stem_comm_2 = CRS[2].mul(group_to_field(&C_1).into_repr());
+        let stem_comm_3 = CRS[3].mul(group_to_field(&C_2).into_repr());
         let stem_comm = stem_comm_0 + stem_comm_1 + stem_comm_2 + stem_comm_3;
         assert_eq!(stem_meta.stem_commitment, stem_comm);
 
         // Root is computed as the hash of the stem_commitment * G_1
         // G_1 since the stem is situated at the second index in the child (key starts with 1)
         let hash_stem_comm = group_to_field(&stem_meta.stem_commitment);
-        let root_comm = SRS[1].mul(hash_stem_comm.into_repr());
+        let root_comm = CRS[1].mul(hash_stem_comm.into_repr());
         let root = group_to_field(&root_comm);
 
         assert_eq!(root, trie.compute_root())
@@ -869,7 +871,7 @@ mod tests {
     fn insert_same_stem_two_leaves() {
         use crate::database::ReadOnlyHigherDb;
         let db = MemoryDb::new();
-        let mut trie = Trie::new(db, BasicCommitter);
+        let mut trie = Trie::new(TestConfig::new(db));
 
         let key_a = [
             1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24,
@@ -918,7 +920,7 @@ mod tests {
             17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32,
         ]);
 
-        let C_1 = SRS[64].mul(value_low.into_repr()) + SRS[65].mul(value_high.into_repr());
+        let C_1 = CRS[64].mul(value_low.into_repr()) + CRS[65].mul(value_high.into_repr());
 
         assert_eq!(C_1, stem_meta.C_1);
         assert_eq!(group_to_field(&C_1), stem_meta.hash_c1);
@@ -931,22 +933,22 @@ mod tests {
             17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 128,
         ]);
 
-        let C_2 = SRS[0].mul(value_low.into_repr()) + SRS[1].mul(value_high.into_repr());
+        let C_2 = CRS[0].mul(value_low.into_repr()) + CRS[1].mul(value_high.into_repr());
 
         assert_eq!(stem_meta.C_2, C_2);
         assert_eq!(group_to_field(&C_2), stem_meta.hash_c2);
 
         // The stem commitment is: 1 * G_0 + stem * G_1 + group_to_field(C1) * G_2 + group_to_field(C2) * G_3
-        let stem_comm_0 = SRS[0];
-        let stem_comm_1 = SRS[1].mul(Fr::from_le_bytes_mod_order(&stem).into_repr());
-        let stem_comm_2 = SRS[2].mul(group_to_field(&C_1).into_repr());
-        let stem_comm_3 = SRS[3].mul(group_to_field(&C_2).into_repr());
+        let stem_comm_0 = CRS[0];
+        let stem_comm_1 = CRS[1].mul(Fr::from_le_bytes_mod_order(&stem).into_repr());
+        let stem_comm_2 = CRS[2].mul(group_to_field(&C_1).into_repr());
+        let stem_comm_3 = CRS[3].mul(group_to_field(&C_2).into_repr());
         let stem_comm = stem_comm_0 + stem_comm_1 + stem_comm_2 + stem_comm_3;
         assert_eq!(stem_meta.stem_commitment, stem_comm);
 
         // Root is computed as the hash of the stem_commitment * G_1
         let hash_stem_comm = group_to_field(&stem_meta.stem_commitment);
-        let root_comm = SRS[1].mul(hash_stem_comm.into_repr());
+        let root_comm = CRS[1].mul(hash_stem_comm.into_repr());
         let root = group_to_field(&root_comm);
 
         assert_eq!(root, trie.compute_root())
@@ -958,7 +960,7 @@ mod tests {
         use crate::database::ReadOnlyHigherDb;
 
         let db = MemoryDb::new();
-        let mut trie = Trie::new(db, BasicCommitter);
+        let mut trie = Trie::new(TestConfig::new(db));
 
         let key_a = [0u8; 32];
         let stem_a: [u8; 31] = key_a[0..31].try_into().unwrap();
@@ -973,8 +975,8 @@ mod tests {
         let a_meta = trie.storage.get_stem_meta(stem_a).unwrap();
         let b_meta = trie.storage.get_stem_meta(stem_b).unwrap();
 
-        let root_comm = SRS[0].mul(a_meta.hash_stem_commitment.into_repr())
-            + SRS[1].mul(b_meta.hash_stem_commitment.into_repr());
+        let root_comm = CRS[0].mul(a_meta.hash_stem_commitment.into_repr())
+            + CRS[1].mul(b_meta.hash_stem_commitment.into_repr());
 
         let expected_root = group_to_field(&root_comm);
         let got_root = trie.compute_root();
@@ -985,7 +987,7 @@ mod tests {
     // Test where keys create the longest path
     fn insert_longest_path() {
         let db = MemoryDb::new();
-        let mut trie = Trie::new(db, BasicCommitter);
+        let mut trie = Trie::new(TestConfig::new(db));
 
         let key_a = [0u8; 32];
         let mut key_b = [0u8; 32];
@@ -1005,7 +1007,7 @@ mod tests {
     // Test where keys create the longest path and the new key traverses that path
     fn insert_and_traverse_longest_path() {
         let db = MemoryDb::new();
-        let mut trie = Trie::new(db, BasicCommitter);
+        let mut trie = Trie::new(TestConfig::new(db));
 
         let key_a = [0u8; 32];
         let ins = trie.create_insert_instructions(key_a, key_a);
@@ -1038,7 +1040,7 @@ mod tests {
         // An empty tree should return zero as the root
 
         let db = MemoryDb::new();
-        let trie = Trie::new(db, BasicCommitter);
+        let trie = Trie::new(TestConfig::new(db));
 
         assert_eq!(trie.compute_root(), Fr::zero())
     }
@@ -1046,7 +1048,7 @@ mod tests {
     #[test]
     fn simple_insert() {
         let db = MemoryDb::new();
-        let mut trie = Trie::new(db, BasicCommitter);
+        let mut trie = Trie::new(TestConfig::new(db));
 
         let key_a = [
             1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24,
@@ -1068,7 +1070,7 @@ mod tests {
     #[test]
     fn simple_update() {
         let db = MemoryDb::new();
-        let mut trie = Trie::new(db, BasicCommitter);
+        let mut trie = Trie::new(TestConfig::new(db));
 
         let key_a = [
             1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24,

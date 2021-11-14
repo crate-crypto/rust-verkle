@@ -5,8 +5,8 @@ use bandersnatch::{EdwardsProjective, Fr};
 use std::collections::HashSet;
 use std::{collections::BTreeMap, convert::TryInto, ops::Neg};
 
-use crate::BasicCommitter;
-use crate::{group_to_field, proof::ExtPresent, Committer, SRS, TWO_POW_128};
+use crate::TestCommitter;
+use crate::{group_to_field, proof::ExtPresent, Committer, TWO_POW_128};
 
 use super::{UpdateHint, VerkleProof};
 // TODO fix all panics and return Results instead
@@ -279,7 +279,7 @@ pub(crate) fn update_root<C: Committer>(
                 };
                 elements.push((stem, stem_comm))
             }
-            let subtree_root_comm = build_subtree(prefix.clone(), elements);
+            let subtree_root_comm = build_subtree(prefix.clone(), elements, &committer);
             let new_hash_value = group_to_field(&subtree_root_comm);
 
             tree.update_prefix(
@@ -308,9 +308,10 @@ pub(crate) fn update_root<C: Committer>(
 //
 // We could _not_ pass in the prefix and slice off stem[prefix.len()..], then compute the root
 // as if we were starting from a tree of depth=0
-fn build_subtree(
+fn build_subtree<C: Committer>(
     prefix: Vec<u8>,
     elements: Vec<([u8; 31], EdwardsProjective)>,
+    committer: &C,
 ) -> EdwardsProjective {
     let mut tree: BTreeMap<Vec<u8>, Node> = BTreeMap::new();
 
@@ -440,9 +441,13 @@ fn build_subtree(
                 );
 
                 // Now lets modify the bottom inner node's commitment with respects to the two new stems
-                let old_stem_child_comm =
-                    SRS[old_stem_index as usize].mul(&group_to_field(&old_stem.commitment));
-                let stem_child_comm = SRS[stem_index as usize].mul(&group_to_field(&commitment));
+                let old_stem_child_comm = committer.scalar_mul(
+                    group_to_field(&old_stem.commitment),
+                    old_stem_index as usize,
+                );
+                let stem_child_comm =
+                    committer.scalar_mul(group_to_field(&commitment), stem_index as usize);
+
                 let delta_comm = old_stem_child_comm + stem_child_comm;
                 tree.get_mut(&path).unwrap().inner_mut().commitment += delta_comm;
                 let comm = tree.get(&path).unwrap().inner().commitment;
@@ -456,8 +461,10 @@ fn build_subtree(
 
                     let parent_old_comm = tree.get(&path).unwrap().inner().commitment;
 
+                    let delta = child_new_value - child_old_value;
                     tree.get_mut(&path).unwrap().inner_mut().commitment +=
-                        SRS[child_index as usize].mul(&(child_new_value - child_old_value));
+                        committer.scalar_mul(delta, child_index as usize);
+
                     child_old_value = group_to_field(&parent_old_comm);
                     child_new_value = group_to_field(&tree.get(&path).unwrap().inner().commitment);
                 }
@@ -468,7 +475,7 @@ fn build_subtree(
                 let delta = child_new_value - child_old_value;
                 let parent_old_comm = tree[&path].inner().commitment;
                 tree.get_mut(&path).unwrap().inner_mut().commitment +=
-                    SRS[child_index as usize].mul(&delta);
+                    committer.scalar_mul(delta, child_index as usize);
 
                 child_old_value = group_to_field(&parent_old_comm);
                 child_new_value = group_to_field(&tree.get(&path).unwrap().inner().commitment);
@@ -482,8 +489,10 @@ fn build_subtree(
 
             let parent_old_comm = tree.get(&path).unwrap().inner().commitment;
 
+            let delta = child_new_value - child_old_value;
             tree.get_mut(&path).unwrap().inner_mut().commitment +=
-                SRS[child_index as usize].mul(&(child_new_value - child_old_value));
+                committer.scalar_mul(delta, child_index as usize);
+
             child_old_value = group_to_field(&parent_old_comm);
             child_new_value = group_to_field(&tree.get(&path).unwrap().inner().commitment);
         }
@@ -566,15 +575,15 @@ mod test {
 
     use crate::database::memory_db::MemoryDb;
     use crate::database::ReadOnlyHigherDb;
-    use crate::group_to_field;
     use crate::proof::prover;
     use crate::proof::stateless_updater::update_root;
-    use crate::{trie::Trie, BasicCommitter};
+    use crate::{group_to_field, TestConfig};
+    use crate::{trie::Trie, TestCommitter};
 
     #[test]
     fn basic_update() {
         let db = MemoryDb::new();
-        let mut trie = Trie::new(db, BasicCommitter);
+        let mut trie = Trie::new(TestConfig::new(db));
 
         let mut keys = Vec::new();
         for i in 0..2 {
@@ -597,7 +606,7 @@ mod test {
             values,
             vec![Some([0u8; 32]), None],
             meta.commitment,
-            BasicCommitter,
+            TestCommitter::default(),
         );
 
         let mut got_bytes = [0u8; 32];
@@ -615,7 +624,7 @@ mod test {
     #[test]
     fn basic_update_using_subtree() {
         let db = MemoryDb::new();
-        let mut trie = Trie::new(db, BasicCommitter);
+        let mut trie = Trie::new(TestConfig::new(db));
 
         let key_a = [0u8; 32];
         trie.insert(key_a, key_a);
@@ -644,7 +653,7 @@ mod test {
             values,
             updated_values,
             meta.commitment,
-            BasicCommitter,
+            TestCommitter::default(),
         );
 
         let mut got_bytes = [0u8; 32];
@@ -663,7 +672,7 @@ mod test {
     fn basic_update3() {
         // traverse the subtree twice
         let db = MemoryDb::new();
-        let mut trie = Trie::new(db, BasicCommitter);
+        let mut trie = Trie::new(TestConfig::new(db));
 
         let key_a = [0u8; 32];
         trie.insert(key_a, key_a);
@@ -695,14 +704,13 @@ mod test {
             values,
             updated_values,
             meta.commitment,
-            BasicCommitter,
+            TestCommitter::default(),
         );
 
         let mut got_bytes = [0u8; 32];
         group_to_field(&new_root_comm)
             .serialize(&mut got_bytes[..])
             .unwrap();
-        dbg!(hex::encode(&got_bytes));
 
         for key in keys.into_iter().skip(2) {
             // skip two keys that are already in the trie
@@ -712,7 +720,6 @@ mod test {
         let expected_root = trie.compute_root();
         let mut expected_bytes = [0u8; 32];
         expected_root.serialize(&mut expected_bytes[..]).unwrap();
-        dbg!(hex::encode(&expected_bytes));
         assert_eq!(got_bytes, expected_bytes)
     }
 }
