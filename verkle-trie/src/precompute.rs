@@ -56,6 +56,15 @@ impl<'a> Committer for &'a PrecomputeLagrange {
         result
     }
 }
+impl Committer for PrecomputeLagrange {
+    fn commit_lagrange(&self, evaluations: &[Fr]) -> EdwardsProjective {
+        (&self).commit_lagrange(evaluations)
+    }
+
+    fn scalar_mul(&self, value: Fr, lagrange_index: usize) -> EdwardsProjective {
+        (&self).scalar_mul(value, lagrange_index)
+    }
+}
 
 impl PrecomputeLagrange {
     pub fn precompute(points: &[EdwardsAffine]) -> Self {
