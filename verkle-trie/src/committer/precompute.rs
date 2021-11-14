@@ -2,7 +2,8 @@ use ark_ec::AffineCurve;
 use ark_ff::Zero;
 use bandersnatch::{EdwardsAffine, EdwardsProjective, Fr};
 
-use crate::Committer;
+use crate::committer::Committer;
+
 #[derive(Debug, Clone)]
 pub struct PrecomputeLagrange {
     inner: Vec<LagrangeTablePoints>,

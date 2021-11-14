@@ -1,11 +1,12 @@
 #[deny(unreachable_patterns)]
+pub(crate) mod committer;
 pub mod config;
 pub mod constants;
 pub mod database;
-pub mod precompute;
 pub mod proof;
 pub mod to_bytes;
 pub mod trie;
+
 pub use config::*;
 pub use trie::Trie;
 
@@ -36,26 +37,6 @@ pub trait TrieTrait {
         &mut self,
         key: impl Iterator<Item = Key>,
     ) -> Result<proof::VerkleProof, ()>;
-}
-
-// This is the functionality that commits to the branch nodes and computes the delta optimisation
-// For consistency with the PCS, ensure that this component uses the same CRS as the PCS
-// This is being done in the config file automatically
-pub trait Committer {
-    // Commit to a lagrange polynomial, evaluations.len() must equal the size of the SRS at the moment
-    fn commit_lagrange(&self, evaluations: &[Fr]) -> EdwardsProjective;
-    // compute value * G for a specific generator in the SRS
-    fn scalar_mul(&self, value: Fr, lagrange_index: usize) -> EdwardsProjective;
-
-    fn commit_sparse(&self, val_indices: Vec<(Fr, usize)>) -> EdwardsProjective {
-        let mut result = EdwardsProjective::default();
-
-        for (value, lagrange_index) in val_indices {
-            result += self.scalar_mul(value, lagrange_index)
-        }
-
-        return result;
-    }
 }
 
 pub(crate) fn group_to_field(point: &EdwardsProjective) -> Fr {
