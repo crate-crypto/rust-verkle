@@ -2,7 +2,7 @@ use std::convert::TryInto;
 
 use crate::constants::{CRS, TWO_POW_128};
 use crate::database::{BranchMeta, Flush, Meta, ReadWriteHigherDb, StemMeta};
-use crate::{byte_arr::Key, group_to_field};
+use crate::{byte_arr, group_to_field};
 use crate::{Committer, Config};
 use ark_ff::{PrimeField, Zero};
 use bandersnatch::{EdwardsProjective, Fr};
@@ -124,9 +124,7 @@ impl<Storage: ReadWriteHigherDb, PolyCommit: Committer> Trie<Storage, PolyCommit
     fn create_insert_instructions(&self, key_bytes: [u8; 32], value_bytes: [u8; 32]) -> Vec<Ins> {
         let mut instructions = Vec::new();
 
-        let key = Key::from_arr(key_bytes);
-
-        let path_indices = key.path_indices();
+        let path_indices = key_bytes.into_iter().cloned();
 
         let mut current_node_index = vec![];
 
@@ -186,8 +184,10 @@ impl<Storage: ReadWriteHigherDb, PolyCommit: Committer> Trie<Storage, PolyCommit
             // Case3b: The existing node does not have this key stored, however the stem shares a path with this key. In which case, we need to create branch nodes
             // to represent this.
 
-            let (shared_path, path_diff_old, path_diff_new) =
-                Key::path_difference(child.stem().unwrap(), key_bytes[0..31].try_into().unwrap());
+            let (shared_path, path_diff_old, path_diff_new) = byte_arr::path_difference(
+                child.stem().unwrap(),
+                key_bytes[0..31].try_into().unwrap(),
+            );
 
             // Case3a: Lets check if this key belongs under the stem
             if shared_path.len() == 31 {
