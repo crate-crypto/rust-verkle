@@ -3,34 +3,34 @@ mod byte_arr;
 pub mod database;
 pub mod precompute;
 pub mod proof;
+pub mod to_bytes;
 pub mod trie;
-
-pub type Key = [u8; 32];
-pub type Value = [u8; 32];
-
-use std::convert::TryInto;
 
 use ark_ec::ProjectiveCurve;
 use ark_ff::{BigInteger256, PrimeField, Zero};
 use ark_serialize::CanonicalSerialize;
 use bandersnatch::EdwardsAffine;
 pub use bandersnatch::{EdwardsProjective, Fr};
+use ipa_multipoint::multiproof::CRS;
+use precompute::PrecomputeLagrange;
+use std::convert::TryInto;
 pub use trie::Trie;
 
 pub const FLUSH_BATCH: u32 = 20_000;
-
-pub trait ToBytes {
-    fn to_bytes(&self) -> Vec<u8>;
-}
-
-impl ToBytes for EdwardsProjective {
-    fn to_bytes(&self) -> Vec<u8> {
-        let mut bytes = [0u8; 32];
-        self.serialize(&mut bytes[..]).unwrap();
-        bytes.to_vec()
-    }
-}
-
+// This library only works for a width of 256. It can be modified to work for other widths, but this is
+// out of scope for this project.
+pub const VERKLE_NODE_WIDTH: usize = 256;
+// Seed used to compute the 256 pedersen generators
+// using try-and-increment
+const PEDERSEN_SEED: &'static [u8] = b"eth_verkle_oct_2021";
+pub(crate) const TWO_POW_128: Fr = Fr::new(BigInteger256([
+    3195623856215021945,
+    6342950750355062753,
+    18424290587888592554,
+    1249884543737537366,
+]));
+pub type Key = [u8; 32];
+pub type Value = [u8; 32];
 pub trait TrieTrait {
     /// Inserts multiple values into the trie, returning the recomputed root.
     /// If the number of items is below FLUSH_BATCH, they will be persisted
@@ -43,15 +43,8 @@ pub trait TrieTrait {
     }
     /// Gets the value at the `Key` if it exists
     /// Returns an error if it does not exist
+    /// TODO: Find out if this method is ever needed
     fn get(&self, key: &Key) -> Result<Value, ()>;
-
-    // It's possible to have an update API, where we update the
-    // values already in the database and return those which are not
-    // It's more efficient to make batch updates since no new
-    // nodes are being added, and we can skip intermediate updates for a node
-    // We can also alternatively, just return an error if the key's stem is missing
-    // // updates a key's value and recomputes the delta
-    // fn update(&mut self, kv: impl Iterator<Item = (Key, Value)>);
 
     /// Returns the root of the trie
     fn compute_root(&mut self) -> Fr;
@@ -62,7 +55,6 @@ pub trait TrieTrait {
         key: impl Iterator<Item = Key>,
     ) -> Result<proof::VerkleProof, ()>;
 }
-// TODO: add a verkle config file, containing the db, committer and the crs
 
 // This is the function that commits to the branch nodes and computes the delta optimisation
 // XXX: For consistency with the PCS, ensure that this component uses the same SRS as the PCS
@@ -83,20 +75,50 @@ pub trait Committer {
         return result;
     }
 }
+
+/// Generic configuration file to initialise a verkle trie struct
+#[derive(Debug, Clone)]
+pub struct Config<Storage, PolyCommit> {
+    pub db: Storage,
+    pub committer: PolyCommit,
+}
+pub(crate) type TestConfig<Storage> = Config<Storage, TestCommitter>;
+pub type VerkleConfig<Storage> = Config<Storage, PrecomputeLagrange>;
+
+impl<Storage> TestConfig<Storage> {
+    pub(crate) fn new(db: Storage) -> Self {
+        let committer = TestCommitter;
+        Config { db, committer }
+    }
+}
+impl<Storage> VerkleConfig<Storage> {
+    pub fn new(db: Storage) -> Self {
+        let g_aff: Vec<_> = CRS.G.iter().map(|point| point.into_affine()).collect();
+        let committer = PrecomputeLagrange::precompute(&g_aff);
+        Config { db, committer }
+    }
+}
+
 // A Basic Commit struct to be used in tests.
 // In production, we will use the Precomputed points
-pub struct BasicCommitter;
-impl Committer for BasicCommitter {
+pub struct TestCommitter;
+impl Committer for TestCommitter {
     fn commit_lagrange(&self, evaluations: &[Fr]) -> EdwardsProjective {
         let mut res = EdwardsProjective::zero();
-        for (val, point) in evaluations.iter().zip(SRS.iter()) {
+        for (val, point) in evaluations.iter().zip(CRS.G.iter()) {
             res += point.mul(val.into_repr())
         }
         res
     }
 
     fn scalar_mul(&self, value: Fr, lagrange_index: usize) -> EdwardsProjective {
-        SRS[lagrange_index].mul(value.into_repr())
+        CRS[lagrange_index].mul(value.into_repr())
+    }
+}
+
+impl Default for TestCommitter {
+    fn default() -> Self {
+        TestCommitter
     }
 }
 
@@ -115,21 +137,8 @@ pub(crate) fn group_to_field(point: &EdwardsProjective) -> Fr {
 use smallvec::SmallVec;
 pub type SmallVec32 = SmallVec<[u8; 32]>;
 
-const TWO_POW_128_BIGINT: BigInteger256 = BigInteger256([
-    3195623856215021945,
-    6342950750355062753,
-    18424290587888592554,
-    1249884543737537366,
-]);
-pub const TWO_POW_128: Fr = Fr::new(TWO_POW_128_BIGINT);
-
 use once_cell::sync::Lazy;
-pub static SRS: Lazy<[EdwardsProjective; 256]> = Lazy::new(|| {
-    use ipa_multipoint::multiproof::CRS;
-    const SEED: &'static [u8] = b"eth_verkle_oct_2021";
-    let crs = CRS::new(256, SEED);
-    crs.G.try_into().unwrap()
-});
+pub static CRS: Lazy<CRS> = Lazy::new(|| CRS::new(VERKLE_NODE_WIDTH, PEDERSEN_SEED));
 
 #[test]
 fn consistent_group_to_field() {
