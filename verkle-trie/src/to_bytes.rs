@@ -1,5 +1,8 @@
 use ark_serialize::CanonicalSerialize;
 use bandersnatch::{EdwardsAffine, EdwardsProjective, Fr};
+// XXX: The only things that need to be converted to bytes are Points and scalars
+// so maybe we can return a [u8;32] and avoid allocating
+// Then use this instead of ark_serialize in the codebase
 pub trait ToBytes {
     fn to_bytes(&self) -> Vec<u8>;
 }
