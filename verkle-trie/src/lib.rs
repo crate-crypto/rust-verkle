@@ -1,5 +1,5 @@
 #[deny(unreachable_patterns)]
-pub(crate) mod committer;
+pub mod committer;
 pub mod config;
 pub mod constants;
 pub mod database;
