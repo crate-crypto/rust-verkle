@@ -13,8 +13,6 @@ use std::{
     convert::TryInto,
 };
 
-// TODO remove pub(crate) from structs when finished refactor
-
 // Stores opening data that can then be used to form opening queries
 #[derive(Debug, Default)]
 pub(crate) struct OpeningData {
