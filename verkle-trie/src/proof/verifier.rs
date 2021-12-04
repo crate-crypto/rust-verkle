@@ -2,10 +2,11 @@ use super::VerkleProof;
 use crate::{
     constants::TWO_POW_128,
     group_to_field,
-    proof::{ExtPresent, UpdateHint, VerifierQuery},
+    proof::{ExtPresent, UpdateHint},
 };
 use ark_ff::{One, PrimeField, Zero};
 use bandersnatch::{EdwardsProjective, Fr};
+use ipa_multipoint::multiproof::VerifierQuery;
 use std::{
     collections::{BTreeMap, BTreeSet},
     convert::TryInto,

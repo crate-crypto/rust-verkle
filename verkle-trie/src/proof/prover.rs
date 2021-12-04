@@ -1,8 +1,11 @@
-use super::{ProverQuery, VerificationHint, VerkleProof};
+use super::{VerificationHint, VerkleProof};
 use crate::{
+    constants::CRS,
     database::ReadOnlyHigherDb,
     proof::opening_data::{OpeningData, Openings},
 };
+use ipa_multipoint::multiproof::MultiPoint;
+use ipa_multipoint::multiproof::ProverQuery;
 use itertools::Itertools;
 use std::collections::BTreeSet;
 
@@ -31,11 +34,16 @@ pub fn create_verkle_proof<Storage: ReadOnlyHigherDb>(
         .dedup()
         .collect();
 
-    // TODO create proof over queries when IPA is added
+    use crate::constants::{PRECOMPUTED_WEIGHTS, VERKLE_NODE_WIDTH};
+    use ipa_multipoint::transcript::Transcript;
+
+    let mut transcript = Transcript::new(b"vt");
+    let proof = MultiPoint::open(CRS.clone(), &PRECOMPUTED_WEIGHTS, &mut transcript, queries);
 
     VerkleProof {
         comms_sorted,
         verification_hint,
+        proof,
     }
 }
 

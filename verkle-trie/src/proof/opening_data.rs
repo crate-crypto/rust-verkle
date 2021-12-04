@@ -1,4 +1,4 @@
-use super::{ExtPresent, ProverQuery};
+use super::ExtPresent;
 use crate::{
     constants::TWO_POW_128,
     database::{Meta, ReadOnlyHigherDb},
@@ -6,6 +6,8 @@ use crate::{
 };
 use ark_ff::{One, PrimeField, Zero};
 use bandersnatch::Fr;
+use ipa_multipoint::lagrange_basis::LagrangeBasis;
+use ipa_multipoint::multiproof::{ProverQuery, VerifierQuery};
 use std::{
     collections::{BTreeMap, BTreeSet},
     convert::TryInto,
@@ -215,17 +217,17 @@ impl ExtOpeningData {
         // Open(Ext, 0) = 1
         let open_at_one = ProverQuery {
             commitment: stem_meta.stem_commitment,
-            point: Fr::zero(),
+            point: 0,
             result: Fr::one(),
-            polynomial: ext_func.clone(),
+            poly: LagrangeBasis::new(ext_func.clone()),
         };
 
         // Open(Ext, 1) = stem
         let open_at_stem = ProverQuery {
             commitment: stem_meta.stem_commitment,
-            point: Fr::one(),
+            point: 1,
             result: Fr::from_le_bytes_mod_order(&stem),
-            polynomial: ext_func.clone(),
+            poly: LagrangeBasis::new(ext_func.clone()),
         };
 
         let mut open_queries = Vec::with_capacity(4);
@@ -235,18 +237,18 @@ impl ExtOpeningData {
         if open_c1 {
             let open_at_c1 = ProverQuery {
                 commitment: stem_meta.stem_commitment,
-                point: Fr::from(2u128),
+                point: 2,
                 result: stem_meta.hash_c1,
-                polynomial: ext_func.clone(),
+                poly: LagrangeBasis::new(ext_func.clone()),
             };
             open_queries.push(open_at_c1);
         }
         if open_c2 {
             let open_at_c2 = ProverQuery {
                 commitment: stem_meta.stem_commitment,
-                point: Fr::from(3u128),
+                point: 3,
                 result: stem_meta.hash_c2,
-                polynomial: ext_func.clone(),
+                poly: LagrangeBasis::new(ext_func.clone()),
             };
             open_queries.push(open_at_c2);
         }
@@ -312,16 +314,16 @@ impl SuffixOpeningData {
                 stem_meta.C_2
             };
             let open_at_val_low = ProverQuery {
-                commitment,
-                point: Fr::from(value_lower_index as u128),
+                commitment: commitment,
+                point: value_lower_index as usize,
                 result: value_low,
-                polynomial: c1_or_c2.clone(),
+                poly: LagrangeBasis::new(c1_or_c2.clone()),
             };
             let open_at_val_upper = ProverQuery {
-                commitment,
-                point: Fr::from(value_upper_index as u128),
+                commitment: commitment,
+                point: value_upper_index as usize,
                 result: value_high,
-                polynomial: c1_or_c2,
+                poly: LagrangeBasis::new(c1_or_c2),
             };
 
             suffice_queries.push(open_at_val_low);
@@ -356,9 +358,9 @@ impl BranchOpeningData {
 
             let branch_query = ProverQuery {
                 commitment: branch_meta.commitment,
-                point: Fr::from(*child_index as u128),
+                point: *child_index as usize,
                 result: child_value,
-                polynomial: polynomial.clone(),
+                poly: LagrangeBasis::new(polynomial.clone()),
             };
 
             branch_queries.push(branch_query);

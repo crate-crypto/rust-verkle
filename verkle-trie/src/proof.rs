@@ -1,4 +1,6 @@
+use crate::constants::CRS;
 use bandersnatch::{EdwardsProjective, Fr};
+use ipa_multipoint::multiproof::MultiPointProof;
 use std::collections::{BTreeMap, BTreeSet};
 
 mod key_path_finder;
@@ -6,25 +8,6 @@ mod opening_data;
 pub(crate) mod prover;
 pub mod stateless_updater;
 pub(crate) mod verifier;
-
-// Given a polynomial `f`
-// - `commitment` denotes the commitment to `f`
-// - `point` denotes the point that we evaluate the polynomial `f` at
-// - and result denotes the result of this evaluation.
-#[derive(Debug)]
-pub struct ProverQuery {
-    pub commitment: EdwardsProjective,
-    pub point: Fr,
-    pub result: Fr,
-    pub polynomial: Vec<Fr>,
-}
-
-#[derive(Debug)]
-pub struct VerifierQuery {
-    pub commitment: EdwardsProjective,
-    pub point: Fr,
-    pub result: Fr,
-}
 
 // Every stem node has an associated extension node
 // This extension node commits to all of the data in a stem
@@ -75,7 +58,7 @@ pub struct VerkleProof {
     // The root is taken out when we serialise, so the verifier does not receive it
     comms_sorted: Vec<EdwardsProjective>,
     //
-    // TODO: We are missing the IPA proof structure
+    proof: MultiPointProof,
 }
 
 impl VerkleProof {
@@ -89,6 +72,12 @@ impl VerkleProof {
         values: Vec<Option<[u8; 32]>>,
         root: EdwardsProjective,
     ) -> (bool, Option<UpdateHint>) {
+        // TODO: check the commitments are in the correct subgroup
+        // TODO: possibly will be done with Decaf
+
+        // TODO: remove need for this Clone, by splitting off the IPA proof object
+        // TODO here and sending the rest of the struct to create_verifier_queries
+        let proof = self.proof.clone();
         let queries_update_hint = verifier::create_verifier_queries(self, keys, values, root);
 
         let (queries, update_hint) = match queries_update_hint {
@@ -96,9 +85,13 @@ impl VerkleProof {
             None => return (false, None),
         };
 
-        // TODO: Verify queries when IPA is added
+        use crate::constants::{PRECOMPUTED_WEIGHTS, VERKLE_NODE_WIDTH};
+        use ipa_multipoint::transcript::Transcript;
 
-        (true, Some(update_hint))
+        let mut transcript = Transcript::new(b"vt");
+        let ok = proof.check(&CRS, &PRECOMPUTED_WEIGHTS, &queries, &mut transcript);
+
+        (ok, Some(update_hint))
     }
 }
 
@@ -108,6 +101,7 @@ mod test {
     use crate::database::{memory_db::MemoryDb, ReadOnlyHigherDb};
     use crate::proof::{prover, verifier};
     use crate::{trie::Trie, TestConfig};
+    use bandersnatch::Fr;
 
     #[test]
     fn basic_proof_true() {
@@ -154,7 +148,7 @@ mod test {
 
         for (p, v) in pq.into_iter().zip(vq) {
             assert_eq!(p.commitment, v.commitment);
-            assert_eq!(p.point, v.point);
+            assert_eq!(Fr::from(p.point as u128), v.point);
             assert_eq!(p.result, v.result);
         }
     }
