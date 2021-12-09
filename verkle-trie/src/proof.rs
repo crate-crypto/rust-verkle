@@ -1,7 +1,14 @@
 use crate::constants::CRS;
-use bandersnatch::{EdwardsProjective, Fr};
+use ark_ec::AffineCurve;
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
+use bandersnatch::{EdwardsAffine, EdwardsProjective, Fr};
 use ipa_multipoint::multiproof::MultiPointProof;
 use std::collections::{BTreeMap, BTreeSet};
+
+// TODO: We use the IO Result while we do not have a dedicated Error enum
+type IOResult<T> = std::io::Result<T>;
+type IOError = std::io::Error;
+type IOErrorKind = std::io::ErrorKind;
 
 mod key_path_finder;
 mod opening_data;
@@ -16,7 +23,7 @@ pub(crate) mod verifier;
 // TODO we could probably not use ExtPresent and use KeyState directly?
 // TODO Need to check if this is fine with the Verifier algorithm
 // TODO Note KeyState holds more information
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum ExtPresent {
     // This means that there is no extensions present at all
     // this corresponds to the case of when the key is not in the trie
@@ -32,7 +39,7 @@ pub(crate) enum ExtPresent {
 }
 
 // Auxillary data that the verifier needs in order to reconstruct the verifier queries
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct VerificationHint {
     // depths and extension present status sorted by stem
     depths: Vec<u8>,
@@ -40,6 +47,94 @@ pub struct VerificationHint {
     // All of the stems which are in the trie,
     // however, we are not directly proving any of their values
     diff_stem_no_proof: BTreeSet<[u8; 31]>,
+}
+
+impl VerificationHint {
+    // We need the number of keys because we do not serialise the length of
+    // the ext_status|| depth. This is equal to the number of keys in the proof, which
+    // we assume the user knows.
+    pub fn read<R: std::io::Read>(mut reader: R, num_keys: usize) -> IOResult<VerificationHint> {
+        // First extract the stems with no values opened for them
+        let mut num_stems = [0u8; 4];
+        reader.read_exact(&mut num_stems)?;
+        let num_stems = u32::from_le_bytes(num_stems);
+
+        let mut diff_stem_no_proof: BTreeSet<[u8; 31]> = BTreeSet::new();
+        for _ in 0..num_stems {
+            let mut stem = [0u8; 31];
+            reader.read_exact(&mut stem)?;
+            diff_stem_no_proof.insert(stem);
+        }
+
+        // Now extract the depth and ext status
+        let mut depths = Vec::new();
+        let mut extension_present = Vec::new();
+
+        let mut buffer = vec![0u8; num_keys];
+        reader.read_exact(&mut buffer)?;
+
+        for byte in buffer {
+            // use a mask to get the last two bits
+            const MASK: u8 = 3;
+            let ext_status = MASK & byte;
+            let ext_status = match ext_status {
+                0 => ExtPresent::None,
+                1 => ExtPresent::DifferentStem,
+                2 => ExtPresent::Present,
+                x => panic!("unexpected ext status number {} ", x),
+            };
+            // shift away the last 3 bits in order to get the depth
+            let depth = byte >> 3;
+            depths.push(depth);
+            extension_present.push(ext_status)
+        }
+
+        Ok(VerificationHint {
+            depths,
+            extension_present,
+            diff_stem_no_proof,
+        })
+    }
+    pub fn write<W: std::io::Write>(&self, writer: &mut W) -> IOResult<()> {
+        // Encode the number of stems with no value openings
+        let num_stems = self.diff_stem_no_proof.len() as u32;
+        writer.write(&num_stems.to_le_bytes());
+
+        for stem in &self.diff_stem_no_proof {
+            writer.write(stem)?;
+        }
+
+        // The depths and extension status can be put into a single byte
+        // because extension status only needs 3 bits and depth only needs at most 5 bits
+        for (depth, ext_status) in self.depths.iter().zip(&self.extension_present) {
+            let mut byte = 0;
+            // Encode extension status into the byte
+            match ext_status {
+                ExtPresent::None => {
+                    // For None, we set the bit to be zero, so do nothing
+                }
+                ExtPresent::DifferentStem => {
+                    // For different stem, we set the first bit to be 1
+                    // This corresponds to the number 1.
+                    byte = 1;
+                }
+                ExtPresent::Present => {
+                    // For present, we set the second bit to be 1
+                    // and the first bit to be zero
+                    // This corresponds to the number 2.
+                    byte = 2;
+                }
+            };
+
+            // Encode depth into the byte, it should only be less
+            // than or equal to 32, and so we only need 5 bits.
+            debug_assert!(*depth <= 32);
+            byte = byte | (depth << 3);
+
+            writer.write(&[byte])?;
+        }
+        Ok(())
+    }
 }
 
 // Auxillary information that the verifier needs in order to update the root statelessly
@@ -51,7 +146,7 @@ pub struct UpdateHint {
     other_stems_by_prefix: BTreeMap<Vec<u8>, [u8; 31]>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct VerkleProof {
     verification_hint: VerificationHint,
     // Commitments sorted by their paths and then their indices
@@ -62,8 +157,48 @@ pub struct VerkleProof {
 }
 
 impl VerkleProof {
-    pub fn from_bytes(bytes: &[u8]) -> VerkleProof {
-        todo!()
+    pub fn read<R: std::io::Read>(mut reader: R, num_keys: usize) -> IOResult<VerkleProof> {
+        let verification_hint = VerificationHint::read(&mut reader, num_keys)?;
+
+        let mut num_comms = [0u8; 4];
+        reader.read_exact(&mut num_comms)?;
+        let num_comms = u32::from_le_bytes(num_comms);
+
+        let mut comms_sorted = Vec::new();
+        for _ in 0..num_comms {
+            let point: EdwardsAffine = CanonicalDeserialize::deserialize(&mut reader)
+                .map_err(|_| IOError::from(IOErrorKind::InvalidData))?;
+            comms_sorted.push(point.into_projective());
+        }
+
+        let mut bytes = Vec::new();
+        reader.read_to_end(&mut bytes)?;
+        let proof = MultiPointProof::from_bytes(&bytes, crate::constants::VERKLE_NODE_WIDTH)?;
+
+        Ok(VerkleProof {
+            verification_hint,
+            comms_sorted,
+            proof,
+        })
+    }
+
+    pub fn write<W: std::io::Write>(&self, mut writer: W) -> IOResult<()> {
+        self.verification_hint.write(&mut writer);
+
+        let num_comms = self.comms_sorted.len() as u32;
+        writer.write(&num_comms.to_le_bytes());
+
+        for comm in &self.comms_sorted {
+            let mut comm_serialised = [0u8; 32];
+            comm.serialize(&mut comm_serialised[..])
+                .map_err(|_| IOError::from(IOErrorKind::InvalidInput));
+            writer.write(&comm_serialised);
+        }
+
+        // Serialise the Multipoint proof
+        let proof_bytes = self.proof.to_bytes()?;
+        writer.write(&proof_bytes);
+        Ok(())
     }
 
     pub fn check(
@@ -98,6 +233,7 @@ impl VerkleProof {
 #[cfg(test)]
 mod test {
 
+    use super::VerkleProof;
     use crate::database::{memory_db::MemoryDb, ReadOnlyHigherDb};
     use crate::proof::{prover, verifier};
     use crate::{trie::Trie, TestConfig};
@@ -151,5 +287,27 @@ mod test {
             assert_eq!(Fr::from(p.point as u128), v.point);
             assert_eq!(p.result, v.result);
         }
+    }
+
+    #[test]
+    fn simple_serialisation_consistency() {
+        let db = MemoryDb::new();
+        let mut trie = Trie::new(TestConfig::new(db));
+
+        let mut keys = Vec::new();
+        for i in 0..=3 {
+            let mut key_0 = [0u8; 32];
+            key_0[0] = i;
+            keys.push(key_0);
+            trie.insert(key_0, key_0);
+        }
+        let root = vec![];
+        let meta = trie.storage.get_branch_meta(&root).unwrap();
+
+        let proof = prover::create_verkle_proof(&trie.storage, keys.clone());
+        let mut bytes = Vec::new();
+        proof.write(&mut bytes);
+        let deserialised_proof = VerkleProof::read(&bytes[..], keys.len()).unwrap();
+        assert_eq!(proof, deserialised_proof);
     }
 }
