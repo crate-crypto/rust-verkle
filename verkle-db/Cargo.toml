@@ -17,5 +17,5 @@ tempfile = "3.2.0"
 
 [features]
 default = []
-sled_db = []
-rocks_db = []
+sled_db = ["sled"]
+rocks_db = ["rocksdb"]
