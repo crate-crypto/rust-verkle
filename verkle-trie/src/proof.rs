@@ -53,7 +53,7 @@ impl VerificationHint {
     // We need the number of keys because we do not serialise the length of
     // the ext_status|| depth. This is equal to the number of keys in the proof, which
     // we assume the user knows.
-    pub fn read<R: std::io::Read>(mut reader: R, num_keys: usize) -> IOResult<VerificationHint> {
+    pub fn read<R: std::io::Read>(mut reader: R) -> IOResult<VerificationHint> {
         // First extract the stems with no values opened for them
         let mut num_stems = [0u8; 4];
         reader.read_exact(&mut num_stems)?;
@@ -67,10 +67,14 @@ impl VerificationHint {
         }
 
         // Now extract the depth and ext status
+        let mut num_depths = [0u8; 4];
+        reader.read_exact(&mut num_depths)?;
+        let num_depths: usize = u32::from_le_bytes(num_depths) as usize; // Assuming hardware is 32/64 bit, so usize is at least a u32
+
         let mut depths = Vec::new();
         let mut extension_present = Vec::new();
 
-        let mut buffer = vec![0u8; num_keys];
+        let mut buffer = vec![0u8; num_depths];
         reader.read_exact(&mut buffer)?;
 
         for byte in buffer {
@@ -103,6 +107,9 @@ impl VerificationHint {
         for stem in &self.diff_stem_no_proof {
             writer.write(stem)?;
         }
+
+        let num_depths = self.depths.len() as u32;
+        writer.write(&num_depths.to_le_bytes());
 
         // The depths and extension status can be put into a single byte
         // because extension status only needs 3 bits and depth only needs at most 5 bits
@@ -157,8 +164,8 @@ pub struct VerkleProof {
 }
 
 impl VerkleProof {
-    pub fn read<R: std::io::Read>(mut reader: R, num_keys: usize) -> IOResult<VerkleProof> {
-        let verification_hint = VerificationHint::read(&mut reader, num_keys)?;
+    pub fn read<R: std::io::Read>(mut reader: R) -> IOResult<VerkleProof> {
+        let verification_hint = VerificationHint::read(&mut reader)?;
 
         let mut num_comms = [0u8; 4];
         reader.read_exact(&mut num_comms)?;
@@ -305,9 +312,10 @@ mod test {
         let meta = trie.storage.get_branch_meta(&root).unwrap();
 
         let proof = prover::create_verkle_proof(&trie.storage, keys.clone());
+
         let mut bytes = Vec::new();
         proof.write(&mut bytes);
-        let deserialised_proof = VerkleProof::read(&bytes[..], keys.len()).unwrap();
+        let deserialised_proof = VerkleProof::read(&bytes[..]).unwrap();
         assert_eq!(proof, deserialised_proof);
     }
 }
