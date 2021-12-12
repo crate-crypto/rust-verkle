@@ -6,6 +6,7 @@ pub mod database;
 pub mod proof;
 pub mod to_bytes;
 pub mod trie;
+mod trie_fuzzer;
 
 pub use config::*;
 pub use trie::Trie;
@@ -14,6 +15,8 @@ pub use bandersnatch::{EdwardsProjective, Fr};
 
 pub type Key = [u8; 32];
 pub type Value = [u8; 32];
+pub type Stem = [u8; 31];
+
 pub trait TrieTrait {
     /// Inserts multiple values into the trie
     /// If the number of items is below FLUSH_BATCH, they will be persisted
