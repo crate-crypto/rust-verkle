@@ -5,6 +5,7 @@ use ark_ff::Zero;
 use bandersnatch::{EdwardsProjective, Fr};
 // A Basic Commit struct to be used in tests.
 // In production, we will use the Precomputed points
+#[derive(Debug, Clone, Copy)]
 pub struct TestCommitter;
 impl Committer for TestCommitter {
     fn commit_lagrange(&self, evaluations: &[Fr]) -> EdwardsProjective {
