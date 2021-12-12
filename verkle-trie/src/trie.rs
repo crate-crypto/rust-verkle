@@ -2,8 +2,8 @@ use std::convert::TryInto;
 
 use crate::constants::{CRS, TWO_POW_128};
 use crate::database::{BranchMeta, Flush, Meta, ReadWriteHigherDb, StemMeta};
-use crate::group_to_field;
 use crate::{committer::Committer, Config};
+use crate::{group_to_field, TrieTrait};
 use ark_ff::{PrimeField, Zero};
 use bandersnatch::{EdwardsProjective, Fr};
 
@@ -108,11 +108,6 @@ impl<Storage: ReadWriteHigherDb, PolyCommit: Committer> Trie<Storage, PolyCommit
             storage: db,
             committer: pc,
         }
-    }
-
-    pub fn insert(&mut self, key_bytes: [u8; 32], value_bytes: [u8; 32]) {
-        let ins = self.create_insert_instructions(key_bytes, value_bytes);
-        self.process_instructions(ins);
     }
 
     // Inserting a leaf in the trie is done in two steps
@@ -450,8 +445,42 @@ impl<Storage: ReadWriteHigherDb, PolyCommit: Committer> Trie<Storage, PolyCommit
             }
         }
     }
-    pub fn get(&self, key: [u8; 32]) -> Option<[u8; 32]> {
+}
+
+impl<S: ReadWriteHigherDb, P: Committer> TrieTrait for Trie<S, P> {
+    fn insert(&mut self, kv: impl Iterator<Item = (crate::Key, crate::Value)>) {
+        for (key_bytes, value_bytes) in kv {
+            let ins = self.create_insert_instructions(key_bytes, value_bytes);
+            self.process_instructions(ins);
+        }
+    }
+
+    fn get(&self, key: crate::Key) -> Option<crate::Value> {
         self.storage.get_leaf(key)
+    }
+
+    fn root_hash(&self) -> Fr {
+        // This covers the case when the tree is empty
+        // If the number of stems is zero, then this branch will return zero
+        let root_node = self
+            .storage
+            .get_branch_meta(&vec![])
+            .expect("this should be infallible as every trie should have a root upon creation");
+        root_node.hash_commitment
+    }
+
+    fn create_verkle_proof(
+        &self,
+        keys: impl Iterator<Item = [u8; 32]>,
+    ) -> crate::proof::VerkleProof {
+        use crate::proof::prover;
+        prover::create_verkle_proof(&self.storage, keys.collect())
+    }
+
+    fn root_commitment(&self) -> EdwardsProjective {
+        // TODO: This is needed for proofs, can we remove the root hash as the root?
+        let root_node = self.storage.get_branch_meta(&vec![]).unwrap();
+        return root_node.commitment;
     }
 }
 
@@ -485,17 +514,6 @@ pub(crate) struct StemUpdated {
 }
 
 impl<Storage: ReadWriteHigherDb, PolyCommit: Committer> Trie<Storage, PolyCommit> {
-    pub fn compute_root(&self) -> Fr {
-        // This covers the case when the tree is empty
-        // If the number of stems is zero, then this branch will return zero
-        let root_node = self.storage.get_branch_meta(&vec![]).unwrap();
-        return root_node.hash_commitment;
-    }
-    pub fn compute_root_commitment(&self) -> EdwardsProjective {
-        // TODO: This is needed for proofs, can we remove the root hash as the root?
-        let root_node = self.storage.get_branch_meta(&vec![]).unwrap();
-        return root_node.commitment;
-    }
     // Store the leaf, we return data on the old leaf, so that we can do the delta optimisation
     //
     // If a leaf was not updated, this function will return None
@@ -709,15 +727,6 @@ impl<Storage: ReadWriteHigherDb, PolyCommit: Committer> Trie<Storage, PolyCommit
     }
 }
 
-impl<Storage: ReadWriteHigherDb, PolyCommit: Committer> Trie<Storage, PolyCommit> {
-    pub fn create_verkle_proof(
-        &self,
-        keys: impl Iterator<Item = [u8; 32]>,
-    ) -> crate::proof::VerkleProof {
-        use crate::proof::prover;
-        prover::create_verkle_proof(&self.storage, keys.collect())
-    }
-}
 impl<Storage: ReadWriteHigherDb + Flush, PolyCommit: Committer> Trie<Storage, PolyCommit> {
     // TODO: maybe make this private, and automatically flush
     // TODO after each insert. This will promote users to use insert()
@@ -759,6 +768,7 @@ mod tests {
     use crate::database::memory_db::MemoryDb;
     use crate::database::ReadOnlyHigherDb;
     use crate::trie::Trie;
+    use crate::TrieTrait;
     use crate::{group_to_field, TestConfig};
 
     #[test]
@@ -816,7 +826,7 @@ mod tests {
         let root_comm = CRS[0].mul(hash_stem_comm.into_repr());
         let root = group_to_field(&root_comm);
 
-        assert_eq!(root, trie.compute_root())
+        assert_eq!(root, trie.root_hash())
     }
 
     #[test]
@@ -882,7 +892,7 @@ mod tests {
         let root_comm = CRS[1].mul(hash_stem_comm.into_repr());
         let root = group_to_field(&root_comm);
 
-        assert_eq!(root, trie.compute_root())
+        assert_eq!(root, trie.root_hash())
     }
 
     #[test]
@@ -970,7 +980,7 @@ mod tests {
         let root_comm = CRS[1].mul(hash_stem_comm.into_repr());
         let root = group_to_field(&root_comm);
 
-        assert_eq!(root, trie.compute_root())
+        assert_eq!(root, trie.root_hash())
     }
     #[test]
     // Test where we insert two leaves, which correspond to two stems
@@ -998,7 +1008,7 @@ mod tests {
             + CRS[1].mul(b_meta.hash_stem_commitment.into_repr());
 
         let expected_root = group_to_field(&root_comm);
-        let got_root = trie.compute_root();
+        let got_root = trie.root_hash();
         assert_eq!(expected_root, got_root);
     }
 
@@ -1012,11 +1022,11 @@ mod tests {
         let mut key_b = [0u8; 32];
         key_b[30] = 1;
 
-        trie.insert(key_a, key_a);
-        trie.insert(key_b, key_b);
+        trie.insert_single(key_a, key_a);
+        trie.insert_single(key_b, key_b);
 
         let mut byts = [0u8; 32];
-        trie.compute_root().serialize(&mut byts[..]).unwrap();
+        trie.root_hash().serialize(&mut byts[..]).unwrap();
         assert_eq!(
             hex::encode(&byts),
             "ab124cd04cdb4e18f797d826969537b5f0c0037fd167a5f2eafbc6206d2d1b02"
@@ -1047,7 +1057,7 @@ mod tests {
         trie.process_instructions(ins);
 
         let mut byts = [0u8; 32];
-        trie.compute_root().serialize(&mut byts[..]).unwrap();
+        trie.root_hash().serialize(&mut byts[..]).unwrap();
         assert_eq!(
             hex::encode(&byts),
             "117ff4b8cb99ae8bce1680dd33a840d49d0d5bea8529f63ea253d9abd985d602"
@@ -1061,7 +1071,7 @@ mod tests {
         let db = MemoryDb::new();
         let trie = Trie::new(TestConfig::new(db));
 
-        assert_eq!(trie.compute_root(), Fr::zero())
+        assert_eq!(trie.root_hash(), Fr::zero())
     }
 
     #[test]
@@ -1074,10 +1084,10 @@ mod tests {
             25, 26, 27, 28, 29, 30, 31, 32,
         ];
 
-        trie.insert(key_a, key_a);
+        trie.insert_single(key_a, key_a);
 
         let mut byts = [0u8; 32];
-        let root = trie.compute_root();
+        let root = trie.root_hash();
         root.serialize(&mut byts[..]).unwrap();
 
         assert_eq!(
@@ -1096,11 +1106,11 @@ mod tests {
             25, 26, 27, 28, 29, 30, 31, 32,
         ];
 
-        trie.insert(key_a, [0u8; 32]);
-        trie.insert(key_a, key_a);
+        trie.insert_single(key_a, [0u8; 32]);
+        trie.insert_single(key_a, key_a);
 
         let mut byts = [0u8; 32];
-        let root = trie.compute_root();
+        let root = trie.root_hash();
         root.serialize(&mut byts[..]).unwrap();
 
         assert_eq!(

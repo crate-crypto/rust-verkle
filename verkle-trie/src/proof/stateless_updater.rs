@@ -573,7 +573,7 @@ mod test {
     use crate::database::ReadOnlyHigherDb;
     use crate::proof::prover;
     use crate::proof::stateless_updater::update_root;
-    use crate::{committer::test::TestCommitter, trie::Trie};
+    use crate::{committer::test::TestCommitter, trie::Trie, TrieTrait};
     use crate::{group_to_field, TestConfig};
 
     #[test]
@@ -586,7 +586,7 @@ mod test {
             let mut key_0 = [0u8; 32];
             key_0[0] = i;
             keys.push(key_0);
-            trie.insert(key_0, key_0);
+            trie.insert_single(key_0, key_0);
         }
         let root = vec![];
         let meta = trie.storage.get_branch_meta(&root).unwrap();
@@ -610,8 +610,8 @@ mod test {
             .serialize(&mut got_bytes[..])
             .unwrap();
 
-        trie.insert(keys[0], [0u8; 32]);
-        let expected_root = trie.compute_root();
+        trie.insert_single(keys[0], [0u8; 32]);
+        let expected_root = trie.root_hash();
         let mut expected_bytes = [0u8; 32];
         expected_root.serialize(&mut expected_bytes[..]).unwrap();
 
@@ -623,10 +623,10 @@ mod test {
         let mut trie = Trie::new(TestConfig::new(db));
 
         let key_a = [0u8; 32];
-        trie.insert(key_a, key_a);
+        trie.insert_single(key_a, key_a);
 
         let key_b = [1u8; 32];
-        trie.insert(key_b, key_b);
+        trie.insert_single(key_b, key_b);
 
         let mut key_c = [0u8; 32];
         key_c[3] = 1;
@@ -657,8 +657,8 @@ mod test {
             .serialize(&mut got_bytes[..])
             .unwrap();
 
-        trie.insert(key_c, key_c);
-        let expected_root = trie.compute_root();
+        trie.insert_single(key_c, key_c);
+        let expected_root = trie.root_hash();
         let mut expected_bytes = [0u8; 32];
         expected_root.serialize(&mut expected_bytes[..]).unwrap();
 
@@ -671,10 +671,10 @@ mod test {
         let mut trie = Trie::new(TestConfig::new(db));
 
         let key_a = [0u8; 32];
-        trie.insert(key_a, key_a);
+        trie.insert_single(key_a, key_a);
 
         let key_b = [1u8; 32];
-        trie.insert(key_b, key_b);
+        trie.insert_single(key_b, key_b);
 
         let mut keys = vec![key_a, key_b];
         let mut values = vec![Some(key_a), Some(key_b)];
@@ -710,10 +710,10 @@ mod test {
 
         for key in keys.into_iter().skip(2) {
             // skip two keys that are already in the trie
-            trie.insert(key, key);
+            trie.insert_single(key, key);
         }
 
-        let expected_root = trie.compute_root();
+        let expected_root = trie.root_hash();
         let mut expected_bytes = [0u8; 32];
         expected_root.serialize(&mut expected_bytes[..]).unwrap();
         assert_eq!(got_bytes, expected_bytes)

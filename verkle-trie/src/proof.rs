@@ -243,7 +243,7 @@ mod test {
     use super::VerkleProof;
     use crate::database::{memory_db::MemoryDb, ReadOnlyHigherDb};
     use crate::proof::{prover, verifier};
-    use crate::{trie::Trie, TestConfig};
+    use crate::{trie::Trie, TestConfig, TrieTrait};
     use bandersnatch::Fr;
 
     #[test]
@@ -256,7 +256,7 @@ mod test {
             let mut key_0 = [0u8; 32];
             key_0[0] = i;
             keys.push(key_0);
-            trie.insert(key_0, key_0);
+            trie.insert_single(key_0, key_0);
         }
         let root = vec![];
         let meta = trie.storage.get_branch_meta(&root).unwrap();
@@ -277,7 +277,7 @@ mod test {
             let mut key_0 = [0u8; 32];
             key_0[0] = i;
             keys.push(key_0);
-            trie.insert(key_0, key_0);
+            trie.insert_single(key_0, key_0);
         }
         let root = vec![];
         let meta = trie.storage.get_branch_meta(&root).unwrap();
@@ -306,7 +306,7 @@ mod test {
             let mut key_0 = [0u8; 32];
             key_0[0] = i;
             keys.push(key_0);
-            trie.insert(key_0, key_0);
+            trie.insert_single(key_0, key_0);
         }
         let root = vec![];
         let meta = trie.storage.get_branch_meta(&root).unwrap();
