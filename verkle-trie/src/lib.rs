@@ -15,28 +15,28 @@ pub use bandersnatch::{EdwardsProjective, Fr};
 pub type Key = [u8; 32];
 pub type Value = [u8; 32];
 pub trait TrieTrait {
-    /// Inserts multiple values into the trie, returning the recomputed root.
+    /// Inserts multiple values into the trie
     /// If the number of items is below FLUSH_BATCH, they will be persisted
     /// atomically
-    fn insert(&mut self, kv: impl Iterator<Item = (Key, Value)>) -> Fr;
+    /// This method will implicitly compute the new root
+    fn insert(&mut self, kv: impl Iterator<Item = (Key, Value)>);
 
-    /// Inserts a single value and returns the root.
-    fn insert_single(&mut self, key: Key, value: Value) -> Fr {
+    /// Inserts a single value
+    /// This method will implicitly compute the new root
+    fn insert_single(&mut self, key: Key, value: Value) {
         self.insert(vec![(key, value)].into_iter())
     }
     /// Gets the value at the `Key` if it exists
     /// Returns an error if it does not exist
     /// TODO: Find out if this method is ever needed
-    fn get(&self, key: &Key) -> Result<Value, ()>;
+    fn get(&self, key: Key) -> Option<Value>;
 
     /// Returns the root of the trie
-    fn compute_root(&mut self) -> Fr;
+    fn root_hash(&self) -> Fr;
 
     /// Creates a verkle proof over many keys
-    fn create_verkle_proof(
-        &mut self,
-        key: impl Iterator<Item = Key>,
-    ) -> Result<proof::VerkleProof, ()>;
+    /// TODO: This will return a Result in the future
+    fn create_verkle_proof(&self, key: impl Iterator<Item = Key>) -> proof::VerkleProof;
 }
 
 pub(crate) fn group_to_field(point: &EdwardsProjective) -> Fr {
