@@ -722,7 +722,7 @@ impl<Storage: ReadWriteHigherDb + Flush, PolyCommit: Committer> Trie<Storage, Po
 // Returns a list of all of the path indices where the two stems
 // are the same and the next path index where they both differ for each
 // stem.
-// XXX: Clean up
+// TODO: Clean up
 fn path_difference(key_a: [u8; 31], key_b: [u8; 31]) -> (Vec<u8>, Option<u8>, Option<u8>) {
     const AVERAGE_NUMBER_OF_SHARED_INDICES: usize = 3;
 

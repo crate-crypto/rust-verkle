@@ -7,7 +7,7 @@ use std::collections::{BTreeMap, HashSet};
 use super::{UpdateHint, VerkleProof};
 // TODO fix all panics and return Results instead
 //
-// XXX: This needs to be modified more, ie to return a correct error variant
+// TODO: This needs to be modified more, ie to return a correct error variant
 // and to refactor panics into error variants
 pub fn verify_and_update<C: Committer>(
     proof: VerkleProof,
@@ -17,7 +17,7 @@ pub fn verify_and_update<C: Committer>(
     updated_values: Vec<Option<[u8; 32]>>,
     commiter: C,
 ) -> Result<EdwardsProjective, ()> {
-    // XXX: replace Clone with references if possible
+    // TODO: replace Clone with references if possible
     let (ok, update_hint) = proof.check(keys.clone(), values.clone(), root);
     if !ok {
         return Err(());
@@ -218,7 +218,7 @@ pub(crate) fn update_root<C: Committer>(
                     }
                 }
 
-                let stem_comm_0 = Fr::one(); // XXX: We can get rid of this and just add SRS[0]
+                let stem_comm_0 = Fr::one(); // TODO: We can get rid of this and just add SRS[0]
                 let stem_comm_1 = Fr::from_le_bytes_mod_order(&stem);
                 let stem_comm_2 = group_to_field(&C_1);
                 let stem_comm_3 = group_to_field(&C_2);
