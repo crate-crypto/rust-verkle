@@ -518,7 +518,7 @@ impl<Storage: ReadWriteHigherDb, PolyCommit: Committer> Trie<Storage, PolyCommit
     //
     // If a leaf was not updated, this function will return None
     // else Some will be returned with the old value
-    pub(crate) fn update_leaf_table(
+    fn update_leaf_table(
         &mut self,
         key: [u8; 32],
         value: [u8; 32],
@@ -545,7 +545,7 @@ impl<Storage: ReadWriteHigherDb, PolyCommit: Committer> Trie<Storage, PolyCommit
         // Storing a leaf means we need to change the stem table too
     }
 
-    pub(crate) fn update_stem_table(&mut self, update_leaf: LeafUpdated, depth: u8) -> StemUpdated {
+    fn update_stem_table(&mut self, update_leaf: LeafUpdated, depth: u8) -> StemUpdated {
         // If a leaf is updated, then we need to update the stem.
         // In particular, we need to update the commitment for that stem and the stem value
         //
