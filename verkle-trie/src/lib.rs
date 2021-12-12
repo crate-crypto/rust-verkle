@@ -34,6 +34,9 @@ pub trait TrieTrait {
     /// Returns the root of the trie
     fn root_hash(&self) -> Fr;
 
+    /// Returns the root commitment of the trie
+    fn root_commitment(&self) -> EdwardsProjective;
+
     /// Creates a verkle proof over many keys
     /// TODO: This will return a Result in the future
     fn create_verkle_proof(&self, key: impl Iterator<Item = Key>) -> proof::VerkleProof;
