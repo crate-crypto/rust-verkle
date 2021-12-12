@@ -1,5 +1,4 @@
 use bandersnatch::{EdwardsProjective, Fr};
-use std::convert::TryInto;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct StemMeta {

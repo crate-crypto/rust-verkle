@@ -1,5 +1,4 @@
 use super::{BranchChild, BranchMeta, ReadOnlyHigherDb, StemMeta, WriteOnlyHigherDb};
-use std::convert::TryInto;
 use verkle_db::{BareMetalDiskDb, BareMetalKVDb, BatchDB, BatchWriter};
 
 // The purpose of this file is to allows us to implement generic implementation for BatchWriter and BareMetalKVDb

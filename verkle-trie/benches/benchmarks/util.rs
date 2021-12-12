@@ -2,7 +2,6 @@ use sha2::{Digest, Sha256};
 
 use ark_ec::ProjectiveCurve;
 use once_cell::sync::Lazy;
-use std::convert::TryInto;
 use verkle_trie::{precompute::PrecomputeLagrange, SRS};
 
 pub static PRECOMPUTED_TABLE: Lazy<PrecomputeLagrange> =

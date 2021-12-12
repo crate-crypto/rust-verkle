@@ -1,5 +1,3 @@
-use std::convert::TryInto;
-
 use crate::constants::{CRS, TWO_POW_128};
 use crate::database::{BranchMeta, Flush, Meta, ReadWriteHigherDb, StemMeta};
 use crate::{committer::Committer, Config};
@@ -756,7 +754,6 @@ fn paths_from_relative(parent_path: Vec<u8>, relative_paths: Vec<u8>) -> Vec<Vec
 }
 #[cfg(test)]
 mod tests {
-    use std::convert::TryInto;
 
     use ark_ec::ProjectiveCurve;
     use ark_ff::{PrimeField, Zero};

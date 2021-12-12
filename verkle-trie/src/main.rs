@@ -2,7 +2,6 @@
 
 // use ark_ec::ProjectiveCurve;
 // use once_cell::sync::Lazy;
-// use std::convert::TryInto;
 // use verkle_db::{BareMetalDiskDb, RocksDb};
 // use verkle_trie::{
 //     database::{memory_db::MemoryDb, VerkleDb},
