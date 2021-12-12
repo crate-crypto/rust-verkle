@@ -14,6 +14,44 @@ pub struct Trie<Storage, PolyCommit: Committer> {
     committer: PolyCommit,
 }
 
+// Implementation of the trie trait that should be considered the public API for the trie
+impl<S: ReadWriteHigherDb, P: Committer> TrieTrait for Trie<S, P> {
+    fn insert(&mut self, kv: impl Iterator<Item = (crate::Key, crate::Value)>) {
+        for (key_bytes, value_bytes) in kv {
+            let ins = self.create_insert_instructions(key_bytes, value_bytes);
+            self.process_instructions(ins);
+        }
+    }
+
+    fn get(&self, key: crate::Key) -> Option<crate::Value> {
+        self.storage.get_leaf(key)
+    }
+
+    fn root_hash(&self) -> Fr {
+        // This covers the case when the tree is empty
+        // If the number of stems is zero, then this branch will return zero
+        let root_node = self
+            .storage
+            .get_branch_meta(&vec![])
+            .expect("this should be infallible as every trie should have a root upon creation");
+        root_node.hash_commitment
+    }
+
+    fn create_verkle_proof(
+        &self,
+        keys: impl Iterator<Item = [u8; 32]>,
+    ) -> crate::proof::VerkleProof {
+        use crate::proof::prover;
+        prover::create_verkle_proof(&self.storage, keys.collect())
+    }
+
+    fn root_commitment(&self) -> EdwardsProjective {
+        // TODO: This is needed for proofs, can we remove the root hash as the root?
+        let root_node = self.storage.get_branch_meta(&vec![]).unwrap();
+        return root_node.commitment;
+    }
+}
+
 // To identify a branch, we only need to provide the path to the branch
 pub(crate) type BranchId = Vec<u8>;
 
@@ -447,59 +485,6 @@ impl<Storage: ReadWriteHigherDb, PolyCommit: Committer> Trie<Storage, PolyCommit
     }
 }
 
-impl<S: ReadWriteHigherDb, P: Committer> TrieTrait for Trie<S, P> {
-    fn insert(&mut self, kv: impl Iterator<Item = (crate::Key, crate::Value)>) {
-        for (key_bytes, value_bytes) in kv {
-            let ins = self.create_insert_instructions(key_bytes, value_bytes);
-            self.process_instructions(ins);
-        }
-    }
-
-    fn get(&self, key: crate::Key) -> Option<crate::Value> {
-        self.storage.get_leaf(key)
-    }
-
-    fn root_hash(&self) -> Fr {
-        // This covers the case when the tree is empty
-        // If the number of stems is zero, then this branch will return zero
-        let root_node = self
-            .storage
-            .get_branch_meta(&vec![])
-            .expect("this should be infallible as every trie should have a root upon creation");
-        root_node.hash_commitment
-    }
-
-    fn create_verkle_proof(
-        &self,
-        keys: impl Iterator<Item = [u8; 32]>,
-    ) -> crate::proof::VerkleProof {
-        use crate::proof::prover;
-        prover::create_verkle_proof(&self.storage, keys.collect())
-    }
-
-    fn root_commitment(&self) -> EdwardsProjective {
-        // TODO: This is needed for proofs, can we remove the root hash as the root?
-        let root_node = self.storage.get_branch_meta(&vec![]).unwrap();
-        return root_node.commitment;
-    }
-}
-
-// Given a parent path such as [0,1,2]
-// and relative paths such as [5,6,7]
-// This method returns the following paths:
-// [0,1,2,5], [0,1,2,5,6], [0,1,2,5,6,7]
-// TODO: Is this hurting performance? If so can we rewrite it to be more efficient?
-// TODO Eagerly, we can use SmallVec32
-fn paths_from_relative(parent_path: Vec<u8>, relative_paths: Vec<u8>) -> Vec<Vec<u8>> {
-    assert!(relative_paths.len() > 0);
-
-    let mut result = vec![parent_path.clone(); relative_paths.len()];
-    for (i, curr) in result.iter_mut().enumerate() {
-        curr.extend_from_slice(&relative_paths[0..i + 1])
-    }
-    result
-}
-
 #[derive(Debug)]
 pub(crate) struct LeafUpdated {
     old_val: Option<Vec<u8>>,
@@ -754,7 +739,21 @@ fn path_difference(key_a: [u8; 31], key_b: [u8; 31]) -> (Vec<u8>, Option<u8>, Op
 
     (same_path_indices, None, None)
 }
+// Given a parent path such as [0,1,2]
+// and relative paths such as [5,6,7]
+// This method returns the following paths:
+// [0,1,2,5], [0,1,2,5,6], [0,1,2,5,6,7]
+// TODO: Is this hurting performance? If so can we rewrite it to be more efficient?
+// TODO Eagerly, we can use SmallVec32
+fn paths_from_relative(parent_path: Vec<u8>, relative_paths: Vec<u8>) -> Vec<Vec<u8>> {
+    assert!(relative_paths.len() > 0);
 
+    let mut result = vec![parent_path.clone(); relative_paths.len()];
+    for (i, curr) in result.iter_mut().enumerate() {
+        curr.extend_from_slice(&relative_paths[0..i + 1])
+    }
+    result
+}
 #[cfg(test)]
 mod tests {
     use std::convert::TryInto;
