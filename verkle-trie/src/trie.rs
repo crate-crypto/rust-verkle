@@ -227,23 +227,28 @@ impl<Storage: ReadWriteHigherDb, PolyCommit: Committer> Trie<Storage, PolyCommit
                 // TODO and database work in pages of ~4Kb
                 // The new key and the old child belong under the same stem
                 let leaf_val = self.storage.get_leaf(key_bytes);
-                let old_leaf_val = match leaf_val {
+                let (old_leaf_val, leaf_already_present_in_trie) = match leaf_val {
                     Some(old_val) => {
                         // There was an old value in the stem, so this is an update
-                        old_val
+                        (old_val, true)
                     }
                     None => {
                         // There are other values under this stem, but this is the first value under this entry
-                        [0u8; 32]
+                        ([0u8; 32], false)
                     }
                 };
 
                 // If the key is being updated to exactly the same value, we just return nothing
+                // This is an optimisation that allows one to avoid doing work,
+                // when the value being inserted has not been updated
                 if path_diff_old.is_none() {
                     // This means that they share all 32 bytes
                     assert!(path_diff_new.is_none());
                     // We return nothing if the value is the same
-                    if old_leaf_val == value_bytes {
+                    // and the leaf was already present.
+                    // This means that if one inserts a leaf with value zero,
+                    // it is still inserted in the trie
+                    if (old_leaf_val == value_bytes) & leaf_already_present_in_trie {
                         return Vec::new();
                     }
                 }
@@ -1130,5 +1135,66 @@ mod tests {
         for (got, expected) in result.into_iter().zip(expected) {
             assert_eq!(got, expected)
         }
+    }
+
+    #[test]
+    fn insert_get() {
+        use tempfile::tempdir;
+        let temp_dir = tempdir().unwrap();
+
+        let db = MemoryDb::new();
+        let mut trie = Trie::new(TestConfig::new(db));
+
+        let tree_key_version: [u8; 32] = [
+            121, 85, 7, 198, 131, 230, 143, 90, 165, 129, 173, 81, 186, 89, 19, 191, 13, 107, 197,
+            120, 243, 229, 224, 183, 72, 25, 6, 8, 210, 159, 31, 0,
+        ];
+
+        let tree_key_balance: [u8; 32] = [
+            121, 85, 7, 198, 131, 230, 143, 90, 165, 129, 173, 81, 186, 89, 19, 191, 13, 107, 197,
+            120, 243, 229, 224, 183, 72, 25, 6, 8, 210, 159, 31, 1,
+        ];
+
+        let tree_key_nonce: [u8; 32] = [
+            121, 85, 7, 198, 131, 230, 143, 90, 165, 129, 173, 81, 186, 89, 19, 191, 13, 107, 197,
+            120, 243, 229, 224, 183, 72, 25, 6, 8, 210, 159, 31, 2,
+        ];
+
+        let tree_key_code_keccak: [u8; 32] = [
+            121, 85, 7, 198, 131, 230, 143, 90, 165, 129, 173, 81, 186, 89, 19, 191, 13, 107, 197,
+            120, 243, 229, 224, 183, 72, 25, 6, 8, 210, 159, 31, 3,
+        ];
+
+        let tree_key_code_size: [u8; 32] = [
+            121, 85, 7, 198, 131, 230, 143, 90, 165, 129, 173, 81, 186, 89, 19, 191, 13, 107, 197,
+            120, 243, 229, 224, 183, 72, 25, 6, 8, 210, 159, 31, 4,
+        ];
+
+        let empty_code_hash_value: [u8; 32] = [
+            197, 210, 70, 1, 134, 247, 35, 60, 146, 126, 125, 178, 220, 199, 3, 192, 229, 0, 182,
+            83, 202, 130, 39, 59, 123, 250, 216, 4, 93, 133, 164, 112,
+        ];
+
+        let value_0: [u8; 32] = [
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0,
+        ];
+
+        let value_2: [u8; 32] = [
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 2,
+        ];
+
+        trie.insert_single(tree_key_version, value_0);
+        trie.insert_single(tree_key_balance, value_2);
+        trie.insert_single(tree_key_nonce, value_0);
+        trie.insert_single(tree_key_code_keccak, empty_code_hash_value);
+        trie.insert_single(tree_key_code_size, value_0);
+
+        let val = trie.get(tree_key_version).unwrap();
+        let val = trie.get(tree_key_balance).unwrap();
+        let val = trie.get(tree_key_nonce).unwrap();
+        let val = trie.get(tree_key_code_keccak).unwrap();
+        let val = trie.get(tree_key_code_size).unwrap();
     }
 }
