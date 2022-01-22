@@ -2,22 +2,23 @@ use crate::{committer::Committer, constants::CRS};
 use ark_ec::ProjectiveCurve;
 use ark_ff::PrimeField;
 use ark_ff::Zero;
-use bandersnatch::{EdwardsProjective, Fr};
+
+use banderwagon::{Element, Fr};
 // A Basic Commit struct to be used in tests.
 // In production, we will use the Precomputed points
 #[derive(Debug, Clone, Copy)]
 pub struct TestCommitter;
 impl Committer for TestCommitter {
-    fn commit_lagrange(&self, evaluations: &[Fr]) -> EdwardsProjective {
-        let mut res = EdwardsProjective::zero();
+    fn commit_lagrange(&self, evaluations: &[Fr]) -> Element {
+        let mut res = Element::zero();
         for (val, point) in evaluations.iter().zip(CRS.G.iter()) {
-            res += point.mul(val.into_repr())
+            res += point * val;
         }
         res
     }
 
-    fn scalar_mul(&self, value: Fr, lagrange_index: usize) -> EdwardsProjective {
-        CRS[lagrange_index].mul(value.into_repr())
+    fn scalar_mul(&self, value: Fr, lagrange_index: usize) -> Element {
+        CRS[lagrange_index] * value
     }
 }
 

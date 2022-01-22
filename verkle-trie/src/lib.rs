@@ -4,14 +4,13 @@ pub mod config;
 pub mod constants;
 pub mod database;
 pub mod proof;
-pub mod to_bytes;
 pub mod trie;
 mod trie_fuzzer;
 
 pub use config::*;
 pub use trie::Trie;
 
-pub use bandersnatch::{EdwardsProjective, Fr};
+pub use banderwagon::{Element, Fr};
 
 pub type Key = [u8; 32];
 pub type Value = [u8; 32];
@@ -38,22 +37,23 @@ pub trait TrieTrait {
     fn root_hash(&self) -> Fr;
 
     /// Returns the root commitment of the trie
-    fn root_commitment(&self) -> EdwardsProjective;
+    fn root_commitment(&self) -> Element;
 
     /// Creates a verkle proof over many keys
     /// TODO: This will return a Result in the future
     fn create_verkle_proof(&self, key: impl Iterator<Item = Key>) -> proof::VerkleProof;
 }
 
-pub(crate) fn group_to_field(point: &EdwardsProjective) -> Fr {
-    use ark_ff::{PrimeField, Zero};
+// Note: This is a 2 to 1 map
+// TODO: Create a document showing that this poses no problems
+pub(crate) fn group_to_field(point: &Element) -> Fr {
+    use ark_ff::PrimeField;
     use ark_serialize::CanonicalSerialize;
 
-    if point.is_zero() {
-        return Fr::zero();
-    }
+    let base_field = point.map_to_field();
+
     let mut bytes = [0u8; 32];
-    point
+    base_field
         .serialize(&mut bytes[..])
         .expect("could not serialise point into a 32 byte array");
     Fr::from_le_bytes_mod_order(&bytes)
@@ -73,9 +73,8 @@ mod tests {
         // In python this is called commitment_to_field
         // print(commitment_to_field(Point(generator=True)).to_bytes(32, "little").hex())
         let expected = "37c6db79b111ea6cf47f80392239ea2bf2cc5579759b686773d5a361f7c8c50c";
-        use ark_ec::ProjectiveCurve;
 
-        let generator = EdwardsProjective::prime_subgroup_generator();
+        let generator = Element::prime_subgroup_generator();
         let mut bytes = [0u8; 32];
         group_to_field(&generator)
             .serialize(&mut bytes[..])

@@ -5,7 +5,7 @@ use crate::{
     proof::{ExtPresent, UpdateHint},
 };
 use ark_ff::{One, PrimeField, Zero};
-use bandersnatch::{EdwardsProjective, Fr};
+use banderwagon::{Element, Fr};
 use ipa_multipoint::multiproof::VerifierQuery;
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -17,7 +17,7 @@ pub fn create_verifier_queries(
     proof: VerkleProof,
     keys: Vec<[u8; 32]>,
     values: Vec<Option<[u8; 32]>>,
-    root: EdwardsProjective,
+    root: Element,
 ) -> Option<(Vec<VerifierQuery>, UpdateHint)> {
     let commitments_sorted_by_path: Vec<_> =
         std::iter::once(root).chain(proof.comms_sorted).collect();
@@ -175,7 +175,7 @@ pub fn create_verifier_queries(
     assert!(proof.verification_hint.diff_stem_no_proof == other_stems_used);
     assert!(commitments_sorted_by_path.len() == all_paths.len());
 
-    let commitments_by_path: BTreeMap<Vec<_>, EdwardsProjective> = all_paths
+    let commitments_by_path: BTreeMap<Vec<_>, Element> = all_paths
         .into_iter()
         .zip(commitments_sorted_by_path)
         .map(|(path, comm)| (path, comm))

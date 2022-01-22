@@ -1,18 +1,18 @@
-use bandersnatch::{EdwardsProjective, Fr};
+use banderwagon::{Element, Fr};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct StemMeta {
-    pub C_1: EdwardsProjective,
+    pub C_1: Element,
     pub hash_c1: Fr,
 
-    pub C_2: EdwardsProjective,
+    pub C_2: Element,
     pub hash_c2: Fr,
 
-    pub stem_commitment: EdwardsProjective,
+    pub stem_commitment: Element,
     pub hash_stem_commitment: Fr,
 }
 
-fn point_to_array(p: &EdwardsProjective) -> [u8; 64] {
+fn point_to_array(p: &Element) -> [u8; 64] {
     let mut bytes = [0u8; 64];
     use ark_serialize::CanonicalSerialize;
     p.serialize_uncompressed(&mut bytes[..]).unwrap();
@@ -34,12 +34,10 @@ impl StemMeta {
         use ark_serialize::CanonicalDeserialize;
 
         let point_bytes = &bytes[0..64 * 3];
-        let C_1 =
-            EdwardsProjective::deserialize_uncompressed(&point_bytes[0 * 64..1 * 64]).unwrap();
-        let C_2 =
-            EdwardsProjective::deserialize_uncompressed(&point_bytes[1 * 64..2 * 64]).unwrap();
+        let C_1 = Element::deserialize_uncompressed(&point_bytes[0 * 64..1 * 64]).unwrap();
+        let C_2 = Element::deserialize_uncompressed(&point_bytes[1 * 64..2 * 64]).unwrap();
         let stem_commitment =
-            EdwardsProjective::deserialize_uncompressed(&point_bytes[2 * 64..3 * 64]).unwrap();
+            Element::deserialize_uncompressed(&point_bytes[2 * 64..3 * 64]).unwrap();
 
         let scalar_bytes = &bytes[64 * 3..];
         let hash_c1 = Fr::deserialize_uncompressed(&scalar_bytes[0 * 32..1 * 32]).unwrap();
@@ -73,7 +71,7 @@ impl StemMeta {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct BranchMeta {
-    pub commitment: EdwardsProjective,
+    pub commitment: Element,
     pub hash_commitment: Fr,
 }
 
@@ -81,7 +79,7 @@ impl BranchMeta {
     pub fn zero() -> BranchMeta {
         use ark_ff::Zero;
         BranchMeta {
-            commitment: EdwardsProjective::zero(),
+            commitment: Element::zero(),
             hash_commitment: Fr::zero(),
         }
     }
@@ -99,7 +97,7 @@ impl BranchMeta {
         let point_bytes = &bytes[0..64];
         let scalar_bytes = &bytes[64..64 + 32];
 
-        let commitment = EdwardsProjective::deserialize_uncompressed(point_bytes).unwrap();
+        let commitment = Element::deserialize_uncompressed(point_bytes).unwrap();
         let hash_commitment = Fr::deserialize_uncompressed(scalar_bytes).unwrap();
 
         BranchMeta {

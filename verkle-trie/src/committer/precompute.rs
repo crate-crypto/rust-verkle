@@ -1,8 +1,7 @@
-use ark_ec::AffineCurve;
-use ark_ff::Zero;
-use bandersnatch::{EdwardsAffine, EdwardsProjective, Fr};
-
 use crate::committer::Committer;
+use ark_ff::Zero;
+
+use banderwagon::{Element, Fr};
 
 #[derive(Debug, Clone)]
 pub struct PrecomputeLagrange {
@@ -13,12 +12,12 @@ pub struct PrecomputeLagrange {
 impl<'a> Committer for &'a PrecomputeLagrange {
     // If compute these points at compile time, we can
     // dictate that evaluations should be an array
-    fn commit_lagrange(&self, evaluations: &[Fr]) -> EdwardsProjective {
+    fn commit_lagrange(&self, evaluations: &[Fr]) -> Element {
         if evaluations.len() != self.num_points {
             panic!("wrong number of points")
         }
 
-        let mut result = EdwardsProjective::default();
+        let mut result = Element::zero();
 
         let scalar_table = evaluations
             .into_iter()
@@ -29,12 +28,12 @@ impl<'a> Committer for &'a PrecomputeLagrange {
             // convert scalar to bytes in little endian
             let bytes = ark_ff::to_bytes!(scalar).unwrap();
 
-            let partial_result: EdwardsProjective = bytes
+            let partial_result: Element = bytes
                 .into_iter()
                 .enumerate()
                 .map(|(row, byte)| {
                     let point = table.point(row, byte);
-                    EdwardsProjective::from(*point)
+                    Element::from(*point)
                 })
                 .sum();
             result += partial_result;
@@ -42,33 +41,33 @@ impl<'a> Committer for &'a PrecomputeLagrange {
         result
     }
 
-    fn scalar_mul(&self, value: Fr, lagrange_index: usize) -> EdwardsProjective {
+    fn scalar_mul(&self, value: Fr, lagrange_index: usize) -> Element {
         let table = &self.inner[lagrange_index];
 
         let bytes = ark_ff::to_bytes!(value).unwrap();
-        let result: EdwardsProjective = bytes
+        let result: Element = bytes
             .into_iter()
             .enumerate()
             .map(|(row, byte)| {
                 let point = table.point(row, byte);
-                EdwardsProjective::from(*point)
+                Element::from(*point)
             })
             .sum();
         result
     }
 }
 impl Committer for PrecomputeLagrange {
-    fn commit_lagrange(&self, evaluations: &[Fr]) -> EdwardsProjective {
+    fn commit_lagrange(&self, evaluations: &[Fr]) -> Element {
         (&self).commit_lagrange(evaluations)
     }
 
-    fn scalar_mul(&self, value: Fr, lagrange_index: usize) -> EdwardsProjective {
+    fn scalar_mul(&self, value: Fr, lagrange_index: usize) -> Element {
         (&self).scalar_mul(value, lagrange_index)
     }
 }
 
 impl PrecomputeLagrange {
-    pub fn precompute(points: &[EdwardsAffine]) -> Self {
+    pub fn precompute(points: &[Element]) -> Self {
         let lagrange_precomputed_points = PrecomputeLagrange::precompute_lagrange_points(points);
         Self {
             inner: lagrange_precomputed_points,
@@ -76,7 +75,7 @@ impl PrecomputeLagrange {
         }
     }
 
-    fn precompute_lagrange_points(lagrange_points: &[EdwardsAffine]) -> Vec<LagrangeTablePoints> {
+    fn precompute_lagrange_points(lagrange_points: &[Element]) -> Vec<LagrangeTablePoints> {
         use rayon::prelude::*;
         lagrange_points
             .into_par_iter()
@@ -87,12 +86,12 @@ impl PrecomputeLagrange {
 
 #[derive(Debug, Clone)]
 pub struct LagrangeTablePoints {
-    identity: EdwardsAffine,
-    matrix: Vec<EdwardsAffine>,
+    identity: Element,
+    matrix: Vec<Element>,
 }
 
 impl LagrangeTablePoints {
-    pub fn new(point: &EdwardsAffine) -> LagrangeTablePoints {
+    pub fn new(point: &Element) -> LagrangeTablePoints {
         let num_rows = 32u64;
         // We use base 256
         let base_u128 = 256u128;
@@ -112,11 +111,11 @@ impl LagrangeTablePoints {
         let flattened_rows: Vec<_> = rows.into_par_iter().flatten().collect();
 
         LagrangeTablePoints {
-            identity: EdwardsAffine::default(),
+            identity: Element::zero(),
             matrix: flattened_rows,
         }
     }
-    pub fn point(&self, index: usize, value: u8) -> &EdwardsAffine {
+    pub fn point(&self, index: usize, value: u8) -> &Element {
         if value == 0 {
             return &self.identity;
         }
@@ -124,7 +123,7 @@ impl LagrangeTablePoints {
     }
 
     // Computes [G_1, 2G_1, 3G_1, ... num_points * G_1]
-    fn compute_base_row(point: &EdwardsAffine, num_points: usize) -> Vec<EdwardsAffine> {
+    fn compute_base_row(point: &Element, num_points: usize) -> Vec<Element> {
         let mut row = Vec::with_capacity(num_points);
         row.push(*point);
         for i in 1..num_points {
@@ -136,11 +135,8 @@ impl LagrangeTablePoints {
 
     // Given [G_1, 2G_1, 3G_1, ... num_points * G_1] and a scalar `k`
     // Returns [k * G_1, 2 * k * G_1, 3 * k * G_1, ... num_points * k * G_1]
-    fn scale_row(points: &[EdwardsAffine], scale: Fr) -> Vec<EdwardsAffine> {
-        let scaled_row: Vec<EdwardsAffine> = points
-            .into_iter()
-            .map(|element| element.mul(scale).into())
-            .collect();
+    fn scale_row(points: &[Element], scale: Fr) -> Vec<Element> {
+        let scaled_row: Vec<Element> = points.into_iter().map(|element| *element * scale).collect();
 
         scaled_row
     }
@@ -161,7 +157,7 @@ impl LagrangeTablePoints {
 //         let values: Vec<_> = (1..=degree + 1).map(|i| Fr::from(i as u128)).collect();
 
 //         let expected_comm = {
-//             let mut res = EdwardsProjective::zero();
+//             let mut res = Element::zero();
 //             for (val, point) in values.iter().zip(SRS.iter()) {
 //                 res += point.mul(val.into_repr())
 //             }

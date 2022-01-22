@@ -1,8 +1,6 @@
 use crate::committer::{precompute::PrecomputeLagrange, test::TestCommitter};
 use crate::constants::CRS;
 
-use ark_ec::ProjectiveCurve;
-
 /// Generic configuration file to initialise a verkle trie struct
 #[derive(Debug, Clone)]
 pub struct Config<Storage, PolyCommit> {
@@ -13,8 +11,7 @@ pub struct Config<Storage, PolyCommit> {
 pub type VerkleConfig<Storage> = Config<Storage, PrecomputeLagrange>;
 impl<Storage> VerkleConfig<Storage> {
     pub fn new(db: Storage) -> Self {
-        let g_aff: Vec<_> = CRS.G.iter().map(|point| point.into_affine()).collect();
-        let committer = PrecomputeLagrange::precompute(&g_aff);
+        let committer = PrecomputeLagrange::precompute(&CRS.G);
         Config { db, committer }
     }
 }

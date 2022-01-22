@@ -3,7 +3,8 @@ use crate::database::{BranchMeta, Flush, Meta, ReadWriteHigherDb, StemMeta};
 use crate::{committer::Committer, Config};
 use crate::{group_to_field, TrieTrait};
 use ark_ff::{PrimeField, Zero};
-use bandersnatch::{EdwardsProjective, Fr};
+
+use banderwagon::{Element, Fr};
 
 #[derive(Debug, Clone)]
 // The trie implements the logic to insert values, fetch values, and create paths to said values
@@ -43,7 +44,7 @@ impl<S: ReadWriteHigherDb, P: Committer> TrieTrait for Trie<S, P> {
         prover::create_verkle_proof(&self.storage, keys.collect())
     }
 
-    fn root_commitment(&self) -> EdwardsProjective {
+    fn root_commitment(&self) -> Element {
         // TODO: This is needed for proofs, can we remove the root hash as the root?
         let root_node = self.storage.get_branch_meta(&vec![]).unwrap();
         return root_node.commitment;
@@ -604,10 +605,10 @@ impl<Storage: ReadWriteHigherDb, PolyCommit: Committer> Trie<Storage, PolyCommit
                             .committer
                             .scalar_mul(Fr::from_le_bytes_mod_order(&stem), 1);
                     (
-                        EdwardsProjective::zero(),
-                        group_to_field(&EdwardsProjective::zero()),
-                        EdwardsProjective::zero(),
-                        group_to_field(&EdwardsProjective::zero()),
+                        Element::zero(),
+                        group_to_field(&Element::zero()),
+                        Element::zero(),
+                        group_to_field(&Element::zero()),
                         stem_comm,
                         None,
                     )
@@ -760,17 +761,17 @@ fn paths_from_relative(parent_path: Vec<u8>, relative_paths: Vec<u8>) -> Vec<Vec
 #[cfg(test)]
 mod tests {
 
-    use ark_ec::ProjectiveCurve;
-    use ark_ff::{PrimeField, Zero};
-    use ark_serialize::CanonicalSerialize;
-    use bandersnatch::{EdwardsProjective, Fr};
-
     use crate::constants::{CRS, TWO_POW_128};
     use crate::database::memory_db::MemoryDb;
     use crate::database::ReadOnlyHigherDb;
     use crate::trie::Trie;
     use crate::TrieTrait;
     use crate::{group_to_field, TestConfig};
+    use ark_ec::ProjectiveCurve;
+    use ark_ff::{PrimeField, Zero};
+    use ark_serialize::CanonicalSerialize;
+    use banderwagon::{Element, Fr};
+    use std::ops::Mul;
 
     #[test]
     // Inserting where the key and value are all zeros
@@ -804,27 +805,27 @@ mod tests {
         // C1 = (value_low + 2^128) * G0 + value_high * G1
         let value_low = Fr::from_le_bytes_mod_order(&[0u8; 16]) + TWO_POW_128;
 
-        let C_1 = CRS[0].mul(value_low.into_repr());
+        let C_1 = CRS[0].mul(value_low);
         assert_eq!(C_1, stem_meta.C_1);
         assert_eq!(group_to_field(&C_1), stem_meta.hash_c1);
 
         // C_2 is not being used so it is the identity point
-        let C_2 = EdwardsProjective::zero();
+        let C_2 = Element::zero();
         assert_eq!(stem_meta.C_2, C_2);
         assert_eq!(group_to_field(&C_2), stem_meta.hash_c2);
 
         // The stem commitment is: 1 * G_0 + stem * G_1 + group_to_field(C1) * G_2 + group_to_field(C2) * G_3
         let stem_comm_0 = CRS[0];
-        let stem_comm_1 = CRS[1].mul(Fr::from_le_bytes_mod_order(&stem).into_repr());
-        let stem_comm_2 = CRS[2].mul(group_to_field(&C_1).into_repr());
-        let stem_comm_3 = CRS[3].mul(group_to_field(&C_2).into_repr());
+        let stem_comm_1 = CRS[1].mul(Fr::from_le_bytes_mod_order(&stem));
+        let stem_comm_2 = CRS[2].mul(group_to_field(&C_1));
+        let stem_comm_3 = CRS[3].mul(group_to_field(&C_2));
         let stem_comm = stem_comm_0 + stem_comm_1 + stem_comm_2 + stem_comm_3;
         assert_eq!(stem_meta.stem_commitment, stem_comm);
 
         // Root is computed as the hash of the stem_commitment * G_0
         // G_0 since the stem is situated at the first index in the child
         let hash_stem_comm = group_to_field(&stem_meta.stem_commitment);
-        let root_comm = CRS[0].mul(hash_stem_comm.into_repr());
+        let root_comm = CRS[0].mul(hash_stem_comm);
         let root = group_to_field(&root_comm);
 
         assert_eq!(root, trie.root_hash())
@@ -869,28 +870,28 @@ mod tests {
             17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32,
         ]);
 
-        let C_1 = CRS[64].mul(value_low.into_repr()) + CRS[65].mul(value_high.into_repr());
+        let C_1 = CRS[64].mul(value_low) + CRS[65].mul(value_high);
 
         assert_eq!(C_1, stem_meta.C_1);
         assert_eq!(group_to_field(&C_1), stem_meta.hash_c1);
 
         // C_2 is not being used so it is the identity point
-        let C_2 = EdwardsProjective::zero();
+        let C_2 = Element::zero();
         assert_eq!(stem_meta.C_2, C_2);
         assert_eq!(group_to_field(&C_2), stem_meta.hash_c2);
 
         // The stem commitment is: 1 * G_0 + stem * G_1 + group_to_field(C1) * G_2 + group_to_field(C2) * G_3
         let stem_comm_0 = CRS[0];
-        let stem_comm_1 = CRS[1].mul(Fr::from_le_bytes_mod_order(&stem).into_repr());
-        let stem_comm_2 = CRS[2].mul(group_to_field(&C_1).into_repr());
-        let stem_comm_3 = CRS[3].mul(group_to_field(&C_2).into_repr());
+        let stem_comm_1 = CRS[1].mul(Fr::from_le_bytes_mod_order(&stem));
+        let stem_comm_2 = CRS[2].mul(group_to_field(&C_1));
+        let stem_comm_3 = CRS[3].mul(group_to_field(&C_2));
         let stem_comm = stem_comm_0 + stem_comm_1 + stem_comm_2 + stem_comm_3;
         assert_eq!(stem_meta.stem_commitment, stem_comm);
 
         // Root is computed as the hash of the stem_commitment * G_1
         // G_1 since the stem is situated at the second index in the child (key starts with 1)
         let hash_stem_comm = group_to_field(&stem_meta.stem_commitment);
-        let root_comm = CRS[1].mul(hash_stem_comm.into_repr());
+        let root_comm = CRS[1].mul(hash_stem_comm);
         let root = group_to_field(&root_comm);
 
         assert_eq!(root, trie.root_hash())
@@ -950,7 +951,7 @@ mod tests {
             17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32,
         ]);
 
-        let C_1 = CRS[64].mul(value_low.into_repr()) + CRS[65].mul(value_high.into_repr());
+        let C_1 = CRS[64].mul(value_low) + CRS[65].mul(value_high);
 
         assert_eq!(C_1, stem_meta.C_1);
         assert_eq!(group_to_field(&C_1), stem_meta.hash_c1);
@@ -963,22 +964,22 @@ mod tests {
             17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 128,
         ]);
 
-        let C_2 = CRS[0].mul(value_low.into_repr()) + CRS[1].mul(value_high.into_repr());
+        let C_2 = CRS[0].mul(value_low) + CRS[1].mul(value_high);
 
         assert_eq!(stem_meta.C_2, C_2);
         assert_eq!(group_to_field(&C_2), stem_meta.hash_c2);
 
         // The stem commitment is: 1 * G_0 + stem * G_1 + group_to_field(C1) * G_2 + group_to_field(C2) * G_3
         let stem_comm_0 = CRS[0];
-        let stem_comm_1 = CRS[1].mul(Fr::from_le_bytes_mod_order(&stem).into_repr());
-        let stem_comm_2 = CRS[2].mul(group_to_field(&C_1).into_repr());
-        let stem_comm_3 = CRS[3].mul(group_to_field(&C_2).into_repr());
+        let stem_comm_1 = CRS[1].mul(Fr::from_le_bytes_mod_order(&stem));
+        let stem_comm_2 = CRS[2].mul(group_to_field(&C_1));
+        let stem_comm_3 = CRS[3].mul(group_to_field(&C_2));
         let stem_comm = stem_comm_0 + stem_comm_1 + stem_comm_2 + stem_comm_3;
         assert_eq!(stem_meta.stem_commitment, stem_comm);
 
         // Root is computed as the hash of the stem_commitment * G_1
         let hash_stem_comm = group_to_field(&stem_meta.stem_commitment);
-        let root_comm = CRS[1].mul(hash_stem_comm.into_repr());
+        let root_comm = CRS[1].mul(hash_stem_comm);
         let root = group_to_field(&root_comm);
 
         assert_eq!(root, trie.root_hash())
@@ -1005,8 +1006,8 @@ mod tests {
         let a_meta = trie.storage.get_stem_meta(stem_a).unwrap();
         let b_meta = trie.storage.get_stem_meta(stem_b).unwrap();
 
-        let root_comm = CRS[0].mul(a_meta.hash_stem_commitment.into_repr())
-            + CRS[1].mul(b_meta.hash_stem_commitment.into_repr());
+        let root_comm =
+            CRS[0].mul(a_meta.hash_stem_commitment) + CRS[1].mul(b_meta.hash_stem_commitment);
 
         let expected_root = group_to_field(&root_comm);
         let got_root = trie.root_hash();

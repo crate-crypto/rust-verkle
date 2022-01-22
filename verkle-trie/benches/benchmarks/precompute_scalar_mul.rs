@@ -1,6 +1,6 @@
 use crate::benchmarks::util::{generate_set_of_keys, KEYS_10K, PRECOMPUTED_TABLE};
 use ark_ff::{Field, PrimeField};
-use bandersnatch::{EdwardsProjective, Fr};
+use banderwagon::Fr;
 use criterion::BenchmarkId;
 use criterion::{black_box, criterion_group, BatchSize, Criterion};
 use verkle_db::BareMetalDiskDb;

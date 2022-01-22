@@ -5,7 +5,7 @@ use crate::{
     proof::key_path_finder::{KeyNotFound, KeyPathFinder, KeyState},
 };
 use ark_ff::{One, PrimeField, Zero};
-use bandersnatch::Fr;
+use banderwagon::Fr;
 use ipa_multipoint::lagrange_basis::LagrangeBasis;
 use ipa_multipoint::multiproof::{ProverQuery, VerifierQuery};
 use std::{

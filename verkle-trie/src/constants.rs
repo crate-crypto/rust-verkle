@@ -1,6 +1,7 @@
 use ark_ff::BigInteger256;
-pub use bandersnatch::Fr;
-use ipa_multipoint::{lagrange_basis::PrecomputedWeights, multiproof::CRS};
+pub use banderwagon::Fr;
+use ipa_multipoint::{crs::CRS, lagrange_basis::PrecomputedWeights};
+use once_cell::sync::Lazy;
 
 pub const FLUSH_BATCH: u32 = 20_000;
 // This library only works for a width of 256. It can be modified to work for other widths, but this is
@@ -17,7 +18,6 @@ pub(crate) const TWO_POW_128: Fr = Fr::new(BigInteger256([
     1249884543737537366,
 ]));
 
-use once_cell::sync::Lazy;
 pub static CRS: Lazy<CRS> = Lazy::new(|| CRS::new(VERKLE_NODE_WIDTH, PEDERSEN_SEED));
 
 pub static PRECOMPUTED_WEIGHTS: Lazy<PrecomputedWeights> =
@@ -27,7 +27,7 @@ pub static PRECOMPUTED_WEIGHTS: Lazy<PrecomputedWeights> =
 mod tests {
     use super::TWO_POW_128;
     use ark_ff::PrimeField;
-    use bandersnatch::Fr;
+    use banderwagon::Fr;
 
     #[test]
     fn test_two_pow128_constant() {
