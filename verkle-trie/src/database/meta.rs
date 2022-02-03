@@ -96,10 +96,25 @@ impl StemMeta {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct BranchMeta {
     pub commitment: EdwardsProjective,
     pub hash_commitment: Fr,
+}
+
+impl std::fmt::Debug for BranchMeta {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("BranchMeta")
+            .field(
+                "commitment",
+                &hex::encode(compress_point_to_array(&self.commitment)),
+            )
+            .field(
+                "hash_commitment",
+                &hex::encode(scalar_to_array(&self.hash_commitment)),
+            )
+            .finish()
+    }
 }
 
 impl BranchMeta {
