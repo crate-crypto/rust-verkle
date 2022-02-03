@@ -1,6 +1,6 @@
 use bandersnatch::{EdwardsProjective, Fr};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct StemMeta {
     pub C_1: EdwardsProjective,
     pub hash_c1: Fr,
@@ -12,10 +12,35 @@ pub struct StemMeta {
     pub hash_stem_commitment: Fr,
 }
 
+impl std::fmt::Debug for StemMeta {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("StemMeta")
+            .field("C_1", &hex::encode(compress_point_to_array(&self.C_1)))
+            .field("C_2", &hex::encode(compress_point_to_array(&self.C_2)))
+            .field("hash_c1", &hex::encode(scalar_to_array(&self.hash_c1)))
+            .field("hash_c2", &hex::encode(scalar_to_array(&self.hash_c2)))
+            .field(
+                "stem commitment",
+                &hex::encode(compress_point_to_array(&self.stem_commitment)),
+            )
+            .field(
+                "hash_stem_commitment",
+                &hex::encode(scalar_to_array(&self.hash_stem_commitment)),
+            )
+            .finish()
+    }
+}
+
 fn point_to_array(p: &EdwardsProjective) -> [u8; 64] {
     let mut bytes = [0u8; 64];
     use ark_serialize::CanonicalSerialize;
     p.serialize_uncompressed(&mut bytes[..]).unwrap();
+    bytes
+}
+fn compress_point_to_array(p: &EdwardsProjective) -> [u8; 32] {
+    let mut bytes = [0u8; 32];
+    use ark_serialize::CanonicalSerialize;
+    p.serialize(&mut bytes[..]).unwrap();
     bytes
 }
 fn scalar_to_array(scalar: &Fr) -> [u8; 32] {
