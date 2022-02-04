@@ -432,7 +432,7 @@ fn get_half_of_stem_children_children_hashes<Storage: ReadOnlyHigherDb>(
     // 0 to 127 is first 128 elements
     // 128 to 255 is the second 128 elements
     let end = start + 127;
-    for i in start..end {
+    for i in start..=end {
         let mut leaf_key = stem_id.to_vec();
         leaf_key.push(i);
         let leaf_key: [u8; 32] = leaf_key.try_into().unwrap();
@@ -454,6 +454,8 @@ fn get_half_of_stem_children_children_hashes<Storage: ReadOnlyHigherDb>(
         child_hashes.push(lower);
         child_hashes.push(upper);
     }
+
+    assert_eq!(child_hashes.len(), 256);
 
     child_hashes
 }
