@@ -759,7 +759,6 @@ fn paths_from_relative(parent_path: Vec<u8>, relative_paths: Vec<u8>) -> Vec<Vec
 }
 #[cfg(test)]
 mod tests {
-    use std::time::Instant;
     use ark_ec::ProjectiveCurve;
     use ark_ff::{PrimeField, Zero};
     use ark_serialize::CanonicalSerialize;
