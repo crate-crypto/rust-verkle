@@ -88,6 +88,43 @@ impl PrecomputeLagrange {
             .map(|point| LagrangeTablePoints::new(point))
             .collect()
     }
+
+    pub fn read<R: std::io::Read>(mut reader: R) -> IOResult<PrecomputeLagrange> {
+
+        let mut num_points = [0u8; 4];
+        reader.read_exact(&mut num_points)?;
+        let num_points = u32::from_le_bytes(num_points) as usize;
+
+        let mut num_lagrange_points = [0u8; 4];
+        reader.read_exact(&mut num_lagrange_points)?;
+        let num_lagrange_points = u32::from_le_bytes(num_lagrange_points);
+        println!("num_lagrange_points: {}", num_lagrange_points);
+        let mut inner = Vec::new();
+        for i in 0..num_lagrange_points {
+            println!("{}", i);
+            let point = LagrangeTablePoints::read(&mut reader)?;
+            inner.push(point);
+        }
+
+        Ok(PrecomputeLagrange {
+            inner,
+            num_points
+        })
+    }
+
+    pub fn write<W: std::io::Write>(&self, mut writer: W) -> IOResult<()> {
+
+        let num_points= self.num_points as u32;
+        writer.write(&num_points.to_le_bytes());
+
+        let num_lagrange_points= self.inner.len() as u32;
+        writer.write(&num_lagrange_points.to_le_bytes());
+
+        for lagrange_points in &self.inner {
+            lagrange_points.write(&mut writer);
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone)]
