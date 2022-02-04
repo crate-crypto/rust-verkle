@@ -759,7 +759,6 @@ fn paths_from_relative(parent_path: Vec<u8>, relative_paths: Vec<u8>) -> Vec<Vec
 }
 #[cfg(test)]
 mod tests {
-
     use ark_ec::ProjectiveCurve;
     use ark_ff::{PrimeField, Zero};
     use ark_serialize::CanonicalSerialize;
@@ -769,7 +768,7 @@ mod tests {
     use crate::database::memory_db::MemoryDb;
     use crate::database::ReadOnlyHigherDb;
     use crate::trie::Trie;
-    use crate::TrieTrait;
+    use crate::{TrieTrait, VerkleConfig};
     use crate::{group_to_field, TestConfig};
 
     #[test]
@@ -1197,4 +1196,5 @@ mod tests {
         let val = trie.get(tree_key_code_keccak).unwrap();
         let val = trie.get(tree_key_code_size).unwrap();
     }
+
 }
