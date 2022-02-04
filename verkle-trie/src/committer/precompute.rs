@@ -1,8 +1,13 @@
 use ark_ec::AffineCurve;
-use ark_ff::Zero;
+use ark_ff::{ToBytes, Zero};
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use bandersnatch::{EdwardsAffine, EdwardsProjective, Fr};
 
 use crate::committer::Committer;
+
+type IOResult<T> = std::io::Result<T>;
+type IOError = std::io::Error;
+type IOErrorKind = std::io::ErrorKind;
 
 #[derive(Debug, Clone)]
 pub struct PrecomputeLagrange {
@@ -144,6 +149,84 @@ impl LagrangeTablePoints {
 
         scaled_row
     }
+
+    pub fn read<R: std::io::Read>(mut reader: R) -> IOResult<LagrangeTablePoints> {
+
+        let identity: EdwardsAffine = CanonicalDeserialize::deserialize(&mut reader)
+            .map_err(|_| IOError::from(IOErrorKind::InvalidData))?;
+
+        let mut num_matrix_points = [0u8; 4];
+        reader.read_exact(&mut num_matrix_points)?;
+        let num_matrix_points = u32::from_le_bytes(num_matrix_points);
+
+        let mut matrix = Vec::new();
+        for _ in 0..num_matrix_points {
+            let point: EdwardsAffine = CanonicalDeserialize::deserialize(&mut reader)
+                .map_err(|_| IOError::from(IOErrorKind::InvalidData))?;
+            matrix.push(point);
+        }
+
+        Ok(LagrangeTablePoints {
+            identity,
+            matrix
+        })
+    }
+
+    pub fn write<W: std::io::Write>(&self, mut writer: W) -> IOResult<()> {
+
+        let mut identity_serialised = [0u8; 32];
+        self.identity.serialize(&mut identity_serialised[..])
+            .map_err(|_| IOError::from(IOErrorKind::InvalidInput));;
+        writer.write(&identity_serialised)?;
+
+        let num_matrix_points= self.matrix.len() as u32;
+        println!("num_matrix_points: {}", num_matrix_points);
+        writer.write(&num_matrix_points.to_le_bytes());
+
+        for matrix_point in &self.matrix {
+            let mut point_serialised = [0u8; 32];
+            matrix_point.serialize(&mut point_serialised[..])
+                .map_err(|_| IOError::from(IOErrorKind::InvalidInput));
+            writer.write(&point_serialised)?;
+        }
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod test {
+
+    use ark_ec::AffineCurve;
+    use ark_ff::{ToBytes, Zero};
+    use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
+    use bandersnatch::{EdwardsAffine, EdwardsProjective, Fr};
+
+    use crate::committer::Committer;
+    use crate::committer::precompute::LagrangeTablePoints;
+
+    type IOResult<T> = std::io::Result<T>;
+    type IOError = std::io::Error;
+    type IOErrorKind = std::io::ErrorKind;
+
+    #[test]
+    fn read_write() {
+        let mut serialized_point: &[u8] = &[34, 172, 150, 138, 152, 171, 108, 80, 55, 159, 200, 176,
+            57, 171, 200, 253, 154, 202, 37, 159, 71, 70, 160, 91, 251, 223, 18, 200, 100, 99,
+            194, 8];
+
+        let point: EdwardsAffine = CanonicalDeserialize::deserialize(&mut serialized_point)
+            .map_err(|_| IOError::from(IOErrorKind::InvalidData)).unwrap();
+
+        let lagrange_point = LagrangeTablePoints::new(&point);
+
+        let mut serialized_lagrange_point:Vec<u8> = Vec::new();
+        lagrange_point.write(&mut serialized_lagrange_point).unwrap();
+
+        let deserialized_lagrange_point = LagrangeTablePoints::read(&mut serialized_lagrange_point.as_slice()).unwrap();
+
+        // assert_eq!(lagrange_point.identity, deserialized_lagrange_point.identity);
+    }
+
 }
 
 // #[cfg(test)]
