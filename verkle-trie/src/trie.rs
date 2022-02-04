@@ -759,7 +759,7 @@ fn paths_from_relative(parent_path: Vec<u8>, relative_paths: Vec<u8>) -> Vec<Vec
 }
 #[cfg(test)]
 mod tests {
-
+    use std::time::Instant;
     use ark_ec::ProjectiveCurve;
     use ark_ff::{PrimeField, Zero};
     use ark_serialize::CanonicalSerialize;
@@ -769,7 +769,7 @@ mod tests {
     use crate::database::memory_db::MemoryDb;
     use crate::database::ReadOnlyHigherDb;
     use crate::trie::Trie;
-    use crate::TrieTrait;
+    use crate::{TrieTrait, VerkleConfig};
     use crate::{group_to_field, TestConfig};
 
     #[test]
@@ -1196,5 +1196,23 @@ mod tests {
         let val = trie.get(tree_key_nonce).unwrap();
         let val = trie.get(tree_key_code_keccak).unwrap();
         let val = trie.get(tree_key_code_size).unwrap();
+    }
+
+    #[test]
+    fn create_trie_from_file() {
+        use tempfile::tempdir;
+        let temp_dir = tempdir().unwrap();
+
+        let start = Instant::now();
+        let db = MemoryDb::new();
+        let mut trie = Trie::new(VerkleConfig::new(db));
+        let elapsed = start.elapsed();
+        println!("Trie creation took: {:?}", elapsed);
+
+        let start = Instant::now();
+        let db = MemoryDb::new();
+        let mut trie = Trie::new(VerkleConfig::new(db));
+        let elapsed = start.elapsed();
+        println!("Trie creation took: {:?}", elapsed);
     }
 }
