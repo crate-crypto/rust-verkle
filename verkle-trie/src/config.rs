@@ -1,7 +1,6 @@
 use std::fs::File;
 use crate::committer::{precompute::PrecomputeLagrange, test::TestCommitter};
 use crate::constants::CRS;
-use std::time::{Duration, Instant};
 
 use ark_ec::ProjectiveCurve;
 use ark_serialize::CanonicalSerialize;

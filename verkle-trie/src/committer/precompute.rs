@@ -259,7 +259,8 @@ mod test {
 
         let deserialized_lagrange_point = LagrangeTablePoints::read(&mut serialized_lagrange_point.as_slice()).unwrap();
 
-        // assert_eq!(lagrange_point.identity, deserialized_lagrange_point.identity);
+        assert_eq!(lagrange_point.identity, deserialized_lagrange_point.identity);
+        assert_eq!(lagrange_point.matrix, deserialized_lagrange_point.matrix);
     }
 
 }

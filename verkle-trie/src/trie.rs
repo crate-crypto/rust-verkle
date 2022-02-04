@@ -1198,21 +1198,4 @@ mod tests {
         let val = trie.get(tree_key_code_size).unwrap();
     }
 
-    #[test]
-    fn create_trie_from_file() {
-        use tempfile::tempdir;
-        let temp_dir = tempdir().unwrap();
-
-        let start = Instant::now();
-        let db = MemoryDb::new();
-        let mut trie = Trie::new(VerkleConfig::new(db));
-        let elapsed = start.elapsed();
-        println!("Trie creation took: {:?}", elapsed);
-
-        let start = Instant::now();
-        let db = MemoryDb::new();
-        let mut trie = Trie::new(VerkleConfig::new(db));
-        let elapsed = start.elapsed();
-        println!("Trie creation took: {:?}", elapsed);
-    }
 }
