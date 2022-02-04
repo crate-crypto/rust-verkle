@@ -98,10 +98,8 @@ impl PrecomputeLagrange {
         let mut num_lagrange_points = [0u8; 4];
         reader.read_exact(&mut num_lagrange_points)?;
         let num_lagrange_points = u32::from_le_bytes(num_lagrange_points);
-        println!("num_lagrange_points: {}", num_lagrange_points);
         let mut inner = Vec::new();
         for i in 0..num_lagrange_points {
-            println!("{}", i);
             let point = LagrangeTablePoints::read(&mut reader)?;
             inner.push(point);
         }
@@ -189,7 +187,7 @@ impl LagrangeTablePoints {
 
     pub fn read<R: std::io::Read>(mut reader: R) -> IOResult<LagrangeTablePoints> {
 
-        let identity: EdwardsAffine = CanonicalDeserialize::deserialize(&mut reader)
+        let identity: EdwardsAffine = CanonicalDeserialize::deserialize_unchecked(&mut reader)
             .map_err(|_| IOError::from(IOErrorKind::InvalidData))?;
 
         let mut num_matrix_points = [0u8; 4];
@@ -198,7 +196,7 @@ impl LagrangeTablePoints {
 
         let mut matrix = Vec::new();
         for _ in 0..num_matrix_points {
-            let point: EdwardsAffine = CanonicalDeserialize::deserialize(&mut reader)
+            let point: EdwardsAffine = CanonicalDeserialize::deserialize_unchecked(&mut reader)
                 .map_err(|_| IOError::from(IOErrorKind::InvalidData))?;
             matrix.push(point);
         }
@@ -211,18 +209,17 @@ impl LagrangeTablePoints {
 
     pub fn write<W: std::io::Write>(&self, mut writer: W) -> IOResult<()> {
 
-        let mut identity_serialised = [0u8; 32];
-        self.identity.serialize(&mut identity_serialised[..])
-            .map_err(|_| IOError::from(IOErrorKind::InvalidInput));;
+        let mut identity_serialised = [0u8; 64];
+        self.identity.serialize_unchecked(&mut identity_serialised[..])
+            .map_err(|_| IOError::from(IOErrorKind::InvalidInput));
         writer.write(&identity_serialised)?;
 
         let num_matrix_points= self.matrix.len() as u32;
-        println!("num_matrix_points: {}", num_matrix_points);
         writer.write(&num_matrix_points.to_le_bytes());
 
         for matrix_point in &self.matrix {
-            let mut point_serialised = [0u8; 32];
-            matrix_point.serialize(&mut point_serialised[..])
+            let mut point_serialised = [0u8; 64];
+            matrix_point.serialize_unchecked(&mut point_serialised[..])
                 .map_err(|_| IOError::from(IOErrorKind::InvalidInput));
             writer.write(&point_serialised)?;
         }
@@ -247,11 +244,12 @@ mod test {
 
     #[test]
     fn read_write() {
-        let mut serialized_point: &[u8] = &[34, 172, 150, 138, 152, 171, 108, 80, 55, 159, 200, 176,
-            57, 171, 200, 253, 154, 202, 37, 159, 71, 70, 160, 91, 251, 223, 18, 200, 100, 99,
-            194, 8];
+        let mut serialized_point: &[u8] = &[48, 172, 150, 138, 152, 171, 108, 80, 55, 159, 200, 176,
+            57, 171, 200, 253, 154, 202, 37, 159, 71, 70, 160, 91, 251, 223, 18, 200, 100, 99, 194,
+            8, 36, 88, 107, 76, 70, 56, 218, 40, 159, 231, 118, 145, 69, 15, 110, 94, 150, 205, 77,
+            236, 215, 186, 25, 226, 0, 52, 190, 230, 160, 129, 38, 10];
 
-        let point: EdwardsAffine = CanonicalDeserialize::deserialize(&mut serialized_point)
+        let point: EdwardsAffine = CanonicalDeserialize::deserialize_unchecked(&mut serialized_point)
             .map_err(|_| IOError::from(IOErrorKind::InvalidData)).unwrap();
 
         let lagrange_point = LagrangeTablePoints::new(&point);
