@@ -30,7 +30,7 @@ impl<Storage> VerkleConfig<Storage> {
     }
 }
 
-pub(crate) type TestConfig<Storage> = Config<Storage, TestCommitter>;
+pub type TestConfig<Storage> = Config<Storage, TestCommitter>;
 impl<Storage> TestConfig<Storage> {
     pub(crate) fn new(db: Storage) -> Self {
         let committer = TestCommitter;
