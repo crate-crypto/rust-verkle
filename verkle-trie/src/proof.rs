@@ -49,6 +49,21 @@ pub struct VerificationHint {
     diff_stem_no_proof: BTreeSet<[u8; 31]>,
 }
 
+impl std::fmt::Display for VerificationHint {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        for d in &self.depths {
+            write!(f, "{} ", d)?;
+        }
+        for e in &self.extension_present {
+            write!(f, "{:?} ", e)?;
+        }
+        for s in &self.diff_stem_no_proof {
+            write!(f, "{} ", hex::encode(s));
+        }
+        std::fmt::Result::Ok(())
+    }
+}
+
 impl VerificationHint {
     // We need the number of keys because we do not serialise the length of
     // the ext_status|| depth. This is equal to the number of keys in the proof, which
@@ -234,6 +249,22 @@ impl VerkleProof {
         let ok = proof.check(&CRS, &PRECOMPUTED_WEIGHTS, &queries, &mut transcript);
 
         (ok, Some(update_hint))
+    }
+}
+
+impl std::fmt::Display for VerkleProof {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        writeln!(f, "Verkle proof:");
+        writeln!(f, " * verification hints: {}", self.verification_hint)?;
+        write!(f, " * commitments: ")?;
+        for comm in self.comms_sorted.iter().map(|comm| {
+            let mut comm_serialised = [0u8; 32];
+            comm.serialize(&mut comm_serialised[..]);
+            hex::encode(comm_serialised)
+        }) {
+            write!(f, "{} ", comm)?;
+        }
+        std::fmt::Result::Ok(())
     }
 }
 
