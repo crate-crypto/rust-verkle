@@ -1,15 +1,10 @@
+use crate::committer::Committer;
 use ark_ec::AffineCurve;
-use ark_ff::{ToBytes, Zero};
-use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
+use ark_ff::Zero;
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Read, SerializationError, Write};
 use bandersnatch::{EdwardsAffine, EdwardsProjective, Fr};
 
-use crate::committer::Committer;
-
-type IOResult<T> = std::io::Result<T>;
-type IOError = std::io::Error;
-type IOErrorKind = std::io::ErrorKind;
-
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, CanonicalSerialize, CanonicalDeserialize, PartialEq, Eq)]
 pub struct PrecomputeLagrange {
     inner: Vec<LagrangeTablePoints>,
     num_points: usize,
@@ -88,44 +83,8 @@ impl PrecomputeLagrange {
             .map(|point| LagrangeTablePoints::new(point))
             .collect()
     }
-
-    pub fn read<R: std::io::Read>(mut reader: R) -> IOResult<PrecomputeLagrange> {
-
-        let mut num_points = [0u8; 4];
-        reader.read_exact(&mut num_points)?;
-        let num_points = u32::from_le_bytes(num_points) as usize;
-
-        let mut num_lagrange_points = [0u8; 4];
-        reader.read_exact(&mut num_lagrange_points)?;
-        let num_lagrange_points = u32::from_le_bytes(num_lagrange_points);
-        let mut inner = Vec::new();
-        for i in 0..num_lagrange_points {
-            let point = LagrangeTablePoints::read(&mut reader)?;
-            inner.push(point);
-        }
-
-        Ok(PrecomputeLagrange {
-            inner,
-            num_points
-        })
-    }
-
-    pub fn write<W: std::io::Write>(&self, mut writer: W) -> IOResult<()> {
-
-        let num_points= self.num_points as u32;
-        writer.write(&num_points.to_le_bytes());
-
-        let num_lagrange_points= self.inner.len() as u32;
-        writer.write(&num_lagrange_points.to_le_bytes());
-
-        for lagrange_points in &self.inner {
-            lagrange_points.write(&mut writer);
-        }
-        Ok(())
-    }
 }
-
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, CanonicalSerialize, CanonicalDeserialize, PartialEq, Eq)]
 pub struct LagrangeTablePoints {
     identity: EdwardsAffine,
     matrix: Vec<EdwardsAffine>,
@@ -184,85 +143,34 @@ impl LagrangeTablePoints {
 
         scaled_row
     }
-
-    pub fn read<R: std::io::Read>(mut reader: R) -> IOResult<LagrangeTablePoints> {
-
-        let identity: EdwardsAffine = CanonicalDeserialize::deserialize_unchecked(&mut reader)
-            .map_err(|_| IOError::from(IOErrorKind::InvalidData))?;
-
-        let mut num_matrix_points = [0u8; 4];
-        reader.read_exact(&mut num_matrix_points)?;
-        let num_matrix_points = u32::from_le_bytes(num_matrix_points);
-
-        let mut matrix = Vec::new();
-        for _ in 0..num_matrix_points {
-            let point: EdwardsAffine = CanonicalDeserialize::deserialize_unchecked(&mut reader)
-                .map_err(|_| IOError::from(IOErrorKind::InvalidData))?;
-            matrix.push(point);
-        }
-
-        Ok(LagrangeTablePoints {
-            identity,
-            matrix
-        })
-    }
-
-    pub fn write<W: std::io::Write>(&self, mut writer: W) -> IOResult<()> {
-
-        let mut identity_serialised = [0u8; 64];
-        self.identity.serialize_unchecked(&mut identity_serialised[..])
-            .map_err(|_| IOError::from(IOErrorKind::InvalidInput));
-        writer.write(&identity_serialised)?;
-
-        let num_matrix_points= self.matrix.len() as u32;
-        writer.write(&num_matrix_points.to_le_bytes());
-
-        for matrix_point in &self.matrix {
-            let mut point_serialised = [0u8; 64];
-            matrix_point.serialize_unchecked(&mut point_serialised[..])
-                .map_err(|_| IOError::from(IOErrorKind::InvalidInput));
-            writer.write(&point_serialised)?;
-        }
-        Ok(())
-    }
 }
 
 #[cfg(test)]
 mod test {
 
+    use crate::committer::precompute::LagrangeTablePoints;
+    use crate::committer::Committer;
     use ark_ec::AffineCurve;
     use ark_ff::{ToBytes, Zero};
     use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
     use bandersnatch::{EdwardsAffine, EdwardsProjective, Fr};
 
-    use crate::committer::Committer;
-    use crate::committer::precompute::LagrangeTablePoints;
-
-    type IOResult<T> = std::io::Result<T>;
-    type IOError = std::io::Error;
-    type IOErrorKind = std::io::ErrorKind;
-
     #[test]
     fn read_write() {
-        let mut serialized_point: &[u8] = &[48, 172, 150, 138, 152, 171, 108, 80, 55, 159, 200, 176,
-            57, 171, 200, 253, 154, 202, 37, 159, 71, 70, 160, 91, 251, 223, 18, 200, 100, 99, 194,
-            8, 36, 88, 107, 76, 70, 56, 218, 40, 159, 231, 118, 145, 69, 15, 110, 94, 150, 205, 77,
-            236, 215, 186, 25, 226, 0, 52, 190, 230, 160, 129, 38, 10];
+        let point: EdwardsAffine = EdwardsAffine::prime_subgroup_generator();
 
-        let point: EdwardsAffine = CanonicalDeserialize::deserialize_unchecked(&mut serialized_point)
-            .map_err(|_| IOError::from(IOErrorKind::InvalidData)).unwrap();
+        let mut serialized_lagrange_table: Vec<u8> = Vec::new();
 
-        let lagrange_point = LagrangeTablePoints::new(&point);
+        let expected_lagrange_table = LagrangeTablePoints::new(&point);
+        expected_lagrange_table
+            .serialize(&mut serialized_lagrange_table)
+            .unwrap();
 
-        let mut serialized_lagrange_point:Vec<u8> = Vec::new();
-        lagrange_point.write(&mut serialized_lagrange_point).unwrap();
+        let got_lagrange_table: LagrangeTablePoints =
+            CanonicalDeserialize::deserialize(&*serialized_lagrange_table).unwrap();
 
-        let deserialized_lagrange_point = LagrangeTablePoints::read(&mut serialized_lagrange_point.as_slice()).unwrap();
-
-        assert_eq!(lagrange_point.identity, deserialized_lagrange_point.identity);
-        assert_eq!(lagrange_point.matrix, deserialized_lagrange_point.matrix);
+        assert_eq!(expected_lagrange_table, got_lagrange_table);
     }
-
 }
 
 // #[cfg(test)]
