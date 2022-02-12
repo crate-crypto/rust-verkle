@@ -16,15 +16,17 @@ pub struct Config<Storage, PolyCommit> {
 // before running the tests; which are ran in parallel.
 const PRECOMPUTED_POINTS_PATH: &'static str = "precomputed_points.bin";
 
-// TODO: These two functions call panics, when they should return a result ideally
+// TODO: These two functions return Strings, when they should return a result with an enum variant ideally
 // TODO: This is an API change and will be done in the API refactor phase.
 
 pub type VerkleConfig<Storage> = Config<Storage, PrecomputeLagrange>;
 impl<Storage> VerkleConfig<Storage> {
-    pub fn new(db: Storage) -> Self {
+    pub fn new(db: Storage) -> Result<Self, &'static str> {
         let file_exists = std::path::Path::new(PRECOMPUTED_POINTS_PATH).exists();
         if file_exists {
-            panic!("file with precomputed points already exists. Please call the `open` method")
+            return Err(
+                "file with precomputed points already exists. Please call the `open` method",
+            );
         }
 
         // File is not already precomputed, so we pre-compute the points and store them
@@ -32,17 +34,19 @@ impl<Storage> VerkleConfig<Storage> {
         let g_aff: Vec<_> = CRS.G.iter().map(|point| point.into_affine()).collect();
         let committer = PrecomputeLagrange::precompute(&g_aff);
         committer.serialize(&mut file).unwrap();
-        Config { db, committer }
+        Ok(Config { db, committer })
     }
 
-    pub fn open(db: Storage) -> Self {
+    pub fn open(db: Storage) -> Result<Self, &'static str> {
         let file_exists = std::path::Path::new(PRECOMPUTED_POINTS_PATH).exists();
         if !file_exists {
-            panic!("file with precomputed points does not exist. Please call the `new` method")
+            return Err(
+                "file with precomputed points does not exist. Please call the `new` method",
+            );
         }
         let mut file = File::open(PRECOMPUTED_POINTS_PATH).unwrap();
         let committer: PrecomputeLagrange = CanonicalDeserialize::deserialize(&mut file).unwrap();
-        return Config { db, committer };
+        return Ok(Config { db, committer });
     }
 }
 
