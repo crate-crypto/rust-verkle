@@ -52,7 +52,7 @@ impl<Storage> VerkleConfig<Storage> {
 
 pub type TestConfig<Storage> = Config<Storage, TestCommitter>;
 impl<Storage> TestConfig<Storage> {
-    pub(crate) fn new(db: Storage) -> Self {
+    pub fn new(db: Storage) -> Self {
         let committer = TestCommitter;
         Config { db, committer }
     }
