@@ -3,7 +3,16 @@ use crate::{
     TrieTrait, VerkleConfig,
 };
 use once_cell::sync::Lazy;
-pub static CONFIG: Lazy<VerkleConfig<MemoryDb>> = Lazy::new(|| VerkleConfig::new(MemoryDb::new()));
+pub static CONFIG: Lazy<VerkleConfig<MemoryDb>> = Lazy::new(|| {
+    match VerkleConfig::new(MemoryDb::new()) {
+        Ok(config) => config,
+        Err(err) => {
+            // An error means that the file was already created
+            // Lets call open instead
+            VerkleConfig::open(MemoryDb::new()).expect("should be infallible")
+        }
+    }
+});
 
 #[test]
 fn test_vector_insert_100_step() {
