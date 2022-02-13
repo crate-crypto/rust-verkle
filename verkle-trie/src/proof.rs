@@ -297,6 +297,23 @@ mod test {
         let (ok, _) = proof.check(keys, values, meta.commitment);
         assert!(ok);
     }
+    #[test]
+    fn proof_of_absence_edge_case() {
+        use ark_serialize::CanonicalSerialize;
+        let db = MemoryDb::new();
+        let mut trie = Trie::new(TestConfig::new(db));
+
+        let absent_keys = vec![[3; 32]];
+        let absent_values = vec![None];
+
+        let root = vec![];
+        let meta = trie.storage.get_branch_meta(&root).unwrap();
+
+        let proof = prover::create_verkle_proof(&trie.storage, absent_keys.clone());
+
+        let (ok, _) = proof.check(absent_keys, absent_values, meta.commitment);
+        assert!(ok);
+    }
 
     #[test]
     fn prover_queries_match_verifier_queries() {
