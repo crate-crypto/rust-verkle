@@ -7,7 +7,6 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-tempfile = "3.2.0"
 bandersnatch = "0.1.1"
 ipa-multipoint = { git = "https://github.com/crate-crypto/ipa_multipoint", branch = "develop" }
 ark-ff = { version = "^0.3.0", default-features = false }
@@ -21,10 +20,12 @@ hex = "0.4.3"
 rand_chacha = { version = "0.3.0", default-features = false }
 rayon = "1.5.1"
 smallvec = "1.6.1"
-criterion = "0.3.4"
 sha2 = "0.9.3"
 itertools = "0.10.1"
 
+[dev-dependencies]
+criterion = "0.3.4"
+tempfile = "3.2.0"
 
 [profile.bench]
 debug = true
@@ -38,7 +39,6 @@ debug = true
 debug-assertions = true
 incremental = true
 
-criterion = "0.3.4"
 
 [[bench]]
 name = "benchmark_main"
@@ -54,3 +54,4 @@ debug = true
 [features]
 default = ["parallel"]
 parallel = ["ark-ff/parallel", "ark-ff/asm", "ark-ec/parallel"]
+std = ["ark-std/std"]                                           # REmove ark-std and change this to ark-serialize-std
