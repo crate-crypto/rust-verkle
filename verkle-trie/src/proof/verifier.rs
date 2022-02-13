@@ -160,15 +160,25 @@ pub fn create_verifier_queries(
                     .insert(stem[0..depth as usize].to_vec(), *other_stem.unwrap());
             }
         } else if extpres == ExtPresent::None {
-            // If the extension  was not present, then the value should be None
+            // If the extension was not present, then the value should be None
             if value.is_some() {
                 return None;
             }
 
-            leaf_values_by_path_and_z.insert(
-                (stem[0..depth as usize].to_vec(), stem[depth as usize - 1]),
-                Fr::zero(),
-            );
+            //TODO: we may need to rewrite the prover/verifier algorithm to fix this if statement properly.
+            // This is a special case. If the depth == 1 and the there is no stem to prove the proof of absence
+            // then this means that the path should point to the root node.
+            //
+            // TODO: Fix in python codebase and check for this in go code
+            if depth == 1 {
+                let root_path = vec![];
+                leaf_values_by_path_and_z.insert((root_path, stem[depth as usize - 1]), Fr::zero());
+            } else {
+                leaf_values_by_path_and_z.insert(
+                    (stem[0..depth as usize].to_vec(), stem[depth as usize - 1]),
+                    Fr::zero(),
+                );
+            }
         }
     }
 
