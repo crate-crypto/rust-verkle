@@ -33,7 +33,7 @@ impl<Storage> VerkleConfig<Storage> {
         let mut file = File::create(PRECOMPUTED_POINTS_PATH).unwrap();
         let g_aff: Vec<_> = CRS.G.iter().map(|point| point.into_affine()).collect();
         let committer = PrecomputeLagrange::precompute(&g_aff);
-        committer.serialize(&mut file).unwrap();
+        committer.serialize_unchecked(&mut file).unwrap();
         Ok(Config { db, committer })
     }
 
@@ -45,7 +45,7 @@ impl<Storage> VerkleConfig<Storage> {
             );
         }
         let mut file = File::open(PRECOMPUTED_POINTS_PATH).unwrap();
-        let committer: PrecomputeLagrange = CanonicalDeserialize::deserialize(&mut file).unwrap();
+        let committer: PrecomputeLagrange = CanonicalDeserialize::deserialize_unchecked(&mut file).unwrap();
         return Ok(Config { db, committer });
     }
 }

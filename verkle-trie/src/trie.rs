@@ -1197,4 +1197,70 @@ mod tests {
         let val = trie.get(tree_key_code_size).unwrap();
     }
 
+    #[test]
+    fn trie_init_verkle_config() {
+
+        let config = match VerkleConfig::new(MemoryDb::new()) {
+            Ok(config) => config,
+            Err(err) => {
+                // An error means that the file was already created
+                // Lets call open instead
+                VerkleConfig::open(MemoryDb::new()).expect("should be infallible")
+            }
+        };
+        let mut trie = Trie::new(config);
+
+        let tree_key_version: [u8; 32] = [
+            121, 85, 7, 198, 131, 230, 143, 90, 165, 129, 173, 81, 186, 89, 19, 191, 13, 107, 197,
+            120, 243, 229, 224, 183, 72, 25, 6, 8, 210, 159, 31, 0,
+        ];
+
+        let tree_key_balance: [u8; 32] = [
+            121, 85, 7, 198, 131, 230, 143, 90, 165, 129, 173, 81, 186, 89, 19, 191, 13, 107, 197,
+            120, 243, 229, 224, 183, 72, 25, 6, 8, 210, 159, 31, 1,
+        ];
+
+        let tree_key_nonce: [u8; 32] = [
+            121, 85, 7, 198, 131, 230, 143, 90, 165, 129, 173, 81, 186, 89, 19, 191, 13, 107, 197,
+            120, 243, 229, 224, 183, 72, 25, 6, 8, 210, 159, 31, 2,
+        ];
+
+        let tree_key_code_keccak: [u8; 32] = [
+            121, 85, 7, 198, 131, 230, 143, 90, 165, 129, 173, 81, 186, 89, 19, 191, 13, 107, 197,
+            120, 243, 229, 224, 183, 72, 25, 6, 8, 210, 159, 31, 3,
+        ];
+
+        let tree_key_code_size: [u8; 32] = [
+            121, 85, 7, 198, 131, 230, 143, 90, 165, 129, 173, 81, 186, 89, 19, 191, 13, 107, 197,
+            120, 243, 229, 224, 183, 72, 25, 6, 8, 210, 159, 31, 4,
+        ];
+
+        let empty_code_hash_value: [u8; 32] = [
+            197, 210, 70, 1, 134, 247, 35, 60, 146, 126, 125, 178, 220, 199, 3, 192, 229, 0, 182,
+            83, 202, 130, 39, 59, 123, 250, 216, 4, 93, 133, 164, 112,
+        ];
+
+        let value_0: [u8; 32] = [
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0,
+        ];
+
+        let value_2: [u8; 32] = [
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 2,
+        ];
+
+        trie.insert_single(tree_key_version, value_0);
+        trie.insert_single(tree_key_balance, value_2);
+        trie.insert_single(tree_key_nonce, value_0);
+        trie.insert_single(tree_key_code_keccak, empty_code_hash_value);
+        trie.insert_single(tree_key_code_size, value_0);
+
+        let val = trie.get(tree_key_version).unwrap();
+        let val = trie.get(tree_key_balance).unwrap();
+        let val = trie.get(tree_key_nonce).unwrap();
+        let val = trie.get(tree_key_code_keccak).unwrap();
+        let val = trie.get(tree_key_code_size).unwrap();
+    }
+
 }
