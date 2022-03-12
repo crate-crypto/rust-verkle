@@ -13,6 +13,7 @@ banderwagon = { git = "https://github.com/crate-crypto/banderwagon" }
 ark-ff = { version = "^0.3.0", default-features = false }
 ark-ec = { version = "^0.3.0", default-features = false }
 ark-serialize = { version = "^0.3.0", default-features = false }
+ark-std = { version = "^0.3.0", default-features = false }
 verkle-db = { path = "../verkle-db", default-features = false }
 
 once_cell = "1.8.0"
@@ -20,13 +21,12 @@ hex = "0.4.3"
 rand_chacha = { version = "0.3.0", default-features = false }
 rayon = "1.5.1"
 smallvec = "1.6.1"
-criterion = "0.3.4"
 sha2 = "0.9.3"
 itertools = "0.10.1"
 
-
 [dev-dependencies]
-ark-std = "^0.3.0"
+criterion = "0.3.4"
+tempfile = "3.2.0"
 
 [profile.bench]
 debug = true
@@ -40,7 +40,6 @@ debug = true
 debug-assertions = true
 incremental = true
 
-criterion = "0.3.4"
 
 # [[bench]]
 # name = "benchmark_main"
@@ -56,3 +55,4 @@ debug = true
 [features]
 default = ["parallel"]
 parallel = ["ark-ff/parallel", "ark-ff/asm", "ark-ec/parallel"]
+std = ["ark-std/std"]                                           # REmove ark-std and change this to ark-serialize-std

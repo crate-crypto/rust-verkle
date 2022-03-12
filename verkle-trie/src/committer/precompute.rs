@@ -4,6 +4,12 @@ use ark_ff::Zero;
 use banderwagon::{Element, Fr};
 
 #[derive(Debug, Clone)]
+use ark_ec::AffineCurve;
+use ark_ff::Zero;
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Read, SerializationError, Write};
+use bandersnatch::{EdwardsAffine, EdwardsProjective, Fr};
+
+#[derive(Debug, Clone, CanonicalSerialize, CanonicalDeserialize, PartialEq, Eq)]
 pub struct PrecomputeLagrange {
     inner: Vec<LagrangeTablePoints>,
     num_points: usize,
@@ -83,8 +89,7 @@ impl PrecomputeLagrange {
             .collect()
     }
 }
-
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, CanonicalSerialize, CanonicalDeserialize, PartialEq, Eq)]
 pub struct LagrangeTablePoints {
     identity: Element,
     matrix: Vec<Element>,
@@ -139,6 +144,34 @@ impl LagrangeTablePoints {
         let scaled_row: Vec<Element> = points.into_iter().map(|element| *element * scale).collect();
 
         scaled_row
+    }
+}
+
+#[cfg(test)]
+mod test {
+
+    use crate::committer::precompute::LagrangeTablePoints;
+    use crate::committer::Committer;
+    use ark_ec::AffineCurve;
+    use ark_ff::{ToBytes, Zero};
+    use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
+    use bandersnatch::{EdwardsAffine, EdwardsProjective, Fr};
+
+    #[test]
+    fn read_write() {
+        let point: EdwardsAffine = EdwardsAffine::prime_subgroup_generator();
+
+        let mut serialized_lagrange_table: Vec<u8> = Vec::new();
+
+        let expected_lagrange_table = LagrangeTablePoints::new(&point);
+        expected_lagrange_table
+            .serialize(&mut serialized_lagrange_table)
+            .unwrap();
+
+        let got_lagrange_table: LagrangeTablePoints =
+            CanonicalDeserialize::deserialize(&*serialized_lagrange_table).unwrap();
+
+        assert_eq!(expected_lagrange_table, got_lagrange_table);
     }
 }
 

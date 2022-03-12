@@ -14,6 +14,14 @@ This is a proof of concept implementation of Verkle Tries. Any and all mistakes 
 - The code has been intentionally implemented in a different way in most places to check for consistency and any misunderstandings. For example, recursion is not used as much when inserting leaves. This means that the code will be more verbose as we need to compute exactly when the algorithm will stop ahead of time.
 
 - There are intuitively natural differences due to the language being used, for example, BTreeMap is used in places where the python implementation uses a dictionary and then sorts it.
+
+## Minimum Hardware Requirements
+- 32/64 bit architecture due to using `as u32` in some cases in the code. 
+
+### Memory Requirements
+
+- We require 100Mb of memory reserved in memory, before any proof is computed
+  
 ## About
 
 This implementation references the ethereum research and go-verkle implementations:
