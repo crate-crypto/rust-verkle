@@ -31,8 +31,8 @@ impl<Storage> VerkleConfig<Storage> {
 
         // File is not already precomputed, so we pre-compute the points and store them
         let mut file = File::create(PRECOMPUTED_POINTS_PATH).unwrap();
-        let g_aff: Vec<_> = CRS.G.iter().map(|point| point.into_affine()).collect();
-        let committer = PrecomputeLagrange::precompute(&g_aff);
+
+        let committer = PrecomputeLagrange::precompute(&CRS.G);
         committer.serialize_unchecked(&mut file).unwrap();
         Ok(Config { db, committer })
     }

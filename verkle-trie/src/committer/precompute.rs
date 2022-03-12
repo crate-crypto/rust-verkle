@@ -3,11 +3,7 @@ use ark_ff::Zero;
 
 use banderwagon::{Element, Fr};
 
-#[derive(Debug, Clone)]
-use ark_ec::AffineCurve;
-use ark_ff::Zero;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Read, SerializationError, Write};
-use bandersnatch::{EdwardsAffine, EdwardsProjective, Fr};
 
 #[derive(Debug, Clone, CanonicalSerialize, CanonicalDeserialize, PartialEq, Eq)]
 pub struct PrecomputeLagrange {
@@ -152,14 +148,13 @@ mod test {
 
     use crate::committer::precompute::LagrangeTablePoints;
     use crate::committer::Committer;
-    use ark_ec::AffineCurve;
     use ark_ff::{ToBytes, Zero};
     use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
-    use bandersnatch::{EdwardsAffine, EdwardsProjective, Fr};
+    use banderwagon::{Element, Fr};
 
     #[test]
     fn read_write() {
-        let point: EdwardsAffine = EdwardsAffine::prime_subgroup_generator();
+        let point = Element::prime_subgroup_generator();
 
         let mut serialized_lagrange_table: Vec<u8> = Vec::new();
 

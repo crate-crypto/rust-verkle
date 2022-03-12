@@ -31,13 +31,13 @@ impl std::fmt::Debug for StemMeta {
     }
 }
 
-fn point_to_array(p: &EdwardsProjective) -> [u8; 64] {
+fn point_to_array(p: &Element) -> [u8; 64] {
     let mut bytes = [0u8; 64];
     use ark_serialize::CanonicalSerialize;
     p.serialize_uncompressed(&mut bytes[..]).unwrap();
     bytes
 }
-fn compress_point_to_array(p: &EdwardsProjective) -> [u8; 32] {
+fn compress_point_to_array(p: &Element) -> [u8; 32] {
     let mut bytes = [0u8; 32];
     use ark_serialize::CanonicalSerialize;
     p.serialize(&mut bytes[..]).unwrap();

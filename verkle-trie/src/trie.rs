@@ -763,7 +763,6 @@ mod tests {
     use ark_ec::ProjectiveCurve;
     use ark_ff::{PrimeField, Zero};
     use ark_serialize::CanonicalSerialize;
-    use bandersnatch::{EdwardsProjective, Fr};
 
     use crate::constants::{CRS, TWO_POW_128};
     use crate::database::memory_db::MemoryDb;
@@ -771,9 +770,6 @@ mod tests {
     use crate::trie::Trie;
     use crate::{group_to_field, TestConfig};
     use crate::{TrieTrait, VerkleConfig};
-    use ark_ec::ProjectiveCurve;
-    use ark_ff::{PrimeField, Zero};
-    use ark_serialize::CanonicalSerialize;
     use banderwagon::{Element, Fr};
     use std::ops::Mul;
 
