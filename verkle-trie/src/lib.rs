@@ -45,7 +45,7 @@ pub trait TrieTrait {
     fn create_verkle_proof(&self, key: impl Iterator<Item = Key>) -> proof::VerkleProof;
 }
 
-// Note: This is a 2 to 1 map
+// Note: This is a 2 to 1 map, but the two preimages are identified to be the same
 // TODO: Create a document showing that this poses no problems
 pub(crate) fn group_to_field(point: &Element) -> Fr {
     use ark_ff::PrimeField;
@@ -73,7 +73,7 @@ mod tests {
     fn consistent_group_to_field() {
         // In python this is called commitment_to_field
         // print(commitment_to_field(Point(generator=True)).to_bytes(32, "little").hex())
-        let expected = "37c6db79b111ea6cf47f80392239ea2bf2cc5579759b686773d5a361f7c8c50c";
+        let expected = "d1e7de2aaea9603d5bc6c208d319596376556ecd8336671ba7670c2139772d14";
 
         let generator = Element::prime_subgroup_generator();
         let mut bytes = [0u8; 32];

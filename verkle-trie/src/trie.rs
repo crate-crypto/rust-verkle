@@ -1031,7 +1031,7 @@ mod tests {
         trie.root_hash().serialize(&mut byts[..]).unwrap();
         assert_eq!(
             hex::encode(&byts),
-            "ab124cd04cdb4e18f797d826969537b5f0c0037fd167a5f2eafbc6206d2d1b02"
+            "fe2e17833b90719eddcad493c352ccd491730643ecee39060c7c1fff5fcc621a"
         );
     }
     #[test]
@@ -1062,7 +1062,7 @@ mod tests {
         trie.root_hash().serialize(&mut byts[..]).unwrap();
         assert_eq!(
             hex::encode(&byts),
-            "117ff4b8cb99ae8bce1680dd33a840d49d0d5bea8529f63ea253d9abd985d602"
+            "74ff8821eca20188de49340124f249dac94404efdb3838bb6b4d298e483cc20e"
         );
     }
 
@@ -1093,7 +1093,7 @@ mod tests {
         root.serialize(&mut byts[..]).unwrap();
 
         assert_eq!(
-            "d949e1bb56100d77923a642d080c26775b85f9bc457cec7f3234d140ced15e0d",
+            "029b6c4c8af9001f0ac76472766c6579f41eec84a73898da06eb97ebdab80a09",
             hex::encode(byts)
         )
     }
@@ -1116,7 +1116,7 @@ mod tests {
         root.serialize(&mut byts[..]).unwrap();
 
         assert_eq!(
-            "d949e1bb56100d77923a642d080c26775b85f9bc457cec7f3234d140ced15e0d",
+            "029b6c4c8af9001f0ac76472766c6579f41eec84a73898da06eb97ebdab80a09",
             hex::encode(byts)
         )
     }
