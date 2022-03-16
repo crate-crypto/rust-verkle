@@ -24,7 +24,7 @@ fn test_vector_insert_100_step() {
         &mut trie,
         &mut prng,
         batch_size,
-        "5fa5fe5785649312156be73aff1dabc8b93b715a761d9d789f429df375db1d19",
+        "afb01df826bd42ddea9001551980f7cfa74f0ca7e0ba36a9079dea4062848600",
     );
 
     // N = 200
@@ -32,28 +32,28 @@ fn test_vector_insert_100_step() {
         &mut trie,
         &mut prng,
         batch_size,
-        "5eebe397c95f264a559a5b87a14da941541cc429d2c2db1413d37f5f1f82a615",
+        "4cd6573f3602df0a1438c894e2f0f465e16537c4474e3ab35ee74d5b3afe180f",
     );
     // N = 300
     step_test_helper(
         &mut trie,
         &mut prng,
         batch_size,
-        "6ccf7881aa5d1a58157a933bd069856823df8240dca6e8a2ff7068252e62ca19",
+        "1da1675938ba4ad2545fd163dc2053212cd75b54fc44e70f11fd20b05363650b",
     );
     // N = 400
     step_test_helper(
         &mut trie,
         &mut prng,
         batch_size,
-        "88f3e42093394fdb8e624822990232efd6693172f83de8a25adbff18754d3410",
+        "bdad99347763dc06765e329da53ae85333a9d89fa9e06ef3fccf30c8c89cb804",
     );
     // N = 500
     step_test_helper(
         &mut trie,
         &mut prng,
         batch_size,
-        "ec2c3cb0e7ed20b016d179480521f574e659f8e31b44f573f6a8505032536903",
+        "cf0b7ea967a755f6c09762aa4a650899bb79d21ef56f1fe6672621149e639905",
     );
 }
 
@@ -68,7 +68,7 @@ fn test_vector_insert_1000_step() {
         &mut trie,
         &mut prng,
         batch_size,
-        "5f33e7659c1a3fad443052c2ebda4b4c0760821d61d400cbdcfaee892cd95f0b",
+        "c94ef4103861b4788602e503f70ad1f47779d6b8b367532d7b4748c401f7391c",
     );
 
     // N = 2_000
@@ -76,28 +76,28 @@ fn test_vector_insert_1000_step() {
         &mut trie,
         &mut prng,
         batch_size,
-        "85697f7ccf45f0356761d9f9f97a875363d764c8c0060427c619aa4fe23b800f",
+        "4284fb75185662925ae4b45143184147db4fd297db1912a6ca17ee3040d21104",
     );
     // N = 3_000
     step_test_helper(
         &mut trie,
         &mut prng,
         batch_size,
-        "7fd3c1fe659f2e2b55416d14b1cf9c2667d8c014f09c2bcd04e9234f31231f0b",
+        "447fa30818141f6034b99a2ece305de601e4af3b635ad216e2a0248a7039240c",
     );
     // N = 4_000
     step_test_helper(
         &mut trie,
         &mut prng,
         batch_size,
-        "da76cb6a533f50e75fd7854e2b686a2ccd20b0a7f80456d5145208be6710b912",
+        "9647ad8f43a64a08fd1d56af5765d9d9e265eb9be703eeb80c2117242c358305",
     );
     // N = 5_000
     step_test_helper(
         &mut trie,
         &mut prng,
         batch_size,
-        "fb6c34c1a0add04a54dba8eaf810df29dffe466d0d67a832707e7fa2dbf15417",
+        "26ed4b641a6a974f09b1b012784580d96cfbbd99f0eed9db541a89f9f2883201",
     );
 }
 

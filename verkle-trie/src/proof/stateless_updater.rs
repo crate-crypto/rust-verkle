@@ -1,7 +1,7 @@
 use crate::constants::TWO_POW_128;
 use crate::{committer::Committer, group_to_field, proof::ExtPresent};
 use ark_ff::{One, PrimeField, Zero};
-use bandersnatch::{EdwardsProjective, Fr};
+use banderwagon::{Element, Fr};
 use std::collections::{BTreeMap, HashSet};
 
 use super::{UpdateHint, VerkleProof};
@@ -11,12 +11,12 @@ use super::{UpdateHint, VerkleProof};
 // and to refactor panics into error variants
 pub fn verify_and_update<C: Committer>(
     proof: VerkleProof,
-    root: EdwardsProjective,
+    root: Element,
     keys: Vec<[u8; 32]>,
     values: Vec<Option<[u8; 32]>>,
     updated_values: Vec<Option<[u8; 32]>>,
     commiter: C,
-) -> Result<EdwardsProjective, ()> {
+) -> Result<Element, ()> {
     // TODO: replace Clone with references if possible
     let (ok, update_hint) = proof.check(keys.clone(), values.clone(), root);
     if !ok {
@@ -33,9 +33,9 @@ pub(crate) fn update_root<C: Committer>(
     keys: Vec<[u8; 32]>,
     values: Vec<Option<[u8; 32]>>,
     updated_values: Vec<Option<[u8; 32]>>,
-    root: EdwardsProjective,
+    root: Element,
     committer: C,
-) -> EdwardsProjective {
+) -> Element {
     assert_eq!(values.len(), updated_values.len());
     assert_eq!(keys.len(), updated_values.len());
 
@@ -86,8 +86,7 @@ pub(crate) fn update_root<C: Committer>(
 
     // TODO: Prefix can be &'a [u8] instead of Vec<u8> which avoids unnecessary allocations... This may be unneeded when we switch to SmallVec32
     let mut updated_stems_by_prefix: BTreeMap<Vec<u8>, HashSet<[u8; 31]>> = BTreeMap::new();
-    let mut updated_commitents_by_stem: BTreeMap<[u8; 31], (EdwardsProjective, Fr)> =
-        BTreeMap::new();
+    let mut updated_commitents_by_stem: BTreeMap<[u8; 31], (Element, Fr)> = BTreeMap::new();
 
     for (stem, suffix_update) in updated_stems {
         let (ext_pres, depth) = hint.depths_and_ext_by_stem[&stem];
@@ -100,8 +99,8 @@ pub(crate) fn update_root<C: Committer>(
         if ext_pres == ExtPresent::Present {
             let ext_path = stem[0..depth as usize].to_vec(); // It is the prefix
 
-            let mut C_1_delta_update = EdwardsProjective::default();
-            let mut C_2_delta_update = EdwardsProjective::default();
+            let mut C_1_delta_update = Element::zero();
+            let mut C_2_delta_update = Element::zero();
 
             // TODO abstract this into a function, since it's duplicated
             for (suffix, (old_value, new_value)) in suffix_update {
@@ -164,7 +163,7 @@ pub(crate) fn update_root<C: Committer>(
                 hash_c2_delta = hash_c2_new - hash_c2_old;
             }
 
-            let mut stem_comm_update = EdwardsProjective::default();
+            let mut stem_comm_update = Element::zero();
             stem_comm_update += committer.scalar_mul(hash_c1_delta, 2);
             stem_comm_update += committer.scalar_mul(hash_c2_delta, 3);
 
@@ -187,8 +186,8 @@ pub(crate) fn update_root<C: Committer>(
                 //
                 // This is similar to the case of ExtPres::Present, except that the old_value is zero, so we can ignore it
                 // TODO we could take this for loop out of the if statement and then use the if statement for the rest
-                let mut C_1 = EdwardsProjective::zero();
-                let mut C_2 = EdwardsProjective::zero();
+                let mut C_1 = Element::zero();
+                let mut C_2 = Element::zero();
                 for (suffix, (old_value, new_value)) in suffix_update {
                     assert!(old_value.is_none(), "since the extension was not present in the trie, the suffix cannot have any previous values");
 
@@ -306,27 +305,27 @@ pub(crate) fn update_root<C: Committer>(
 // as if we were starting from a tree of depth=0
 fn build_subtree<C: Committer>(
     prefix: Vec<u8>,
-    elements: Vec<([u8; 31], EdwardsProjective)>,
+    elements: Vec<([u8; 31], Element)>,
     committer: &C,
-) -> EdwardsProjective {
+) -> Element {
     let mut tree: BTreeMap<Vec<u8>, Node> = BTreeMap::new();
 
     // Insert the root
     tree.insert(
         vec![],
         Node::Inner(InnerNode {
-            commitment: EdwardsProjective::default(),
+            commitment: Element::zero(),
         }),
     );
 
     #[derive(Debug, Clone)]
     struct InnerNode {
-        commitment: EdwardsProjective,
+        commitment: Element,
     }
     #[derive(Debug, Clone, Copy)]
     struct Stem {
         id: [u8; 31],
-        commitment: EdwardsProjective,
+        commitment: Element,
     }
     #[derive(Debug, Clone)]
     enum Node {
@@ -353,7 +352,7 @@ fn build_subtree<C: Committer>(
                 Node::Stem(_) => panic!("found stem"),
             }
         }
-        fn commitment(&self) -> EdwardsProjective {
+        fn commitment(&self) -> Element {
             match self {
                 Node::Inner(inner) => inner.commitment,
                 Node::Stem(stem) => stem.commitment,
@@ -405,7 +404,7 @@ fn build_subtree<C: Committer>(
                 // We now need to add a  bunch of new inner nodes for each index that these two stems share
                 // The current node which is a stem will be shifted down the tree, the node that was pointing to this stem will now point to an inner node
                 let mut new_inner_node = InnerNode {
-                    commitment: EdwardsProjective::default(),
+                    commitment: Element::zero(),
                 };
                 let stem_to_innernode_path = path.clone(); // Save the path of the node which was a stem and is now a inner node (currently an edge case)
                 tree.insert(path.clone(), Node::Inner(new_inner_node)); // This inner node now replaces the old_stem
@@ -415,7 +414,7 @@ fn build_subtree<C: Committer>(
                     depth += 1;
                     path.push(index);
                     new_inner_node = InnerNode {
-                        commitment: EdwardsProjective::default(),
+                        commitment: Element::zero(),
                     };
                     tree.insert(path.clone(), Node::Inner(new_inner_node));
                 }
@@ -498,12 +497,12 @@ fn build_subtree<C: Committer>(
 }
 
 struct SparseVerkleTree {
-    root: EdwardsProjective,
-    updated_commitments_by_path: BTreeMap<Vec<u8>, EdwardsProjective>,
+    root: Element,
+    updated_commitments_by_path: BTreeMap<Vec<u8>, Element>,
 }
 
 impl SparseVerkleTree {
-    fn new(root: EdwardsProjective) -> SparseVerkleTree {
+    fn new(root: Element) -> SparseVerkleTree {
         SparseVerkleTree {
             root,
             updated_commitments_by_path: BTreeMap::default(),
@@ -512,7 +511,7 @@ impl SparseVerkleTree {
 
     fn update_prefix<C: Committer>(
         &mut self,
-        commitments_by_path: &BTreeMap<Vec<u8>, EdwardsProjective>,
+        commitments_by_path: &BTreeMap<Vec<u8>, Element>,
         committer: &C,
         mut prefix: Vec<u8>,
         old_value: Fr,

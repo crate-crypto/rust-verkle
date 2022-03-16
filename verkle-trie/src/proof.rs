@@ -1,7 +1,8 @@
 use crate::constants::CRS;
 use ark_ec::AffineCurve;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
-use bandersnatch::{EdwardsAffine, EdwardsProjective, Fr};
+
+use banderwagon::Element;
 use ipa_multipoint::multiproof::MultiPointProof;
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -164,7 +165,7 @@ pub struct UpdateHint {
     depths_and_ext_by_stem: BTreeMap<[u8; 31], (ExtPresent, u8)>,
     // This will be used to get the old commitment for a particular node
     // So that we can compute the delta between it and the new commitment
-    commitments_by_path: BTreeMap<Vec<u8>, EdwardsProjective>,
+    commitments_by_path: BTreeMap<Vec<u8>, Element>,
     other_stems_by_prefix: BTreeMap<Vec<u8>, [u8; 31]>,
 }
 
@@ -173,7 +174,7 @@ pub struct VerkleProof {
     verification_hint: VerificationHint,
     // Commitments sorted by their paths and then their indices
     // The root is taken out when we serialise, so the verifier does not receive it
-    comms_sorted: Vec<EdwardsProjective>,
+    comms_sorted: Vec<Element>,
     //
     proof: MultiPointProof,
 }
@@ -188,9 +189,9 @@ impl VerkleProof {
 
         let mut comms_sorted = Vec::new();
         for _ in 0..num_comms {
-            let point: EdwardsAffine = CanonicalDeserialize::deserialize(&mut reader)
+            let point: Element = CanonicalDeserialize::deserialize(&mut reader)
                 .map_err(|_| IOError::from(IOErrorKind::InvalidData))?;
-            comms_sorted.push(point.into_projective());
+            comms_sorted.push(point);
         }
 
         let mut bytes = Vec::new();
@@ -227,7 +228,7 @@ impl VerkleProof {
         self,
         keys: Vec<[u8; 32]>,
         values: Vec<Option<[u8; 32]>>,
-        root: EdwardsProjective,
+        root: Element,
     ) -> (bool, Option<UpdateHint>) {
         // TODO: check the commitments are in the correct subgroup
         // TODO: possibly will be done with Decaf
@@ -275,7 +276,7 @@ mod test {
     use crate::database::{memory_db::MemoryDb, ReadOnlyHigherDb};
     use crate::proof::{prover, verifier};
     use crate::{trie::Trie, TestConfig, TrieTrait};
-    use bandersnatch::Fr;
+    use banderwagon::Fr;
 
     #[test]
     fn basic_proof_true() {

@@ -1,4 +1,4 @@
-use bandersnatch::{EdwardsProjective, Fr};
+use banderwagon::{Element, Fr};
 
 pub mod precompute;
 pub mod test;
@@ -10,12 +10,12 @@ pub trait Committer {
     // Commit to a lagrange polynomial, evaluations.len() must equal the size of the SRS at the moment
     //TODO: We can make this &[Fr;256] since we have committed to 256, this would force the caller
     // to handle the size of the slice
-    fn commit_lagrange(&self, evaluations: &[Fr]) -> EdwardsProjective;
+    fn commit_lagrange(&self, evaluations: &[Fr]) -> Element;
     // compute value * G for a specific generator in the SRS
-    fn scalar_mul(&self, value: Fr, lagrange_index: usize) -> EdwardsProjective;
+    fn scalar_mul(&self, value: Fr, lagrange_index: usize) -> Element;
 
-    fn commit_sparse(&self, val_indices: Vec<(Fr, usize)>) -> EdwardsProjective {
-        let mut result = EdwardsProjective::default();
+    fn commit_sparse(&self, val_indices: Vec<(Fr, usize)>) -> Element {
+        let mut result = Element::zero();
 
         for (value, lagrange_index) in val_indices {
             result += self.scalar_mul(value, lagrange_index)
