@@ -768,8 +768,8 @@ mod tests {
     use crate::database::memory_db::MemoryDb;
     use crate::database::ReadOnlyHigherDb;
     use crate::trie::Trie;
-    use crate::{TrieTrait, VerkleConfig};
     use crate::{group_to_field, TestConfig};
+    use crate::{TrieTrait, VerkleConfig};
 
     #[test]
     // Inserting where the key and value are all zeros
@@ -1196,5 +1196,85 @@ mod tests {
         let val = trie.get(tree_key_code_keccak).unwrap();
         let val = trie.get(tree_key_code_size).unwrap();
     }
+    #[test]
+    // Test bug from golang
+    fn go_consistency_bug() {
+        use crate::database::ReadOnlyHigherDb;
+        use ark_serialize::CanonicalSerialize;
 
+        let db = MemoryDb::new();
+        let mut trie = Trie::new(TestConfig::new(db));
+
+        let key = [
+            245, 110, 100, 66, 36, 244, 87, 100, 144, 207, 224, 222, 20, 36, 164, 83, 34, 18, 82,
+            155, 254, 55, 71, 19, 216, 78, 125, 126, 142, 146, 114, 3,
+        ];
+
+        let val = [
+            197, 210, 70, 1, 134, 247, 35, 60, 146, 126, 125, 178, 220, 199, 3, 192, 229, 0, 182,
+            83, 202, 130, 39, 59, 123, 250, 216, 4, 93, 133, 164, 112,
+        ];
+        let stem: [u8; 31] = key[0..31].try_into().unwrap();
+
+        let ins = trie.create_insert_instructions(key, val);
+        trie.process_instructions(ins);
+
+        // Value at that leaf should be [1,32]
+        assert_eq!(trie.storage.get_leaf(key).unwrap(), val);
+
+        // There should be one stem child at index 3 which should hold the value of [197,210...,112]
+        let mut stem_children = trie.storage.get_stem_children(stem);
+        assert_eq!(stem_children.len(), 1);
+
+        let (stem_index, leaf_value) = stem_children.pop().unwrap();
+        assert_eq!(stem_index, 3);
+        assert_eq!(leaf_value, val);
+
+        // Checking correctness of the stem commitments and hashes
+        let stem_meta = trie.storage.get_stem_meta(stem).unwrap();
+
+        // C1 = (value_low + 2^128) * G_6 + value_high * G_7
+        let value_low = Fr::from_le_bytes_mod_order(&[
+            197, 210, 70, 1, 134, 247, 35, 60, 146, 126, 125, 178, 220, 199, 3, 192,
+        ]) + TWO_POW_128;
+        let value_high = Fr::from_le_bytes_mod_order(&[
+            229, 0, 182, 83, 202, 130, 39, 59, 123, 250, 216, 4, 93, 133, 164, 112,
+        ]);
+
+        let C_1 = CRS[6].mul(value_low.into_repr()) + CRS[7].mul(value_high.into_repr());
+
+        let mut c_1_ser = [0u8; 32];
+        let mut got_c_1_ser = [0u8; 32];
+        C_1.serialize(&mut c_1_ser[..]).unwrap();
+        stem_meta.C_1.serialize(&mut got_c_1_ser[..]).unwrap();
+        assert_eq!(
+            C_1,
+            stem_meta.C_1,
+            "C_1 computed as {} but got {}",
+            hex::encode(c_1_ser),
+            hex::encode(got_c_1_ser)
+        );
+        assert_eq!(group_to_field(&C_1), stem_meta.hash_c1);
+
+        // C_2 is not being used so it is the identity point
+        let C_2 = EdwardsProjective::zero();
+        assert_eq!(stem_meta.C_2, C_2);
+        assert_eq!(group_to_field(&C_2), stem_meta.hash_c2);
+
+        // The stem commitment is: 1 * G_0 + stem * G_1 + group_to_field(C1) * G_2 + group_to_field(C2) * G_3
+        let stem_comm_0 = CRS[0];
+        let stem_comm_1 = CRS[1].mul(Fr::from_le_bytes_mod_order(&stem).into_repr());
+        let stem_comm_2 = CRS[2].mul(group_to_field(&C_1).into_repr());
+        let stem_comm_3 = CRS[3].mul(group_to_field(&C_2).into_repr());
+        let stem_comm = stem_comm_0 + stem_comm_1 + stem_comm_2 + stem_comm_3;
+        assert_eq!(stem_meta.stem_commitment, stem_comm);
+
+        // Root is computed as the hash of the stem_commitment * G_245
+        // G_1 since the stem is situated at the second index in the child (key starts with 245)
+        let hash_stem_comm = group_to_field(&stem_meta.stem_commitment);
+        let root_comm = CRS[245].mul(hash_stem_comm.into_repr());
+        let root = group_to_field(&root_comm);
+
+        assert_eq!(root, trie.root_hash())
+    }
 }
