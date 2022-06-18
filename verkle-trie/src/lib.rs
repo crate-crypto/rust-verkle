@@ -57,6 +57,8 @@ pub(crate) fn group_to_field(point: &Element) -> Fr {
     base_field
         .serialize(&mut bytes[..])
         .expect("could not serialise point into a 32 byte array");
+    println!("hex bytes {}", hex::encode(bytes));
+
     Fr::from_le_bytes_mod_order(&bytes)
 }
 
