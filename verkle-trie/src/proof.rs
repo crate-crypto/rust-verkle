@@ -298,21 +298,199 @@ mod test {
         let (ok, _) = proof.check(keys, values, meta.commitment);
         assert!(ok);
     }
+
     #[test]
-    fn proof_of_absence_edge_case() {
+    fn edge_case_golang() {
         use ark_serialize::CanonicalSerialize;
         let db = MemoryDb::new();
         let mut trie = Trie::new(TestConfig::new(db));
+        let key_value_data = vec![
+            [
+                "088bcd6531bcfdd7d4529b689d415af18485f3e5f7f08d50d0d3fc6f95e01500",
+                "",
+            ],
+            [
+                "088bcd6531bcfdd7d4529b689d415af18485f3e5f7f08d50d0d3fc6f95e01502",
+                "",
+            ],
+            [
+                "088bcd6531bcfdd7d4529b689d415af18485f3e5f7f08d50d0d3fc6f95e01503",
+                "",
+            ],
+            [
+                "1be5b2c8a376ad34ba9e5917ef6f84de1d342758d5e147f7b9d05b90a2cd6700",
+                "",
+            ],
+            [
+                "1be5b2c8a376ad34ba9e5917ef6f84de1d342758d5e147f7b9d05b90a2cd6701",
+                "",
+            ],
+            [
+                "1be5b2c8a376ad34ba9e5917ef6f84de1d342758d5e147f7b9d05b90a2cd6702",
+                "",
+            ],
+            [
+                "1be5b2c8a376ad34ba9e5917ef6f84de1d342758d5e147f7b9d05b90a2cd6703",
+                "",
+            ],
+            [
+                "1be5b2c8a376ad34ba9e5917ef6f84de1d342758d5e147f7b9d05b90a2cd6704",
+                "",
+            ],
+            [
+                "212e8cb758fb84a7ae1715f444bdb71c4c9e5db400a88cdee03338b91c5e8f79",
+                "",
+            ],
+            [
+                "6766d007d8fd90ea45b2ac9027ff04fa57e49527f11010a12a73f58ffa580800",
+                "0000000000000000000000000000000000000000000000000000000000000000",
+            ],
+            [
+                "6766d007d8fd90ea45b2ac9027ff04fa57e49527f11010a12a73f58ffa580801",
+                "e89208cfa015d5191e0200000000000000000000000000000000000000000000",
+            ],
+            [
+                "6766d007d8fd90ea45b2ac9027ff04fa57e49527f11010a12a73f58ffa580802",
+                "3300000000000000000000000000000000000000000000000000000000000000",
+            ],
+            [
+                "6766d007d8fd90ea45b2ac9027ff04fa57e49527f11010a12a73f58ffa580803",
+                "c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470",
+            ],
+            [
+                "6766d007d8fd90ea45b2ac9027ff04fa57e49527f11010a12a73f58ffa580804",
+                "0000000000000000000000000000000000000000000000000000000000000000",
+            ],
+            [
+                "694dc6ea427eea992996e5dfa6992eb0434d7e305574cf74f45226538e34a800",
+                "",
+            ],
+            [
+                "694dc6ea427eea992996e5dfa6992eb0434d7e305574cf74f45226538e34a802",
+                "",
+            ],
+            [
+                "694dc6ea427eea992996e5dfa6992eb0434d7e305574cf74f45226538e34a803",
+                "",
+            ],
+            [
+                "695921dca3b16c5cc850e94cdd63f573c467669e89cec88935d03474d6bdf900",
+                "",
+            ],
+            [
+                "695921dca3b16c5cc850e94cdd63f573c467669e89cec88935d03474d6bdf901",
+                "",
+            ],
+            [
+                "695921dca3b16c5cc850e94cdd63f573c467669e89cec88935d03474d6bdf902",
+                "",
+            ],
+            [
+                "695921dca3b16c5cc850e94cdd63f573c467669e89cec88935d03474d6bdf903",
+                "",
+            ],
+            [
+                "695921dca3b16c5cc850e94cdd63f573c467669e89cec88935d03474d6bdf904",
+                "",
+            ],
+            [
+                "6d3edc4c95095f56c4019b8aa097cfd9e3f7095966788bc497e488d78f29fa00",
+                "",
+            ],
+            [
+                "6d3edc4c95095f56c4019b8aa097cfd9e3f7095966788bc497e488d78f29fa01",
+                "",
+            ],
+            [
+                "6d3edc4c95095f56c4019b8aa097cfd9e3f7095966788bc497e488d78f29fa02",
+                "",
+            ],
+            [
+                "6d3edc4c95095f56c4019b8aa097cfd9e3f7095966788bc497e488d78f29fa03",
+                "",
+            ],
+            [
+                "6d3edc4c95095f56c4019b8aa097cfd9e3f7095966788bc497e488d78f29fa04",
+                "",
+            ],
+            [
+                "8cbef1db2d70a48f58505953351092c37f903bcf78b0aff05b1d544609fb8900",
+                "",
+            ],
+            [
+                "8cbef1db2d70a48f58505953351092c37f903bcf78b0aff05b1d544609fb8901",
+                "",
+            ],
+            [
+                "8cbef1db2d70a48f58505953351092c37f903bcf78b0aff05b1d544609fb8902",
+                "",
+            ],
+            [
+                "8cbef1db2d70a48f58505953351092c37f903bcf78b0aff05b1d544609fb8903",
+                "",
+            ],
+            [
+                "8cbef1db2d70a48f58505953351092c37f903bcf78b0aff05b1d544609fb8904",
+                "",
+            ],
+            [
+                "9f2a59ea98d7cb610eff49447571e1610188937ce9266c6b4ded1b6ee37ecd00",
+                "0000000000000000000000000000000000000000000000000000000000000000",
+            ],
+            [
+                "9f2a59ea98d7cb610eff49447571e1610188937ce9266c6b4ded1b6ee37ecd01",
+                "e06a0ec345e83437e43b00000000000000000000000000000000000000000000",
+            ],
+            [
+                "9f2a59ea98d7cb610eff49447571e1610188937ce9266c6b4ded1b6ee37ecd02",
+                "0200000000000000000000000000000000000000000000000000000000000000",
+            ],
+            [
+                "9f2a59ea98d7cb610eff49447571e1610188937ce9266c6b4ded1b6ee37ecd03",
+                "c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470",
+            ],
+            [
+                "f1dd4962bea2321c889520858b4784bcf8f21181312ce2d7396244bd493e1d00",
+                "",
+            ],
+            [
+                "f1dd4962bea2321c889520858b4784bcf8f21181312ce2d7396244bd493e1d01",
+                "",
+            ],
+            [
+                "f1dd4962bea2321c889520858b4784bcf8f21181312ce2d7396244bd493e1d02",
+                "",
+            ],
+            [
+                "f1dd4962bea2321c889520858b4784bcf8f21181312ce2d7396244bd493e1d03",
+                "",
+            ],
+            [
+                "f1dd4962bea2321c889520858b4784bcf8f21181312ce2d7396244bd493e1d04",
+                "",
+            ],
+        ];
 
-        let absent_keys = vec![[3; 32]];
-        let absent_values = vec![None];
+        let mut keys: Vec<[u8; 32]> = Vec::new();
+        let mut values: Vec<Option<[u8; 32]>> = Vec::new();
+        for [key_str, value_str] in key_value_data {
+            let key: [u8; 32] = hex::decode(key_str).unwrap().try_into().unwrap();
+            let mut value = None;
+            if !value_str.is_empty() {
+                let v: [u8; 32] = hex::decode(value_str).unwrap().try_into().unwrap();
+                value = Some(v);
+                trie.insert_single(key, v);
+            }
+
+            keys.push(key);
+            values.push(value);
+        }
 
         let root = vec![];
         let meta = trie.storage.get_branch_meta(&root).unwrap();
 
-        let proof = prover::create_verkle_proof(&trie.storage, absent_keys.clone());
-
-        let (ok, _) = proof.check(absent_keys, absent_values, meta.commitment);
+        let proof = prover::create_verkle_proof(&trie.storage, keys.clone());
+        let (ok, _) = proof.check(keys, values, meta.commitment);
         assert!(ok);
     }
 
