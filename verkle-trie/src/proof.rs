@@ -367,4 +367,35 @@ mod test {
         let deserialised_proof = VerkleProof::read(&bytes[..]).unwrap();
         assert_eq!(proof, deserialised_proof);
     }
+
+    #[test]
+    fn proof_of_absence_none_multiple_stems() {
+        let db = MemoryDb::new();
+        let mut trie = Trie::new(TestConfig::new(db));
+
+        let val_0 = [0u8; 32];
+        let mut keys = [
+            hex::decode("0303030303030303030303030303030303030303030303030303030303030200")
+                .unwrap()
+                .try_into()
+                .unwrap(),
+            hex::decode("0303030303030303030303030303030303030303030303030303030303030300")
+                .unwrap()
+                .try_into()
+                .unwrap(),
+        ]
+        .to_vec();
+        let k0 = hex::decode("0403030303030303030303030303030303030303030303030303030303030000")
+            .unwrap()
+            .try_into()
+            .unwrap();
+        trie.insert_single(k0, val_0);
+
+        let proof = prover::create_verkle_proof(&trie.storage, keys.clone());
+        let mut bytes = Vec::new();
+        proof.write(&mut bytes).unwrap();
+
+        println!("{:?}", bytes);
+        assert!(bytes[4] == 1); // will fail, 2 is returned
+    }
 }
