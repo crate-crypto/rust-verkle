@@ -4,7 +4,8 @@ use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 
 use banderwagon::Element;
 use ipa_multipoint::multiproof::MultiPointProof;
-use std::collections::{BTreeMap, BTreeSet};
+use itertools::Itertools;
+use std::collections::{BTreeMap, BTreeSet, HashSet};
 
 // TODO: We use the IO Result while we do not have a dedicated Error enum
 type IOResult<T> = ark_std::io::Result<T>;
@@ -48,6 +49,118 @@ pub struct VerificationHint {
     // All of the stems which are in the trie,
     // however, we are not directly proving any of their values
     diff_stem_no_proof: BTreeSet<[u8; 31]>,
+}
+
+impl VerificationHint {
+    // Here we employ strategies to compress the verification hint
+    // so that the proof size is smaller when sending it over the wire.
+    // Currently, the only strategy employed is to deduplicate None extension status
+    // for adjacent absent keys
+    pub(crate) fn compress(&mut self, keys: &[[u8; 32]]) {
+        let mut depths = Vec::with_capacity(self.depths.len());
+        let mut extension_present = Vec::with_capacity(self.extension_present.len());
+
+        let mut known_absent_stems = HashSet::new();
+
+        for ((key, depth), ext_status) in keys
+            .into_iter()
+            .zip(&self.depths)
+            .zip(&self.extension_present)
+        {
+            // Add all the keys which are present, this optimisation does not apply to them
+            if ext_status != &ExtPresent::None {
+                depths.push(*depth);
+                extension_present.push(*ext_status);
+                continue;
+            }
+
+            // Check if we've already saved the ext_status and depth for
+            // this absent stem
+            let stem_path = &key[0..*depth as usize];
+            if known_absent_stems.contains(stem_path) {
+                continue;
+            }
+
+            // At this point, the stem has extension status None and it has not been accounted for
+            let is_new_value = known_absent_stems.insert(stem_path);
+            debug_assert!(is_new_value);
+
+            depths.push(*depth);
+            extension_present.push(*ext_status);
+        }
+
+        self.depths = depths;
+        self.extension_present = extension_present;
+    }
+
+    // Decompress the VerificationHint. This method will undo all compression strategies employed in the
+    // corresponding `compress` function.
+    pub(crate) fn decompress(&mut self, keys: &[[u8; 32]]) {
+        let mut depths = Vec::with_capacity(keys.len());
+        let mut extension_present = Vec::with_capacity(keys.len());
+
+        let mut keys_iter = keys.into_iter();
+        let mut depths_iter = self.depths.iter();
+        let mut ext_present_iter = self.extension_present.iter();
+
+        let last_known_key = keys_iter.next().expect("expected at least one key");
+        let mut last_known_depth = *depths_iter.next().expect("expected at least one depth");
+        let mut last_known_ext_status = *ext_present_iter
+            .next()
+            .expect("expected at least one ext status");
+        let mut last_known_stem_path = &last_known_key[0..last_known_depth as usize];
+
+        depths.push(last_known_depth);
+        extension_present.push(last_known_ext_status);
+
+        for key in keys_iter {
+            // We need to figure out what the intended ext status and depth of this key should be.
+            // It is either:
+            // 1. The next extension status and depth in the iterator
+            // 2. The previous extension status and depth
+            //
+            // Case1: Since we only de-duplicated keys which had an extension status of None
+            // This case occurs whenever the extension status is not None.
+            //
+            if last_known_ext_status != ExtPresent::None {
+                let next_depth = *depths_iter.next().unwrap();
+                let next_ext_status = *ext_present_iter.next().unwrap();
+                depths.push(next_depth);
+                extension_present.push(next_ext_status);
+
+                last_known_depth = next_depth;
+                last_known_ext_status = next_ext_status;
+                last_known_stem_path = &key[0..next_depth as usize];
+                continue;
+            }
+
+            // Case2: This case only occurs, if the stem path of the current key with the previous depth
+            // is equal to the stem path of the previous key.
+            //
+            let current_stem_path_with_previous_depth = &key[0..last_known_depth as usize];
+            if current_stem_path_with_previous_depth == last_known_stem_path {
+                // If the paths are the same, then we take the previous ext status and depth
+                // and assign it to this key
+                depths.push(last_known_depth);
+                extension_present.push(last_known_ext_status);
+                continue;
+            }
+
+            // Arriving here means that the previous extension status is equal to None, however
+            // the current key's extension status and depth, corresponds to a different extension status and depth
+            let next_depth = *depths_iter.next().unwrap();
+            let next_ext_status = *ext_present_iter.next().unwrap();
+            depths.push(next_depth);
+            extension_present.push(next_ext_status);
+
+            last_known_depth = next_depth;
+            last_known_ext_status = next_ext_status;
+            last_known_stem_path = &key[0..next_depth as usize];
+        }
+
+        self.depths = depths;
+        self.extension_present = extension_present;
+    }
 }
 
 impl std::fmt::Display for VerificationHint {
@@ -225,11 +338,22 @@ impl VerkleProof {
     }
 
     pub fn check(
-        self,
+        mut self,
         keys: Vec<[u8; 32]>,
         values: Vec<Option<[u8; 32]>>,
         root: Element,
     ) -> (bool, Option<UpdateHint>) {
+        // Sort keys and values according to the keys
+        let mut keys_values = keys.into_iter().zip(values).collect_vec();
+        keys_values.sort_by_key(|(key, _)| *key);
+        let keys = keys_values.iter().map(|(keys, _)| *keys).collect_vec();
+        let values = keys_values.iter().map(|(_, values)| *values).collect_vec();
+
+        // TODO: This does not work. Possibly a bug in Rust. keys is being unzipped as [[u8;32]] instead of Vec<[u8;32]>
+        // let (keys, values) = keys_values.into_iter().map(|(key, val)| (key, val)).unzip();
+
+        self.verification_hint.decompress(&keys);
+
         // TODO: check the commitments are in the correct subgroup
         // TODO: possibly will be done with Decaf
 
