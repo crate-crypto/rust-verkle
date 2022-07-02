@@ -11,11 +11,19 @@ use std::collections::BTreeSet;
 
 pub fn create_verkle_proof<Storage: ReadOnlyHigherDb>(
     storage: &Storage,
-    keys: Vec<[u8; 32]>,
+    mut keys: Vec<[u8; 32]>,
 ) -> VerkleProof {
+    // Sort keys -- This is needed because when we remove duplicate extension statuses for stems with status None
+    // we need a method of mapping stems/keys to their de-duplicated extension status
+    // If they are ordered, the corresponding extension status will be the last known one, if the stem paths match
+    // and the last extension status was indeed None.
+    keys.sort();
+
     assert!(keys.len() > 0, "cannot create a proof with no keys");
 
-    let (queries, verification_hint) = create_prover_queries(storage, keys);
+    let (queries, mut verification_hint) = create_prover_queries(storage, keys.clone());
+
+    verification_hint.compress(&keys);
 
     // Commitments without duplicates and without the root, (implicitly) sorted by path, since the queries were
     // processed by path order
