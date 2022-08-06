@@ -204,7 +204,10 @@ pub fn create_verifier_queries(
         child_path.push(*z);
         let y = match leaf_values_by_path_and_z.get(&(path.clone(), *z)) {
             Some(val) => *val,
-            None => group_to_field(&commitments_by_path[&child_path]),
+            None => match commitments_by_path.get(&child_path) {
+                        Some(val) => group_to_field(&val),
+                        None => Fr::zero()
+                    }
         };
 
         ys_by_path_and_z.insert((path.clone(), *z), y);
