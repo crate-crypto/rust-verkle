@@ -164,7 +164,7 @@ pub struct UpdateHint {
     depths_and_ext_by_stem: BTreeMap<[u8; 31], (ExtPresent, u8)>,
     // This will be used to get the old commitment for a particular node
     // So that we can compute the delta between it and the new commitment
-    commitments_by_path: BTreeMap<Vec<u8>, EdwardsProjective>,
+    pub commitments_by_path: BTreeMap<Vec<u8>, EdwardsProjective>,
     other_stems_by_prefix: BTreeMap<Vec<u8>, [u8; 31]>,
 }
 
