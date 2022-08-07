@@ -123,7 +123,7 @@ impl KeyPathFinder {
                     //
                     // We will need this path for update proofs
 
-                    if &stem_id == &key[0..31] {
+                    if stem_id == key[0..31] {
                         return KeyPath {
                             nodes: nodes_by_path,
                             key_state: KeyState::NotFound(KeyNotFound::StemFound),

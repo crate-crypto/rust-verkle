@@ -1,6 +1,6 @@
 use crate::{
-    committer::precompute::PrecomputeLagrange, constants::CRS, database::memory_db::MemoryDb, Trie,
-    TrieTrait, VerkleConfig,
+    committer::precompute::PrecomputeLagrange, database::memory_db::MemoryDb, Trie, TrieTrait,
+    VerkleConfig,
 };
 use once_cell::sync::Lazy;
 pub static CONFIG: Lazy<VerkleConfig<MemoryDb>> = Lazy::new(|| {

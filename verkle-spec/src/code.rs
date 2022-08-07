@@ -54,10 +54,10 @@ pub fn chunkify_code(code: Vec<u8>) -> Vec<Bytes32> {
     let mut leftover_push_data = 0usize;
     remaining_pushdata_bytes.push(leftover_push_data);
 
-    let last_chunk_index = chunked_code31.len()-1;
+    let last_chunk_index = chunked_code31.len() - 1;
     // set this to true, if the last chunk had a push data instruction that
     // needed another chunk
-    let mut last_chunk_push_data = false; 
+    let mut last_chunk_push_data = false;
     for (chunk_i, chunk) in chunked_code31.clone().enumerate() {
         // Case1: the left over push data is larger than the chunk size
         //
@@ -65,13 +65,13 @@ pub fn chunkify_code(code: Vec<u8>) -> Vec<Bytes32> {
         // For example, if the last instruction was a PUSH32 and chunk size is 31
         // We can compute the left over push data for this chunk as 31, the chunk size
         // and then the left over push data for the next chunk as 32-31=1
-        if leftover_push_data > chunk.len()  {
+        if leftover_push_data > chunk.len() {
             if chunk_i == last_chunk_index {
-                last_chunk_push_data = true;    
-                break
+                last_chunk_push_data = true;
+                break;
             }
 
-            leftover_push_data = leftover_push_data - chunk.len();
+            leftover_push_data -= chunk.len();
             remaining_pushdata_bytes.push(chunk.len());
             continue;
         }
@@ -103,8 +103,8 @@ pub fn chunkify_code(code: Vec<u8>) -> Vec<Bytes32> {
 
     if last_chunk_push_data {
         // If the last chunk had remaining push data to be added
-        // we add a new chunk with 32 zeroes. This is fine 
-        chunked_code32.push([0u8;32])
+        // we add a new chunk with 32 zeroes. This is fine
+        chunked_code32.push([0u8; 32])
     }
 
     chunked_code32

@@ -116,7 +116,7 @@ impl<T: BareMetalKVDb> ReadOnlyHigherDb for GenericBatchDB<T> {
 
         let mut labelled_key = Vec::with_capacity(branch_id.len() + 1);
         labelled_key.push(BRANCH_TABLE_MARKER);
-        labelled_key.extend_from_slice(&branch_id);
+        labelled_key.extend_from_slice(branch_id);
 
         for i in 0u8..=255 {
             let mut child = labelled_key.clone();
@@ -135,7 +135,7 @@ impl<T: BareMetalKVDb> ReadOnlyHigherDb for GenericBatchDB<T> {
     fn get_branch_meta(&self, key: &[u8]) -> Option<BranchMeta> {
         let mut labelled_key = Vec::with_capacity(key.len() + 1);
         labelled_key.push(BRANCH_TABLE_MARKER);
-        labelled_key.extend_from_slice(&key);
+        labelled_key.extend_from_slice(key);
 
         self.inner
             .fetch(&labelled_key)
@@ -146,7 +146,7 @@ impl<T: BareMetalKVDb> ReadOnlyHigherDb for GenericBatchDB<T> {
         let mut labelled_key = Vec::with_capacity(branch_id.len() + 2);
         labelled_key.push(BRANCH_TABLE_MARKER);
 
-        labelled_key.extend_from_slice(&branch_id);
+        labelled_key.extend_from_slice(branch_id);
         labelled_key.push(index);
         self.inner
             .fetch(&labelled_key)

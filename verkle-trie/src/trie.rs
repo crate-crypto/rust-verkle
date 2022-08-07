@@ -31,7 +31,7 @@ impl<S: ReadWriteHigherDb, P: Committer> TrieTrait for Trie<S, P> {
         // If the number of stems is zero, then this branch will return zero
         let root_node = self
             .storage
-            .get_branch_meta(&vec![])
+            .get_branch_meta(&[])
             .expect("this should be infallible as every trie should have a root upon creation");
         root_node.hash_commitment
     }
@@ -46,8 +46,8 @@ impl<S: ReadWriteHigherDb, P: Committer> TrieTrait for Trie<S, P> {
 
     fn root_commitment(&self) -> Element {
         // TODO: This is needed for proofs, can we remove the root hash as the root?
-        let root_node = self.storage.get_branch_meta(&vec![]).unwrap();
-        return root_node.commitment;
+        let root_node = self.storage.get_branch_meta(&[]).unwrap();
+        root_node.commitment
     }
 }
 
@@ -202,7 +202,7 @@ impl<Storage: ReadWriteHigherDb, PolyCommit: Committer> Trie<Storage, PolyCommit
                     child: node_path.clone(),
                     depth: loop_index as u8,
                     // TODO this does not need to be optional
-                    old_child_value: child.branch().map(|bm| Meta::from(bm)),
+                    old_child_value: child.branch().map(Meta::from),
                 });
                 current_node_index = node_path;
 
@@ -368,7 +368,7 @@ impl<Storage: ReadWriteHigherDb, PolyCommit: Committer> Trie<Storage, PolyCommit
                     new_leaf_value,
                     new_leaf_index,
                 } => {
-                    assert!(chain_insert_path.len() > 0);
+                    assert!(!chain_insert_path.is_empty());
 
                     //0. Compute the path for each inner node
                     let mut inner_node_paths =
@@ -410,7 +410,6 @@ impl<Storage: ReadWriteHigherDb, PolyCommit: Committer> Trie<Storage, PolyCommit
                     // Add second stem to branch, since it is already in the database
                     // We just need to state that this branch node points to it and
                     // update this nodes commitment and commitment value
-                    let old_stem_child: [u8; 31] = old_stem_child.try_into().unwrap();
                     let stem_meta_data = self.storage.get_stem_meta(old_stem_child).unwrap();
                     let old_stem_updated = StemUpdated {
                         old_val: None,
@@ -517,7 +516,7 @@ impl<Storage: ReadWriteHigherDb, PolyCommit: Committer> Trie<Storage, PolyCommit
             Some(vec) => {
                 // Check if they have just inserted the previous value
                 // if so, we early exit and return None
-                if &vec == &value {
+                if vec == value {
                     return None;
                 }
                 Some(vec)
@@ -688,7 +687,7 @@ impl<Storage: ReadWriteHigherDb, PolyCommit: Committer> Trie<Storage, PolyCommit
         // then this means that this is the first time we are inserting this stem.
         // We return the hash as zero because if the stem did not exist, the branch node
         // does not commit to it.
-        let old_stem_hash = stem_update.old_val.unwrap_or(Fr::zero());
+        let old_stem_hash = stem_update.old_val.unwrap_or_else(Fr::zero);
         let new_stem_hash = stem_update.new_val;
         let delta = new_stem_hash - old_stem_hash;
 
@@ -712,7 +711,7 @@ impl<Storage: ReadWriteHigherDb, PolyCommit: Committer> Trie<Storage, PolyCommit
         self.storage
             .add_stem_as_branch_child(branch_child_id, stem_update.stem, depth);
 
-        return hash_updated_branch_comm;
+        hash_updated_branch_comm
     }
 }
 
@@ -750,9 +749,9 @@ fn path_difference(key_a: [u8; 31], key_b: [u8; 31]) -> (Vec<u8>, Option<u8>, Op
 // TODO: Is this hurting performance? If so can we rewrite it to be more efficient?
 // TODO Eagerly, we can use SmallVec32
 fn paths_from_relative(parent_path: Vec<u8>, relative_paths: Vec<u8>) -> Vec<Vec<u8>> {
-    assert!(relative_paths.len() > 0);
+    assert!(!relative_paths.is_empty());
 
-    let mut result = vec![parent_path.clone(); relative_paths.len()];
+    let mut result = vec![parent_path; relative_paths.len()];
     for (i, curr) in result.iter_mut().enumerate() {
         curr.extend_from_slice(&relative_paths[0..i + 1])
     }

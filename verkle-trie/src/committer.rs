@@ -21,6 +21,6 @@ pub trait Committer {
             result += self.scalar_mul(value, lagrange_index)
         }
 
-        return result;
+        result
     }
 }

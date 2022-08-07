@@ -22,7 +22,7 @@ impl<'a> Committer for &'a PrecomputeLagrange {
         let mut result = Element::zero();
 
         let scalar_table = evaluations
-            .into_iter()
+            .iter()
             .zip(self.inner.iter())
             .filter(|(evals, _)| !evals.is_zero());
 
@@ -35,7 +35,7 @@ impl<'a> Committer for &'a PrecomputeLagrange {
                 .enumerate()
                 .map(|(row, byte)| {
                     let point = table.point(row, byte);
-                    Element::from(*point)
+                    *point
                 })
                 .sum();
             result += partial_result;
@@ -52,7 +52,7 @@ impl<'a> Committer for &'a PrecomputeLagrange {
             .enumerate()
             .map(|(row, byte)| {
                 let point = table.point(row, byte);
-                Element::from(*point)
+                *point
             })
             .sum();
         result
@@ -81,7 +81,7 @@ impl PrecomputeLagrange {
         use rayon::prelude::*;
         lagrange_points
             .into_par_iter()
-            .map(|point| LagrangeTablePoints::new(point))
+            .map(LagrangeTablePoints::new)
             .collect()
     }
 }
@@ -137,7 +137,7 @@ impl LagrangeTablePoints {
     // Given [G_1, 2G_1, 3G_1, ... num_points * G_1] and a scalar `k`
     // Returns [k * G_1, 2 * k * G_1, 3 * k * G_1, ... num_points * k * G_1]
     fn scale_row(points: &[Element], scale: Fr) -> Vec<Element> {
-        let scaled_row: Vec<Element> = points.into_iter().map(|element| *element * scale).collect();
+        let scaled_row: Vec<Element> = points.iter().map(|element| *element * scale).collect();
 
         scaled_row
     }
