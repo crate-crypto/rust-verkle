@@ -93,7 +93,7 @@ pub(crate) fn update_root<C: Committer>(
         let prefix = stem[0..depth as usize].to_vec();
         updated_stems_by_prefix
             .entry(prefix.clone())
-            .or_insert(HashSet::new())
+            .or_insert_with(HashSet::new)
             .insert(stem);
 
         if ext_pres == ExtPresent::Present {
@@ -123,7 +123,7 @@ pub(crate) fn update_root<C: Committer>(
                     Fr::from_le_bytes_mod_order(&new_value_high_16) - old_value_high_16;
 
                 let position = suffix;
-                let is_c1_comm_update = if position < 128 { true } else { false };
+                let is_c1_comm_update = position < 128;
 
                 let pos_mod_128 = position % 128;
 
@@ -174,62 +174,60 @@ pub(crate) fn update_root<C: Committer>(
             // Note that we have been given a stem to which we know is in the trie (ext_pres) and
             // we have computed all of the updates for that particular stem
             updated_commitents_by_stem.insert(stem, (stem_comm_new, hash_stem_comm_new));
-        } else {
-            if ext_pres == ExtPresent::DifferentStem {
-                let other_stem = hint.other_stems_by_prefix[&prefix];
-                updated_stems_by_prefix
-                    .entry(prefix)
-                    .or_insert(HashSet::new())
-                    .insert(other_stem);
+        } else if ext_pres == ExtPresent::DifferentStem {
+            let other_stem = hint.other_stems_by_prefix[&prefix];
+            updated_stems_by_prefix
+                .entry(prefix)
+                .or_insert_with(HashSet::new)
+                .insert(other_stem);
 
-                // Since this stem was not present in the trie, we need to make its initial stem commitment
-                //
-                // This is similar to the case of ExtPres::Present, except that the old_value is zero, so we can ignore it
-                // TODO we could take this for loop out of the if statement and then use the if statement for the rest
-                let mut C_1 = Element::zero();
-                let mut C_2 = Element::zero();
-                for (suffix, (old_value, new_value)) in suffix_update {
-                    assert!(old_value.is_none(), "since the extension was not present in the trie, the suffix cannot have any previous values");
+            // Since this stem was not present in the trie, we need to make its initial stem commitment
+            //
+            // This is similar to the case of ExtPres::Present, except that the old_value is zero, so we can ignore it
+            // TODO we could take this for loop out of the if statement and then use the if statement for the rest
+            let mut C_1 = Element::zero();
+            let mut C_2 = Element::zero();
+            for (suffix, (old_value, new_value)) in suffix_update {
+                assert!(old_value.is_none(), "since the extension was not present in the trie, the suffix cannot have any previous values");
 
-                    // Split values into low_16 and high_16
-                    let new_value_low_16 = new_value[0..16].to_vec();
-                    let new_value_high_16 = new_value[16..32].to_vec();
+                // Split values into low_16 and high_16
+                let new_value_low_16 = new_value[0..16].to_vec();
+                let new_value_high_16 = new_value[16..32].to_vec();
 
-                    // We need to compute two deltas
-                    let value_low = Fr::from_le_bytes_mod_order(&new_value_low_16) + TWO_POW_128;
-                    let value_high = Fr::from_le_bytes_mod_order(&new_value_high_16);
+                // We need to compute two deltas
+                let value_low = Fr::from_le_bytes_mod_order(&new_value_low_16) + TWO_POW_128;
+                let value_high = Fr::from_le_bytes_mod_order(&new_value_high_16);
 
-                    let position = suffix;
-                    let is_c1_comm_update = if position < 128 { true } else { false };
+                let position = suffix;
+                let is_c1_comm_update = position < 128;
 
-                    let pos_mod_128 = position % 128;
+                let pos_mod_128 = position % 128;
 
-                    let low_index = 2 * pos_mod_128 as usize;
-                    let high_index = low_index + 1;
+                let low_index = 2 * pos_mod_128 as usize;
+                let high_index = low_index + 1;
 
-                    let generator_low = committer.scalar_mul(value_low, low_index);
-                    let generator_high = committer.scalar_mul(value_high, high_index);
+                let generator_low = committer.scalar_mul(value_low, low_index);
+                let generator_high = committer.scalar_mul(value_high, high_index);
 
-                    if is_c1_comm_update {
-                        C_1 += generator_low + generator_high;
-                    } else {
-                        C_2 += generator_low + generator_high;
-                    }
+                if is_c1_comm_update {
+                    C_1 += generator_low + generator_high;
+                } else {
+                    C_2 += generator_low + generator_high;
                 }
-
-                let stem_comm_0 = Fr::one(); // TODO: We can get rid of this and just add SRS[0]
-                let stem_comm_1 = Fr::from_le_bytes_mod_order(&stem);
-                let stem_comm_2 = group_to_field(&C_1);
-                let stem_comm_3 = group_to_field(&C_2);
-                let stem_comm = committer.commit_sparse(vec![
-                    (stem_comm_0, 0),
-                    (stem_comm_1, 1),
-                    (stem_comm_2, 2),
-                    (stem_comm_3, 3),
-                ]);
-                let hash_stem_comm = group_to_field(&stem_comm);
-                updated_commitents_by_stem.insert(stem, (stem_comm, hash_stem_comm));
             }
+
+            let stem_comm_0 = Fr::one(); // TODO: We can get rid of this and just add SRS[0]
+            let stem_comm_1 = Fr::from_le_bytes_mod_order(&stem);
+            let stem_comm_2 = group_to_field(&C_1);
+            let stem_comm_3 = group_to_field(&C_2);
+            let stem_comm = committer.commit_sparse(vec![
+                (stem_comm_0, 0),
+                (stem_comm_1, 1),
+                (stem_comm_2, 2),
+                (stem_comm_3, 3),
+            ]);
+            let hash_stem_comm = group_to_field(&stem_comm);
+            updated_commitents_by_stem.insert(stem, (stem_comm, hash_stem_comm));
         }
 
         //We have now processed all of the necessary extension proof edits that need to be completed.

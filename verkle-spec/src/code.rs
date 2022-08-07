@@ -71,7 +71,7 @@ pub fn chunkify_code(code: Vec<u8>) -> Vec<Bytes32> {
                 break;
             }
 
-            leftover_push_data = leftover_push_data - chunk.len();
+            leftover_push_data -= chunk.len();
             remaining_pushdata_bytes.push(chunk.len());
             continue;
         }

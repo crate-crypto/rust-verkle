@@ -1,11 +1,10 @@
-use crate::constants::CRS;
-use ark_ec::AffineCurve;
+use crate::constants::{CRS, PRECOMPUTED_WEIGHTS};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 
 use banderwagon::Element;
 use ipa_multipoint::multiproof::MultiPointProof;
+use ipa_multipoint::transcript::Transcript;
 use std::collections::{BTreeMap, BTreeSet};
-
 // TODO: We use the IO Result while we do not have a dedicated Error enum
 type IOResult<T> = ark_std::io::Result<T>;
 type IOError = ark_std::io::Error;
@@ -152,7 +151,7 @@ impl VerificationHint {
             // Encode depth into the byte, it should only be less
             // than or equal to 32, and so we only need 5 bits.
             debug_assert!(*depth <= 32);
-            byte = byte | (depth << 3);
+            byte |= depth << 3;
 
             writer.write(&[byte])?;
         }
@@ -242,9 +241,6 @@ impl VerkleProof {
             Some((queries, update_hint)) => (queries, update_hint),
             None => return (false, None),
         };
-
-        use crate::constants::{PRECOMPUTED_WEIGHTS, VERKLE_NODE_WIDTH};
-        use ipa_multipoint::transcript::Transcript;
 
         let mut transcript = Transcript::new(b"vt");
         let ok = proof.check(&CRS, &PRECOMPUTED_WEIGHTS, &queries, &mut transcript);

@@ -1,6 +1,7 @@
-use crate::committer::{precompute::PrecomputeLagrange, test::TestCommitter};
-use crate::constants::CRS;
-use ark_ec::ProjectiveCurve;
+use crate::{
+    committer::{precompute::PrecomputeLagrange, test::TestCommitter},
+    constants::CRS,
+};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use std::fs::File;
 /// Generic configuration file to initialise a verkle trie struct
@@ -14,7 +15,7 @@ pub struct Config<Storage, PolyCommit> {
 // to pre-compute. The means that in production, one will not need to recompute
 // them. It is possible to use this for tests too, one should ensure that the file exists
 // before running the tests; which are ran in parallel.
-const PRECOMPUTED_POINTS_PATH: &'static str = "precomputed_points.bin";
+const PRECOMPUTED_POINTS_PATH: &str = "precomputed_points.bin";
 
 // TODO: These two functions return Strings, when they should return a result with an enum variant ideally
 // TODO: This is an API change and will be done in the API refactor phase.
@@ -47,7 +48,7 @@ impl<Storage> VerkleConfig<Storage> {
         let mut file = File::open(PRECOMPUTED_POINTS_PATH).unwrap();
         let committer: PrecomputeLagrange =
             CanonicalDeserialize::deserialize_unchecked(&mut file).unwrap();
-        return Ok(Config { db, committer });
+        Ok(Config { db, committer })
     }
 }
 
