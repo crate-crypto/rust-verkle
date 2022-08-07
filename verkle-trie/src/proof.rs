@@ -5,10 +5,13 @@ use banderwagon::Element;
 use ipa_multipoint::multiproof::MultiPointProof;
 use ipa_multipoint::transcript::Transcript;
 use std::collections::{BTreeMap, BTreeSet};
+
+use std::io::{Error, ErrorKind, Result, Read, Write};
+
 // TODO: We use the IO Result while we do not have a dedicated Error enum
-type IOResult<T> = ark_std::io::Result<T>;
-type IOError = ark_std::io::Error;
-type IOErrorKind = ark_std::io::ErrorKind;
+type IOResult<T> = Result<T>;
+type IOError = Error;
+type IOErrorKind = ErrorKind;
 
 mod key_path_finder;
 mod opening_data;
@@ -68,7 +71,7 @@ impl VerificationHint {
     // We need the number of keys because we do not serialise the length of
     // the ext_status|| depth. This is equal to the number of keys in the proof, which
     // we assume the user knows.
-    pub fn read<R: ark_std::io::Read>(mut reader: R) -> IOResult<VerificationHint> {
+    pub fn read<R: Read>(mut reader: R) -> IOResult<VerificationHint> {
         // First extract the stems with no values opened for them
         let mut num_stems = [0u8; 4];
         reader.read_exact(&mut num_stems)?;
@@ -114,7 +117,7 @@ impl VerificationHint {
             diff_stem_no_proof,
         })
     }
-    pub fn write<W: ark_std::io::Write>(&self, writer: &mut W) -> IOResult<()> {
+    pub fn write<W: Write>(&self, writer: &mut W) -> IOResult<()> {
         // Encode the number of stems with no value openings
         let num_stems = self.diff_stem_no_proof.len() as u32;
         writer.write(&num_stems.to_le_bytes());
@@ -179,7 +182,7 @@ pub struct VerkleProof {
 }
 
 impl VerkleProof {
-    pub fn read<R: ark_std::io::Read>(mut reader: R) -> IOResult<VerkleProof> {
+    pub fn read<R: Read>(mut reader: R) -> IOResult<VerkleProof> {
         let verification_hint = VerificationHint::read(&mut reader)?;
 
         let mut num_comms = [0u8; 4];
@@ -204,7 +207,7 @@ impl VerkleProof {
         })
     }
 
-    pub fn write<W: ark_std::io::Write>(&self, mut writer: W) -> IOResult<()> {
+    pub fn write<W: Write>(&self, mut writer: W) -> IOResult<()> {
         self.verification_hint.write(&mut writer);
 
         let num_comms = self.comms_sorted.len() as u32;
