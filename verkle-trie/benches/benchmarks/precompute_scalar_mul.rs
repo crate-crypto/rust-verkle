@@ -1,12 +1,7 @@
-use crate::benchmarks::util::{generate_set_of_keys, KEYS_10K, PRECOMPUTED_TABLE};
-use ark_ff::{Field, PrimeField};
+use ark_ff::Field;
 use banderwagon::Fr;
-use criterion::BenchmarkId;
-use criterion::{black_box, criterion_group, BatchSize, Criterion};
-use verkle_db::BareMetalDiskDb;
-use verkle_trie::database::memory_db::MemoryDb;
-use verkle_trie::trie::Trie;
-use verkle_trie::Committer;
+use criterion::{black_box, criterion_group, Criterion};
+
 fn scalar_mul_bench(c: &mut Criterion) {
     use ark_ff::One;
     let minus_one = -Fr::one();

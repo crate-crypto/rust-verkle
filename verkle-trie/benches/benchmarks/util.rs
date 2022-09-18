@@ -1,11 +1,8 @@
 use sha2::{Digest, Sha256};
-
-use ark_ec::ProjectiveCurve;
 use once_cell::sync::Lazy;
-use verkle_trie::{precompute::PrecomputeLagrange, SRS};
 
-pub static PRECOMPUTED_TABLE: Lazy<PrecomputeLagrange> =
-    Lazy::new(|| PrecomputeLagrange::precompute(&SRS.map(|point| point.into_affine())));
+// pub static PRECOMPUTED_TABLE: Lazy<PrecomputeLagrange> =
+//    Lazy::new(|| PrecomputeLagrange::precompute(&SRS.map(|point| point.into_affine())));
 
 pub static KEYS_10K: Lazy<Vec<[u8; 32]>> =
     Lazy::new(|| generate_diff_set_of_keys(10_000).collect());
