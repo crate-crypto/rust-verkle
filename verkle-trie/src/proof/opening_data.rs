@@ -306,9 +306,9 @@ impl SuffixOpeningData {
                 get_half_of_stem_children_children_hashes(self.ext.stem, offset, storage);
 
             let commitment = if *sfx < 128 {
-                stem_meta.C_1
+                stem_meta.c_1
             } else {
-                stem_meta.C_2
+                stem_meta.c_2
             };
             let open_at_val_low = ProverQuery {
                 commitment,

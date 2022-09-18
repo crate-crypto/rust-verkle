@@ -585,12 +585,12 @@ impl<Storage: ReadWriteHigherDb, PolyCommit: Committer> Trie<Storage, PolyCommit
 
         let stem: [u8; 31] = update_leaf.key[0..31].try_into().unwrap();
 
-        let (C_1, old_hash_c1, C_2, old_hash_c2, stem_comm, old_hash_stem_comm) =
+        let (c_1, old_hash_c1, c_2, old_hash_c2, stem_comm, old_hash_stem_comm) =
             match self.storage.get_stem_meta(stem) {
                 Some(comm_val) => (
-                    comm_val.C_1,
+                    comm_val.c_1,
                     comm_val.hash_c1,
-                    comm_val.C_2,
+                    comm_val.c_2,
                     comm_val.hash_c2,
                     comm_val.stem_commitment,
                     Some(comm_val.hash_stem_commitment),
@@ -615,11 +615,11 @@ impl<Storage: ReadWriteHigherDb, PolyCommit: Committer> Trie<Storage, PolyCommit
             };
 
         // Compute the delta for the stem commitment
-        let (updated_C_1, new_hash_c1, updated_C_2, new_hash_c2, updated_stem_comm) =
+        let (updated_c_1, new_hash_c1, updated_c_2, new_hash_c2, updated_stem_comm) =
             if position < 128 {
-                // update C_1
-                let updated_C_1 = C_1 + generator_low + generator_high;
-                let new_hash_c1 = group_to_field(&updated_C_1);
+                // update c_1
+                let updated_c_1 = c_1 + generator_low + generator_high;
+                let new_hash_c1 = group_to_field(&updated_c_1);
 
                 let c_1_delta = new_hash_c1 - old_hash_c1;
                 let c_1_point = self.committer.scalar_mul(c_1_delta, 2);
@@ -627,25 +627,25 @@ impl<Storage: ReadWriteHigherDb, PolyCommit: Committer> Trie<Storage, PolyCommit
                 let updated_stem_comm = stem_comm + c_1_point;
 
                 (
-                    updated_C_1,
+                    updated_c_1,
                     new_hash_c1,
-                    C_2,
+                    c_2,
                     old_hash_c2,
                     updated_stem_comm,
                 )
             } else {
-                // update C_2
-                let updated_C_2 = C_2 + generator_low + generator_high;
-                let new_hash_c2 = group_to_field(&updated_C_2);
+                // update c_2
+                let updated_c_2 = c_2 + generator_low + generator_high;
+                let new_hash_c2 = group_to_field(&updated_c_2);
 
                 let c_2_delta = new_hash_c2 - old_hash_c2;
                 let c_2_point = self.committer.scalar_mul(c_2_delta, 3);
 
                 let updated_stem_comm = stem_comm + c_2_point;
                 (
-                    C_1,
+                    c_1,
                     old_hash_c1,
-                    updated_C_2,
+                    updated_c_2,
                     new_hash_c2,
                     updated_stem_comm,
                 )
@@ -656,9 +656,9 @@ impl<Storage: ReadWriteHigherDb, PolyCommit: Committer> Trie<Storage, PolyCommit
         self.storage.insert_stem(
             stem,
             StemMeta {
-                C_1: updated_C_1,
+                c_1: updated_c_1,
                 hash_c1: new_hash_c1,
-                C_2: updated_C_2,
+                c_2: updated_c_2,
                 hash_c2: new_hash_c2,
                 stem_commitment: updated_stem_comm,
                 hash_stem_commitment: updated_hash_stem_comm,
@@ -804,20 +804,20 @@ mod tests {
         // C1 = (value_low + 2^128) * G0 + value_high * G1
         let value_low = Fr::from_le_bytes_mod_order(&[0u8; 16]) + TWO_POW_128;
 
-        let C_1 = CRS[0].mul(value_low);
-        assert_eq!(C_1, stem_meta.C_1);
-        assert_eq!(group_to_field(&C_1), stem_meta.hash_c1);
+        let c_1 = CRS[0].mul(value_low);
+        assert_eq!(c_1, stem_meta.c_1);
+        assert_eq!(group_to_field(&c_1), stem_meta.hash_c1);
 
-        // C_2 is not being used so it is the identity point
-        let C_2 = Element::zero();
-        assert_eq!(stem_meta.C_2, C_2);
-        assert_eq!(group_to_field(&C_2), stem_meta.hash_c2);
+        // c_2 is not being used so it is the identity point
+        let c_2 = Element::zero();
+        assert_eq!(stem_meta.c_2, c_2);
+        assert_eq!(group_to_field(&c_2), stem_meta.hash_c2);
 
         // The stem commitment is: 1 * G_0 + stem * G_1 + group_to_field(C1) * G_2 + group_to_field(C2) * G_3
         let stem_comm_0 = CRS[0];
         let stem_comm_1 = CRS[1].mul(Fr::from_le_bytes_mod_order(&stem));
-        let stem_comm_2 = CRS[2].mul(group_to_field(&C_1));
-        let stem_comm_3 = CRS[3].mul(group_to_field(&C_2));
+        let stem_comm_2 = CRS[2].mul(group_to_field(&c_1));
+        let stem_comm_3 = CRS[3].mul(group_to_field(&c_2));
         let stem_comm = stem_comm_0 + stem_comm_1 + stem_comm_2 + stem_comm_3;
         assert_eq!(stem_meta.stem_commitment, stem_comm);
 
@@ -869,21 +869,21 @@ mod tests {
             17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32,
         ]);
 
-        let C_1 = CRS[64].mul(value_low) + CRS[65].mul(value_high);
+        let c_1 = CRS[64].mul(value_low) + CRS[65].mul(value_high);
 
-        assert_eq!(C_1, stem_meta.C_1);
-        assert_eq!(group_to_field(&C_1), stem_meta.hash_c1);
+        assert_eq!(c_1, stem_meta.c_1);
+        assert_eq!(group_to_field(&c_1), stem_meta.hash_c1);
 
-        // C_2 is not being used so it is the identity point
-        let C_2 = Element::zero();
-        assert_eq!(stem_meta.C_2, C_2);
-        assert_eq!(group_to_field(&C_2), stem_meta.hash_c2);
+        // c_2 is not being used so it is the identity point
+        let c_2 = Element::zero();
+        assert_eq!(stem_meta.c_2, c_2);
+        assert_eq!(group_to_field(&c_2), stem_meta.hash_c2);
 
         // The stem commitment is: 1 * G_0 + stem * G_1 + group_to_field(C1) * G_2 + group_to_field(C2) * G_3
         let stem_comm_0 = CRS[0];
         let stem_comm_1 = CRS[1].mul(Fr::from_le_bytes_mod_order(&stem));
-        let stem_comm_2 = CRS[2].mul(group_to_field(&C_1));
-        let stem_comm_3 = CRS[3].mul(group_to_field(&C_2));
+        let stem_comm_2 = CRS[2].mul(group_to_field(&c_1));
+        let stem_comm_3 = CRS[3].mul(group_to_field(&c_2));
         let stem_comm = stem_comm_0 + stem_comm_1 + stem_comm_2 + stem_comm_3;
         assert_eq!(stem_meta.stem_commitment, stem_comm);
 
@@ -950,10 +950,10 @@ mod tests {
             17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32,
         ]);
 
-        let C_1 = CRS[64].mul(value_low) + CRS[65].mul(value_high);
+        let c_1 = CRS[64].mul(value_low) + CRS[65].mul(value_high);
 
-        assert_eq!(C_1, stem_meta.C_1);
-        assert_eq!(group_to_field(&C_1), stem_meta.hash_c1);
+        assert_eq!(c_1, stem_meta.c_1);
+        assert_eq!(group_to_field(&c_1), stem_meta.hash_c1);
 
         // C2 = (value_low + 2^128) * G_0 + value_high * G_1
         let value_low =
@@ -963,16 +963,16 @@ mod tests {
             17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 128,
         ]);
 
-        let C_2 = CRS[0].mul(value_low) + CRS[1].mul(value_high);
+        let c_2 = CRS[0].mul(value_low) + CRS[1].mul(value_high);
 
-        assert_eq!(stem_meta.C_2, C_2);
-        assert_eq!(group_to_field(&C_2), stem_meta.hash_c2);
+        assert_eq!(stem_meta.c_2, c_2);
+        assert_eq!(group_to_field(&c_2), stem_meta.hash_c2);
 
         // The stem commitment is: 1 * G_0 + stem * G_1 + group_to_field(C1) * G_2 + group_to_field(C2) * G_3
         let stem_comm_0 = CRS[0];
         let stem_comm_1 = CRS[1].mul(Fr::from_le_bytes_mod_order(&stem));
-        let stem_comm_2 = CRS[2].mul(group_to_field(&C_1));
-        let stem_comm_3 = CRS[3].mul(group_to_field(&C_2));
+        let stem_comm_2 = CRS[2].mul(group_to_field(&c_1));
+        let stem_comm_3 = CRS[3].mul(group_to_field(&c_2));
         let stem_comm = stem_comm_0 + stem_comm_1 + stem_comm_2 + stem_comm_3;
         assert_eq!(stem_meta.stem_commitment, stem_comm);
 

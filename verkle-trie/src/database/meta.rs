@@ -2,10 +2,10 @@ use banderwagon::{Element, Fr};
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct StemMeta {
-    pub C_1: Element,
+    pub c_1: Element,
     pub hash_c1: Fr,
 
-    pub C_2: Element,
+    pub c_2: Element,
     pub hash_c2: Fr,
 
     pub stem_commitment: Element,
@@ -15,8 +15,8 @@ pub struct StemMeta {
 impl std::fmt::Debug for StemMeta {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("StemMeta")
-            .field("C_1", &hex::encode(compress_point_to_array(&self.C_1)))
-            .field("C_2", &hex::encode(compress_point_to_array(&self.C_2)))
+            .field("c_1", &hex::encode(compress_point_to_array(&self.c_1)))
+            .field("c_2", &hex::encode(compress_point_to_array(&self.c_2)))
             .field("hash_c1", &hex::encode(scalar_to_array(&self.hash_c1)))
             .field("hash_c2", &hex::encode(scalar_to_array(&self.hash_c2)))
             .field(
@@ -59,8 +59,8 @@ impl StemMeta {
         use ark_serialize::CanonicalDeserialize;
 
         let point_bytes = &bytes[0..64 * 3];
-        let C_1 = Element::deserialize_uncompressed(&point_bytes[0 * 64..1 * 64]).unwrap();
-        let C_2 = Element::deserialize_uncompressed(&point_bytes[1 * 64..2 * 64]).unwrap();
+        let c_1 = Element::deserialize_uncompressed(&point_bytes[0 * 64..1 * 64]).unwrap();
+        let c_2 = Element::deserialize_uncompressed(&point_bytes[1 * 64..2 * 64]).unwrap();
         let stem_commitment =
             Element::deserialize_uncompressed(&point_bytes[2 * 64..3 * 64]).unwrap();
 
@@ -71,9 +71,9 @@ impl StemMeta {
             Fr::deserialize_uncompressed(&scalar_bytes[2 * 32..3 * 32]).unwrap();
 
         StemMeta {
-            C_1,
+            c_1,
             hash_c1,
-            C_2,
+            c_2,
             hash_c2,
             stem_commitment,
             hash_stem_commitment,
@@ -82,8 +82,8 @@ impl StemMeta {
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut bytes = Vec::with_capacity(3 * (64 + 32));
 
-        bytes.extend(point_to_array(&self.C_1));
-        bytes.extend(point_to_array(&self.C_2));
+        bytes.extend(point_to_array(&self.c_1));
+        bytes.extend(point_to_array(&self.c_2));
         bytes.extend(point_to_array(&self.stem_commitment));
 
         bytes.extend(scalar_to_array(&self.hash_c1));
