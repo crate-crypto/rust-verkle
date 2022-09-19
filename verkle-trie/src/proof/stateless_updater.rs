@@ -99,8 +99,8 @@ pub(crate) fn update_root<C: Committer>(
         if ext_pres == ExtPresent::Present {
             let ext_path = stem[0..depth as usize].to_vec(); // It is the prefix
 
-            let mut C_1_delta_update = Element::zero();
-            let mut C_2_delta_update = Element::zero();
+            let mut c_1_delta_update = Element::zero();
+            let mut c_2_delta_update = Element::zero();
 
             // TODO abstract this into a function, since it's duplicated
             for (suffix, (old_value, new_value)) in suffix_update {
@@ -134,30 +134,30 @@ pub(crate) fn update_root<C: Committer>(
                 let generator_high = committer.scalar_mul(delta_high, high_index);
 
                 if is_c1_comm_update {
-                    C_1_delta_update += generator_low + generator_high;
+                    c_1_delta_update += generator_low + generator_high;
                 } else {
-                    C_2_delta_update += generator_low + generator_high;
+                    c_2_delta_update += generator_low + generator_high;
                 }
             }
             // Compute the delta for C1 and C2, so that we can update the extension commitment
             let mut hash_c1_delta = Fr::zero();
             let mut hash_c2_delta = Fr::zero();
-            if !C_1_delta_update.is_zero() {
+            if !c_1_delta_update.is_zero() {
                 let mut c1_path = ext_path.clone();
                 c1_path.push(2);
 
                 let old_c1_comm = hint.commitments_by_path[&c1_path];
-                let new_c1_commitment = old_c1_comm + C_1_delta_update;
+                let new_c1_commitment = old_c1_comm + c_1_delta_update;
                 let hash_c1_new = group_to_field(&new_c1_commitment);
                 let hash_c1_old = group_to_field(&old_c1_comm);
                 hash_c1_delta = hash_c1_new - hash_c1_old;
             }
-            if !C_2_delta_update.is_zero() {
+            if !c_2_delta_update.is_zero() {
                 let mut c2_path = ext_path.clone();
                 c2_path.push(3);
 
                 let old_c2_comm = hint.commitments_by_path[&c2_path];
-                let new_c2_commitment = old_c2_comm + C_2_delta_update;
+                let new_c2_commitment = old_c2_comm + c_2_delta_update;
                 let hash_c2_new = group_to_field(&new_c2_commitment);
                 let hash_c2_old = group_to_field(&old_c2_comm);
                 hash_c2_delta = hash_c2_new - hash_c2_old;
@@ -185,8 +185,8 @@ pub(crate) fn update_root<C: Committer>(
             //
             // This is similar to the case of ExtPres::Present, except that the old_value is zero, so we can ignore it
             // TODO we could take this for loop out of the if statement and then use the if statement for the rest
-            let mut C_1 = Element::zero();
-            let mut C_2 = Element::zero();
+            let mut c_1 = Element::zero();
+            let mut c_2 = Element::zero();
             for (suffix, (old_value, new_value)) in suffix_update {
                 assert!(old_value.is_none(), "since the extension was not present in the trie, the suffix cannot have any previous values");
 
@@ -210,16 +210,16 @@ pub(crate) fn update_root<C: Committer>(
                 let generator_high = committer.scalar_mul(value_high, high_index);
 
                 if is_c1_comm_update {
-                    C_1 += generator_low + generator_high;
+                    c_1 += generator_low + generator_high;
                 } else {
-                    C_2 += generator_low + generator_high;
+                    c_2 += generator_low + generator_high;
                 }
             }
 
             let stem_comm_0 = Fr::one(); // TODO: We can get rid of this and just add SRS[0]
             let stem_comm_1 = Fr::from_le_bytes_mod_order(&stem);
-            let stem_comm_2 = group_to_field(&C_1);
-            let stem_comm_3 = group_to_field(&C_2);
+            let stem_comm_2 = group_to_field(&c_1);
+            let stem_comm_3 = group_to_field(&c_2);
             let stem_comm = committer.commit_sparse(vec![
                 (stem_comm_0, 0),
                 (stem_comm_1, 1),

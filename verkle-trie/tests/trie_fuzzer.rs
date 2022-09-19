@@ -1,4 +1,4 @@
-use crate::{
+use verkle_trie::{
     committer::precompute::PrecomputeLagrange, database::memory_db::MemoryDb, Trie, TrieTrait,
     VerkleConfig,
 };

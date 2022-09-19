@@ -61,7 +61,7 @@ impl std::fmt::Display for VerificationHint {
             write!(f, "{:?} ", e)?;
         }
         for s in &self.diff_stem_no_proof {
-            write!(f, "{} ", hex::encode(s));
+            write!(f, "{} ", hex::encode(s))?;
         }
         std::fmt::Result::Ok(())
     }
@@ -120,14 +120,14 @@ impl VerificationHint {
     pub fn write<W: Write>(&self, writer: &mut W) -> IOResult<()> {
         // Encode the number of stems with no value openings
         let num_stems = self.diff_stem_no_proof.len() as u32;
-        writer.write(&num_stems.to_le_bytes());
+        writer.write(&num_stems.to_le_bytes())?;
 
         for stem in &self.diff_stem_no_proof {
             writer.write(stem)?;
         }
 
         let num_depths = self.depths.len() as u32;
-        writer.write(&num_depths.to_le_bytes());
+        writer.write(&num_depths.to_le_bytes())?;
 
         // The depths and extension status can be put into a single byte
         // because extension status only needs 3 bits and depth only needs at most 5 bits
@@ -208,21 +208,23 @@ impl VerkleProof {
     }
 
     pub fn write<W: Write>(&self, mut writer: W) -> IOResult<()> {
-        self.verification_hint.write(&mut writer);
+        // Errors are handled via anyhow because they are generic IO errors, not Verkle-specific
+        self.verification_hint.write(&mut writer)?;
 
         let num_comms = self.comms_sorted.len() as u32;
-        writer.write(&num_comms.to_le_bytes());
+        writer.write(&num_comms.to_le_bytes())?;
 
         for comm in &self.comms_sorted {
             let mut comm_serialised = [0u8; 32];
             comm.serialize(&mut comm_serialised[..])
-                .map_err(|_| IOError::from(IOErrorKind::InvalidInput));
-            writer.write(&comm_serialised);
+                .map_err(|_| IOError::from(IOErrorKind::InvalidInput))?;
+            writer.write(&comm_serialised)?;
         }
 
         // Serialise the Multipoint proof
         let proof_bytes = self.proof.to_bytes()?;
-        writer.write(&proof_bytes);
+        writer.write(&proof_bytes)?;
+
         Ok(())
     }
 
@@ -254,7 +256,7 @@ impl VerkleProof {
 
 impl std::fmt::Display for VerkleProof {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        writeln!(f, "Verkle proof:");
+        writeln!(f, "Verkle proof:")?;
         writeln!(f, " * verification hints: {}", self.verification_hint)?;
         write!(f, " * commitments: ")?;
         for comm in self.comms_sorted.iter().map(|comm| {

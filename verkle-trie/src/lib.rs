@@ -6,7 +6,6 @@ pub mod database;
 pub mod from_to_bytes;
 pub mod proof;
 pub mod trie;
-mod trie_fuzzer;
 
 pub use config::*;
 pub use trie::Trie;
