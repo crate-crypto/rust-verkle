@@ -13,11 +13,11 @@ fn proof_10k_from_10mil_step(c: &mut Criterion) {
     let config = TestConfig::new(db);
     let mut trie = Trie::new(config);
     // Initial set of keys
-    let keys = generate_set_of_keys(10_000_000);
+    let keys = generate_set_of_keys(1_000_000);
     let key_vals = KEYS_10K.iter().map(|key_bytes| (*key_bytes, *key_bytes));
     trie.insert(key_vals);
 
-    for initial_keys in (0..=10_000_000).step_by(100_000) {
+    for initial_keys in (0..=100_000).step_by(100_000) {
         group.bench_with_input(
             BenchmarkId::from_parameter(initial_keys),
             &initial_keys,

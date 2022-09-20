@@ -9,7 +9,7 @@ use verkle_trie::TrieTrait;
 fn insert_10k_from_10mil_step(c: &mut Criterion) {
     let mut group = c.benchmark_group("insert 10k");
 
-    for initial_keys in (0..=10_000_000).step_by(100_000) {
+    for initial_keys in (0..=100_000).step_by(100_000) {
         // let db = verkle_db::DefaultSledDb::from_path(&temp_dir);
         let db = MemoryDb::new();
         let config = TestConfig::new(db);
