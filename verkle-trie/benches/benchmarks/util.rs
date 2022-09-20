@@ -1,5 +1,5 @@
-use sha2::{Digest, Sha256};
 use once_cell::sync::Lazy;
+use sha2::{Digest, Sha256};
 
 // pub static PRECOMPUTED_TABLE: Lazy<PrecomputeLagrange> =
 //    Lazy::new(|| PrecomputeLagrange::precompute(&SRS.map(|point| point.into_affine())));
