@@ -1,0 +1,11 @@
+group,function,value,throughput_num,throughput_type,sample_measured_value,unit,iteration_count
+insert 10k,,400000,,,6664031208.0,ns,1
+insert 10k,,400000,,,6660317333.0,ns,1
+insert 10k,,400000,,,6657412625.0,ns,1
+insert 10k,,400000,,,6660610333.0,ns,1
+insert 10k,,400000,,,6659000291.0,ns,1
+insert 10k,,400000,,,6666603875.0,ns,1
+insert 10k,,400000,,,6656118291.0,ns,1
+insert 10k,,400000,,,6660682291.0,ns,1
+insert 10k,,400000,,,6662045041.0,ns,1
+insert 10k,,400000,,,6663429500.0,ns,1

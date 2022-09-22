@@ -1,0 +1,11 @@
+group,function,value,throughput_num,throughput_type,sample_measured_value,unit,iteration_count
+proof 10k,,500000,,,1041517166.0,ns,1
+proof 10k,,500000,,,1042213416.0,ns,1
+proof 10k,,500000,,,1040551375.0,ns,1
+proof 10k,,500000,,,1032480166.0,ns,1
+proof 10k,,500000,,,1038099833.0,ns,1
+proof 10k,,500000,,,1039398166.0,ns,1
+proof 10k,,500000,,,1031693416.0,ns,1
+proof 10k,,500000,,,1037643625.0,ns,1
+proof 10k,,500000,,,1045273875.0,ns,1
+proof 10k,,500000,,,1041189958.0,ns,1
