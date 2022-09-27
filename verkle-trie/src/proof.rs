@@ -6,7 +6,7 @@ use ipa_multipoint::multiproof::MultiPointProof;
 use ipa_multipoint::transcript::Transcript;
 use std::collections::{BTreeMap, BTreeSet};
 
-use std::io::{Error, ErrorKind, Result, Read, Write};
+use std::io::{Error, ErrorKind, Read, Result, Write};
 
 // TODO: We use the IO Result while we do not have a dedicated Error enum
 type IOResult<T> = Result<T>;

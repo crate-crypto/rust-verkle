@@ -1,8 +1,8 @@
+use once_cell::sync::Lazy;
 use verkle_trie::{
     committer::precompute::PrecomputeLagrange, database::memory_db::MemoryDb, Trie, TrieTrait,
     VerkleConfig,
 };
-use once_cell::sync::Lazy;
 pub static CONFIG: Lazy<VerkleConfig<MemoryDb>> = Lazy::new(|| {
     match VerkleConfig::new(MemoryDb::new()) {
         Ok(config) => config,
