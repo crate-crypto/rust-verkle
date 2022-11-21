@@ -120,14 +120,14 @@ impl VerificationHint {
     pub fn write<W: Write>(&self, writer: &mut W) -> IOResult<()> {
         // Encode the number of stems with no value openings
         let num_stems = self.diff_stem_no_proof.len() as u32;
-        writer.write(&num_stems.to_le_bytes())?;
+        writer.write_all(&num_stems.to_le_bytes())?;
 
         for stem in &self.diff_stem_no_proof {
-            writer.write(stem)?;
+            writer.write_all(stem)?;
         }
 
         let num_depths = self.depths.len() as u32;
-        writer.write(&num_depths.to_le_bytes())?;
+        writer.write_all(&num_depths.to_le_bytes())?;
 
         // The depths and extension status can be put into a single byte
         // because extension status only needs 3 bits and depth only needs at most 5 bits
@@ -156,7 +156,7 @@ impl VerificationHint {
             debug_assert!(*depth <= 32);
             byte |= depth << 3;
 
-            writer.write(&[byte])?;
+            writer.write_all(&[byte])?;
         }
         Ok(())
     }
@@ -212,18 +212,18 @@ impl VerkleProof {
         self.verification_hint.write(&mut writer)?;
 
         let num_comms = self.comms_sorted.len() as u32;
-        writer.write(&num_comms.to_le_bytes())?;
+        writer.write_all(&num_comms.to_le_bytes())?;
 
         for comm in &self.comms_sorted {
             let mut comm_serialised = [0u8; 32];
             comm.serialize(&mut comm_serialised[..])
                 .map_err(|_| IOError::from(IOErrorKind::InvalidInput))?;
-            writer.write(&comm_serialised)?;
+            writer.write_all(&comm_serialised)?;
         }
 
         // Serialise the Multipoint proof
         let proof_bytes = self.proof.to_bytes()?;
-        writer.write(&proof_bytes)?;
+        writer.write_all(&proof_bytes)?;
 
         Ok(())
     }
@@ -261,7 +261,7 @@ impl std::fmt::Display for VerkleProof {
         write!(f, " * commitments: ")?;
         for comm in self.comms_sorted.iter().map(|comm| {
             let mut comm_serialised = [0u8; 32];
-            comm.serialize(&mut comm_serialised[..]);
+            comm.serialize(&mut comm_serialised[..]).unwrap();
             hex::encode(comm_serialised)
         }) {
             write!(f, "{} ", comm)?;
@@ -301,9 +301,8 @@ mod test {
     }
     #[test]
     fn proof_of_absence_edge_case() {
-        use ark_serialize::CanonicalSerialize;
         let db = MemoryDb::new();
-        let mut trie = Trie::new(TestConfig::new(db));
+        let trie = Trie::new(TestConfig::new(db));
 
         let absent_keys = vec![[3; 32]];
         let absent_values = vec![None];
@@ -359,12 +358,12 @@ mod test {
             trie.insert_single(key_0, key_0);
         }
         let root = vec![];
-        let meta = trie.storage.get_branch_meta(&root).unwrap();
+        let _meta = trie.storage.get_branch_meta(&root).unwrap();
 
         let proof = prover::create_verkle_proof(&trie.storage, keys.clone());
 
         let mut bytes = Vec::new();
-        proof.write(&mut bytes);
+        proof.write(&mut bytes).unwrap();
         let deserialised_proof = VerkleProof::read(&bytes[..]).unwrap();
         assert_eq!(proof, deserialised_proof);
     }

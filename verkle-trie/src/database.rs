@@ -46,6 +46,7 @@ pub trait WriteOnlyHigherDb {
     fn insert_branch(&mut self, key: Vec<u8>, meta: BranchMeta, _depth: u8) -> Option<BranchMeta>;
 }
 
+
 // Notice that these take self, which effectively forces the implementer
 // to implement these for self or use a struct which is Copyable
 // One should aim for the former

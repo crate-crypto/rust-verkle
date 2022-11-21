@@ -1,4 +1,5 @@
 use super::{BranchChild, BranchMeta, ReadOnlyHigherDb, StemMeta, WriteOnlyHigherDb};
+use crate::from_to_bytes::{FromBytes, ToBytes};
 use verkle_db::{BareMetalDiskDb, BareMetalKVDb, BatchDB, BatchWriter};
 
 // The purpose of this file is to allows us to implement generic implementation for BatchWriter and BareMetalKVDb
@@ -30,7 +31,8 @@ impl<T: BatchWriter> WriteOnlyHigherDb for GenericBatchWriter<T> {
         let mut labelled_key = Vec::with_capacity(key.len() + 1);
         labelled_key.push(STEM_TABLE_MARKER);
         labelled_key.extend_from_slice(&key);
-        self.inner.batch_put(&labelled_key, &meta.to_bytes());
+        self.inner
+            .batch_put(&labelled_key, &meta.to_bytes().unwrap());
         None
     }
 
@@ -53,7 +55,8 @@ impl<T: BatchWriter> WriteOnlyHigherDb for GenericBatchWriter<T> {
         labelled_key.push(BRANCH_TABLE_MARKER);
         labelled_key.extend_from_slice(&key);
 
-        self.inner.batch_put(&labelled_key, &meta.to_bytes());
+        self.inner
+            .batch_put(&labelled_key, &meta.to_bytes().unwrap());
         None
     }
 }
@@ -108,7 +111,7 @@ impl<T: BareMetalKVDb> ReadOnlyHigherDb for GenericBatchDB<T> {
 
         self.inner
             .fetch(&labelled_key)
-            .map(|old_val_bytes| StemMeta::from_bytes(&old_val_bytes))
+            .map(|old_val_bytes| StemMeta::from_bytes(&old_val_bytes).unwrap())
     }
 
     fn get_branch_children(&self, branch_id: &[u8]) -> Vec<(u8, BranchChild)> {
@@ -139,13 +142,12 @@ impl<T: BareMetalKVDb> ReadOnlyHigherDb for GenericBatchDB<T> {
 
         self.inner
             .fetch(&labelled_key)
-            .map(|old_val_bytes| BranchMeta::from_bytes(&old_val_bytes))
+            .map(|old_val_bytes| BranchMeta::from_bytes(&old_val_bytes).unwrap())
     }
 
     fn get_branch_child(&self, branch_id: &[u8], index: u8) -> Option<BranchChild> {
         let mut labelled_key = Vec::with_capacity(branch_id.len() + 2);
         labelled_key.push(BRANCH_TABLE_MARKER);
-
         labelled_key.extend_from_slice(branch_id);
         labelled_key.push(index);
         self.inner

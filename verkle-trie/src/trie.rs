@@ -759,7 +759,6 @@ fn paths_from_relative(parent_path: Vec<u8>, relative_paths: Vec<u8>) -> Vec<Vec
 }
 #[cfg(test)]
 mod tests {
-    use ark_ec::ProjectiveCurve;
     use ark_ff::{PrimeField, Zero};
     use ark_serialize::CanonicalSerialize;
 
@@ -768,7 +767,7 @@ mod tests {
     use crate::database::ReadOnlyHigherDb;
     use crate::trie::Trie;
     use crate::{group_to_field, TestConfig};
-    use crate::{TrieTrait, VerkleConfig};
+    use crate::TrieTrait;
     use banderwagon::{Element, Fr};
     use std::ops::Mul;
 
@@ -1140,7 +1139,7 @@ mod tests {
     #[test]
     fn insert_get() {
         use tempfile::tempdir;
-        let temp_dir = tempdir().unwrap();
+        let _temp_dir = tempdir().unwrap();
 
         let db = MemoryDb::new();
         let mut trie = Trie::new(TestConfig::new(db));
@@ -1191,10 +1190,10 @@ mod tests {
         trie.insert_single(tree_key_code_keccak, empty_code_hash_value);
         trie.insert_single(tree_key_code_size, value_0);
 
-        let val = trie.get(tree_key_version).unwrap();
-        let val = trie.get(tree_key_balance).unwrap();
-        let val = trie.get(tree_key_nonce).unwrap();
-        let val = trie.get(tree_key_code_keccak).unwrap();
-        let val = trie.get(tree_key_code_size).unwrap();
+        let _val = trie.get(tree_key_version).unwrap();
+        let _val = trie.get(tree_key_balance).unwrap();
+        let _val = trie.get(tree_key_nonce).unwrap();
+        let _val = trie.get(tree_key_code_keccak).unwrap();
+        let _val = trie.get(tree_key_code_size).unwrap();
     }
 }

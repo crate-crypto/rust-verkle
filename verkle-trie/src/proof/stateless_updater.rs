@@ -1,5 +1,5 @@
 use crate::constants::TWO_POW_128;
-use crate::{committer::Committer, group_to_field, proof::ExtPresent};
+use crate::{committer::Committer, errors::VerkleError, group_to_field, proof::ExtPresent};
 use ark_ff::{One, PrimeField, Zero};
 use banderwagon::{Element, Fr};
 use std::collections::{BTreeMap, HashSet};
@@ -16,16 +16,17 @@ pub fn verify_and_update<C: Committer>(
     values: Vec<Option<[u8; 32]>>,
     updated_values: Vec<Option<[u8; 32]>>,
     commiter: C,
-) -> Result<Element, ()> {
+) -> Result<Element, VerkleError> {
     // TODO: replace Clone with references if possible
     let (ok, update_hint) = proof.check(keys.clone(), values.clone(), root);
     if !ok {
-        return Err(());
+        return Err(VerkleError::InvalidProof);
     }
     let update_hint =
         update_hint.expect("update hint should be `Some` if the proof passes verification");
     let new_root = update_root(update_hint, keys, values, updated_values, root, commiter);
-    Ok(new_root)
+
+    new_root
 }
 
 pub(crate) fn update_root<C: Committer>(
@@ -35,14 +36,21 @@ pub(crate) fn update_root<C: Committer>(
     updated_values: Vec<Option<[u8; 32]>>,
     root: Element,
     committer: C,
-) -> Element {
-    assert_eq!(values.len(), updated_values.len());
-    assert_eq!(keys.len(), updated_values.len());
+) -> Result<Element, VerkleError> {
+    if !values.len() == updated_values.len() {
+        return Err(VerkleError::UnexpectedUpdatedLength);
+    }
+    if !keys.len() == updated_values.len() {
+        return Err(VerkleError::MismatchedKeyLength);
+    }
 
     // check that keys are unique
+    // Since this is the main place this is used, make sure to exit early as soon as 2 keys are the same
     let keys_unique = has_unique_elements(keys.iter());
     // TODO return an error instead of panic
-    assert!(keys_unique);
+    if !keys_unique {
+        return Err(VerkleError::DuplicateKeys);
+    }
     // TODO Check root against the root in commitments by path
 
     // type Prefix = Vec<u8>;
@@ -188,8 +196,9 @@ pub(crate) fn update_root<C: Committer>(
             let mut c_1 = Element::zero();
             let mut c_2 = Element::zero();
             for (suffix, (old_value, new_value)) in suffix_update {
-                assert!(old_value.is_none(), "since the extension was not present in the trie, the suffix cannot have any previous values");
-
+                if old_value.is_some() {
+                    return Err(VerkleError::OldValueIsPopulated);
+                }
                 // Split values into low_16 and high_16
                 let new_value_low_16 = new_value[0..16].to_vec();
                 let new_value_high_16 = new_value[16..32].to_vec();
@@ -254,7 +263,8 @@ pub(crate) fn update_root<C: Committer>(
                 prefix.clone(),
                 old_hash_value,
                 new_hash_value,
-            );
+            )
+            .unwrap();
         } else {
             // If we have more than one stem to be processed for a prefix, we need to build a subtree and
             // then update the prefix with the root of the subtree
@@ -281,12 +291,13 @@ pub(crate) fn update_root<C: Committer>(
                 prefix.clone(),
                 old_hash_value,
                 new_hash_value,
-            );
+            )
+            .unwrap();
         }
     }
 
     // There are two types of updates that we need to distinguish, an update where the key was None (Other stem) and an update where the key was some
-    tree.root
+    Ok(tree.root)
 }
 
 // Build a subtree from a set of stems and their commitments
@@ -361,7 +372,7 @@ fn build_subtree<C: Committer>(
     for (stem, commitment) in elements {
         let mut depth = prefix.len();
         // Everything before the prefix is irrelevant to the subtree
-        let relative_stem = &stem[depth..];
+        let _relative_stem = &stem[depth..];
 
         let mut path = vec![];
         let mut current_node = tree[&path].clone();
@@ -514,9 +525,11 @@ impl SparseVerkleTree {
         mut prefix: Vec<u8>,
         old_value: Fr,
         new_value: Fr,
-    ) {
+    ) -> Result<(), VerkleError> {
         // TODO check edge case, when prefix.is_empty is passed in
-
+        if prefix.is_empty() {
+            return Err(VerkleError::EmptyPrefix);
+        }
         // First lets compute the delta between the old_value and the new value
         let mut delta = new_value - old_value;
 
@@ -525,10 +538,10 @@ impl SparseVerkleTree {
         // Now lets fetch the parent node's commitment and recursively update each parent
 
         while !prefix.is_empty() {
-            let child_index = prefix.pop().unwrap();
-            // If we have never updated the parent node before,
-            // then it will be the old commitment
-            // If we have then it will be in updated commitments
+            let child_index = prefix.pop().unwrap(); // Safety: Fine unwrap because we've checked prefix isn't empty
+                                                     // If we have never updated the parent node before,
+                                                     // then it will be the old commitment
+                                                     // If we have then it will be in updated commitments
             let parent_comm = self.updated_commitments_by_path.get(&prefix);
             let old_parent_comm = match parent_comm {
                 Some(comm) => *comm,
@@ -547,6 +560,8 @@ impl SparseVerkleTree {
         }
 
         self.root = current_parent_comm.unwrap();
+
+        Ok(())
     }
 }
 
@@ -567,11 +582,11 @@ mod test {
     use ark_serialize::CanonicalSerialize;
 
     use crate::database::memory_db::MemoryDb;
-    use crate::database::ReadOnlyHigherDb;
     use crate::proof::prover;
     use crate::proof::stateless_updater::update_root;
     use crate::{committer::test::TestCommitter, trie::Trie, TrieTrait};
     use crate::{group_to_field, TestConfig};
+    use crate::database::ReadOnlyHigherDb;
 
     #[test]
     fn basic_update() {
@@ -603,7 +618,7 @@ mod test {
         );
 
         let mut got_bytes = [0u8; 32];
-        group_to_field(&new_root_comm)
+        group_to_field(&new_root_comm.unwrap())
             .serialize(&mut got_bytes[..])
             .unwrap();
 
@@ -650,7 +665,7 @@ mod test {
         );
 
         let mut got_bytes = [0u8; 32];
-        group_to_field(&new_root_comm)
+        group_to_field(&new_root_comm.unwrap())
             .serialize(&mut got_bytes[..])
             .unwrap();
 
@@ -685,6 +700,7 @@ mod test {
         }
 
         let root = vec![];
+        
         let meta = trie.storage.get_branch_meta(&root).unwrap();
 
         let proof = prover::create_verkle_proof(&trie.storage, keys.clone());
@@ -701,7 +717,7 @@ mod test {
         );
 
         let mut got_bytes = [0u8; 32];
-        group_to_field(&new_root_comm)
+        group_to_field(&new_root_comm.unwrap())
             .serialize(&mut got_bytes[..])
             .unwrap();
 

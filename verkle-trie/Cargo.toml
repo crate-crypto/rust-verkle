@@ -9,6 +9,7 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0"
 tempfile = "3.2.0"
+thiserror = "1.0"
 ipa-multipoint = { git = "https://github.com/crate-crypto/ipa_multipoint", branch = "banderwagon_migration" }
 banderwagon = { git = "https://github.com/crate-crypto/banderwagon" }
 ark-ff = { version = "^0.3.0", default-features = false }
