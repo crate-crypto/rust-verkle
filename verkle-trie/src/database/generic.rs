@@ -111,7 +111,7 @@ impl<T: BareMetalKVDb> ReadOnlyHigherDb for GenericBatchDB<T> {
 
         self.inner
             .fetch(&labelled_key)
-            .map(|old_val_bytes| StemMeta::from_bytes(&old_val_bytes).unwrap())
+            .map(|old_val_bytes| StemMeta::from_bytes(old_val_bytes.try_into().unwrap()).unwrap())
     }
 
     fn get_branch_children(&self, branch_id: &[u8]) -> Vec<(u8, BranchChild)> {
@@ -128,7 +128,7 @@ impl<T: BareMetalKVDb> ReadOnlyHigherDb for GenericBatchDB<T> {
             let child_value = self.inner.fetch(&child);
 
             if let Some(x) = child_value {
-                children.push((i, BranchChild::from_bytes(&x)))
+                children.push((i, BranchChild::from_bytes(&x).unwrap()))
             }
         }
 
@@ -142,7 +142,7 @@ impl<T: BareMetalKVDb> ReadOnlyHigherDb for GenericBatchDB<T> {
 
         self.inner
             .fetch(&labelled_key)
-            .map(|old_val_bytes| BranchMeta::from_bytes(&old_val_bytes).unwrap())
+            .map(|old_val_bytes| BranchMeta::from_bytes(old_val_bytes.try_into().unwrap()).unwrap())
     }
 
     fn get_branch_child(&self, branch_id: &[u8], index: u8) -> Option<BranchChild> {
@@ -152,7 +152,7 @@ impl<T: BareMetalKVDb> ReadOnlyHigherDb for GenericBatchDB<T> {
         labelled_key.push(index);
         self.inner
             .fetch(&labelled_key)
-            .map(|old_val_bytes| BranchChild::from_bytes(&old_val_bytes))
+            .map(|old_val_bytes| BranchChild::from_bytes(&old_val_bytes).unwrap())
     }
 
     fn get_stem_children(&self, stem_key: [u8; 31]) -> Vec<(u8, [u8; 32])> {

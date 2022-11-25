@@ -625,7 +625,7 @@ mod test {
         trie.insert_single(keys[0], [0u8; 32]);
         let expected_root = trie.root_hash();
         let mut expected_bytes = [0u8; 32];
-        expected_root.serialize(&mut expected_bytes[..]).unwrap();
+        expected_root.serialize(&mut expected_bytes[..]);
 
         assert_eq!(got_bytes, expected_bytes)
     }

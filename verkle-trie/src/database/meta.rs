@@ -1,4 +1,4 @@
-use ark_serialize::CanonicalDeserialize;
+use ark_serialize::{CanonicalDeserialize, SerializationError};
 use banderwagon::{Element, Fr};
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
@@ -15,17 +15,17 @@ pub struct StemMeta {
 impl std::fmt::Debug for StemMeta {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("StemMeta")
-            .field("c_1", &hex::encode(compress_point_to_array(&self.c_1)))
-            .field("c_2", &hex::encode(compress_point_to_array(&self.c_2)))
-            .field("hash_c1", &hex::encode(scalar_to_array(&self.hash_c1)))
-            .field("hash_c2", &hex::encode(scalar_to_array(&self.hash_c2)))
+            .field("c_1", &hex::encode(compress_point_to_array(&self.c_1).unwrap()))
+            .field("c_2", &hex::encode(compress_point_to_array(&self.c_2).unwrap()))
+            .field("hash_c1", &hex::encode(scalar_to_array(&self.hash_c1).unwrap()))
+            .field("hash_c2", &hex::encode(scalar_to_array(&self.hash_c2).unwrap()))
             .field(
                 "stem commitment",
-                &hex::encode(compress_point_to_array(&self.stem_commitment)),
+                &hex::encode(compress_point_to_array(&self.stem_commitment).unwrap()),
             )
             .field(
                 "hash_stem_commitment",
-                &hex::encode(scalar_to_array(&self.hash_stem_commitment)),
+                &hex::encode(scalar_to_array(&self.hash_stem_commitment).unwrap()),
             )
             .finish()
     }
@@ -33,29 +33,32 @@ impl std::fmt::Debug for StemMeta {
 
 use ark_serialize::CanonicalSerialize;
 
-fn point_to_array(p: &Element) -> [u8; 64] {
+fn point_to_array(p: &Element) -> Result<[u8; 64], SerializationError> {
     let mut bytes = [0u8; 64];
-    p.serialize_uncompressed(&mut bytes[..]).unwrap();
-    bytes
+    p.serialize_uncompressed(&mut bytes[..])?;
+
+    Ok(bytes)
 }
-fn compress_point_to_array(p: &Element) -> [u8; 32] {
+fn compress_point_to_array(p: &Element) -> Result<[u8; 32], SerializationError> {
     let mut bytes = [0u8; 32];
-    p.serialize(&mut bytes[..]).unwrap();
-    bytes
+    p.serialize(&mut bytes[..])?;
+    
+    Ok(bytes)
 }
-fn scalar_to_array(scalar: &Fr) -> [u8; 32] {
+fn scalar_to_array(scalar: &Fr) -> Result<[u8; 32], SerializationError> {
     let mut bytes = [0u8; 32];
-    scalar.serialize_uncompressed(&mut bytes[..]).unwrap();
-    bytes
+    scalar.serialize_uncompressed(&mut bytes[..])?;
+
+    Ok(bytes)
 }
 
-impl FromBytes for StemMeta {
+impl FromBytes<[u8; 288]> for StemMeta {
     // panic if we cannot deserialise, do not call this method if you are unsure if the data is
     // not structured properly. We can guarantee this in verkle trie.
-    fn from_bytes(bytes: &[u8]) -> Result<StemMeta, VerkleError> {
+    fn from_bytes(bytes: [u8; 288]) -> Result<StemMeta, SerializationError> {
         let len = bytes.len();
         if !(len == 64 * 3 + 32 * 3) {
-            return Err(VerkleError::UnexpectedUpdatedLength); // TODO not the most accurate error msg for now
+            return Err(SerializationError::InvalidData); // TODO not the most accurate error msg for now
         }
 
         let point_bytes = &bytes[0..64 * 3];
@@ -79,19 +82,19 @@ impl FromBytes for StemMeta {
     }
 }
 
-impl ToBytes for StemMeta {
-    fn to_bytes(&self) -> Result<Vec<u8>, VerkleError> {
+impl ToBytes<[u8; 288]> for StemMeta {
+    fn to_bytes(&self) -> Result<[u8; 288], SerializationError> {
         let mut bytes = Vec::with_capacity(3 * (64 + 32));
 
-        bytes.extend(point_to_array(&self.c_1));
-        bytes.extend(point_to_array(&self.c_2));
-        bytes.extend(point_to_array(&self.stem_commitment));
+        bytes.extend(point_to_array(&self.c_1)?);
+        bytes.extend(point_to_array(&self.c_2)?);
+        bytes.extend(point_to_array(&self.stem_commitment)?);
 
-        bytes.extend(scalar_to_array(&self.hash_c1));
-        bytes.extend(scalar_to_array(&self.hash_c2));
-        bytes.extend(scalar_to_array(&self.hash_stem_commitment));
+        bytes.extend(scalar_to_array(&self.hash_c1)?);
+        bytes.extend(scalar_to_array(&self.hash_c2)?);
+        bytes.extend(scalar_to_array(&self.hash_stem_commitment)?);
 
-        Ok(bytes)
+        Ok(bytes.try_into().unwrap())
     }
 }
 
@@ -105,11 +108,11 @@ impl std::fmt::Debug for BranchMeta {
         f.debug_struct("BranchMeta")
             .field(
                 "commitment",
-                &hex::encode(compress_point_to_array(&self.commitment)),
+                &hex::encode(compress_point_to_array(&self.commitment).unwrap()),
             )
             .field(
                 "hash_commitment",
-                &hex::encode(scalar_to_array(&self.hash_commitment)),
+                &hex::encode(scalar_to_array(&self.hash_commitment).unwrap()),
             )
             .finish()
     }
@@ -129,24 +132,18 @@ use crate::{
     from_to_bytes::{FromBytes, ToBytes},
 };
 
-impl FromBytes for BranchMeta {
-    fn from_bytes(bytes: &[u8]) -> Result<BranchMeta, VerkleError> {
+impl FromBytes<[u8; 96]> for BranchMeta {
+    fn from_bytes(bytes: [u8; 96]) -> Result<BranchMeta, SerializationError> {
         let len = bytes.len();
         if !len == 32 + 64 {
-            return Err(VerkleError::BranchMetaSerializedFaulty(hex::encode(bytes)));
+            return Err(SerializationError::InvalidData);
         }
 
         let point_bytes = &bytes[0..64];
         let scalar_bytes = &bytes[64..64 + 32];
 
-        let commitment = match Element::deserialize_uncompressed(point_bytes) {
-            Ok(v) => v,
-            Err(e) => return Err(VerkleError::SerializationError(e)),
-        };
-        let hash_commitment = match Fr::deserialize_uncompressed(scalar_bytes) {
-            Ok(v) => v,
-            Err(e) => return Err(VerkleError::SerializationError(e)),
-        };
+        let commitment = Element::deserialize_uncompressed(point_bytes)?;
+        let hash_commitment = Fr::deserialize_uncompressed(scalar_bytes)?;
 
         Ok(BranchMeta {
             commitment,
@@ -155,14 +152,14 @@ impl FromBytes for BranchMeta {
     }
 }
 
-impl ToBytes for BranchMeta {
-    fn to_bytes(&self) -> Result<Vec<u8>, VerkleError> {
+impl ToBytes<[u8; 96]> for BranchMeta {
+    fn to_bytes(&self) -> Result<[u8; 96], SerializationError> {
         let mut bytes = Vec::with_capacity(64 + 32);
 
-        bytes.extend(point_to_array(&self.commitment));
-        bytes.extend(scalar_to_array(&self.hash_commitment));
+        bytes.extend(point_to_array(&self.commitment)?);
+        bytes.extend(scalar_to_array(&self.hash_commitment)?);
 
-        Ok(bytes)
+        Ok(bytes.try_into().unwrap())
     }
 }
 
@@ -212,19 +209,27 @@ pub enum BranchChild {
     Stem([u8; 31]),
     Branch(BranchMeta),
 }
-impl BranchChild {
-    pub fn from_bytes(bytes: &[u8]) -> BranchChild {
-        if bytes.len() == 31 {
-            return BranchChild::Stem(bytes.try_into().unwrap());
-        }
-        BranchChild::Branch(BranchMeta::from_bytes(bytes).unwrap())
-    }
-    pub fn to_bytes(&self) -> Vec<u8> {
+
+impl ToBytes<Vec<u8>> for BranchChild {
+    fn to_bytes(&self) -> Result<Vec<u8>, SerializationError> {
         match self {
-            BranchChild::Stem(stem_id) => stem_id.to_vec(),
-            BranchChild::Branch(bm) => bm.to_bytes().unwrap(),
+            BranchChild::Stem(stem_id) => Ok(stem_id.to_vec()),
+            BranchChild::Branch(bm) => Ok(bm.to_bytes().unwrap().to_vec()),
         }
     }
+}
+
+impl FromBytes<&[u8]> for BranchChild {
+    fn from_bytes(bytes: &[u8]) -> Result<BranchChild, SerializationError> {
+        if bytes.len() == 31 {
+            return Ok(BranchChild::Stem(bytes.try_into().unwrap()));
+        }
+        let branch_as_bytes = BranchMeta::from_bytes(bytes)?;
+        Ok(BranchChild::Branch(branch_as_bytes))
+    }
+}
+
+impl BranchChild {
     pub fn is_branch(&self) -> bool {
         match self {
             BranchChild::Stem(_) => false,
