@@ -254,7 +254,6 @@ impl VerkleProof {
     }
 }
 
-
 impl std::fmt::Display for VerkleProof {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         writeln!(f, "Verkle proof:")?;

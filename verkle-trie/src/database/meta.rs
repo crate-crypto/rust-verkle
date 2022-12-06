@@ -15,10 +15,22 @@ pub struct StemMeta {
 impl std::fmt::Debug for StemMeta {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("StemMeta")
-            .field("c_1", &hex::encode(compress_point_to_array(&self.c_1).unwrap()))
-            .field("c_2", &hex::encode(compress_point_to_array(&self.c_2).unwrap()))
-            .field("hash_c1", &hex::encode(scalar_to_array(&self.hash_c1).unwrap()))
-            .field("hash_c2", &hex::encode(scalar_to_array(&self.hash_c2).unwrap()))
+            .field(
+                "c_1",
+                &hex::encode(compress_point_to_array(&self.c_1).unwrap()),
+            )
+            .field(
+                "c_2",
+                &hex::encode(compress_point_to_array(&self.c_2).unwrap()),
+            )
+            .field(
+                "hash_c1",
+                &hex::encode(scalar_to_array(&self.hash_c1).unwrap()),
+            )
+            .field(
+                "hash_c2",
+                &hex::encode(scalar_to_array(&self.hash_c2).unwrap()),
+            )
             .field(
                 "stem commitment",
                 &hex::encode(compress_point_to_array(&self.stem_commitment).unwrap()),
@@ -42,7 +54,7 @@ fn point_to_array(p: &Element) -> Result<[u8; 64], SerializationError> {
 fn compress_point_to_array(p: &Element) -> Result<[u8; 32], SerializationError> {
     let mut bytes = [0u8; 32];
     p.serialize(&mut bytes[..])?;
-    
+
     Ok(bytes)
 }
 fn scalar_to_array(scalar: &Fr) -> Result<[u8; 32], SerializationError> {
@@ -52,10 +64,10 @@ fn scalar_to_array(scalar: &Fr) -> Result<[u8; 32], SerializationError> {
     Ok(bytes)
 }
 
-impl FromBytes<[u8; 288]> for StemMeta {
+impl FromBytes<Vec<u8>> for StemMeta {
     // panic if we cannot deserialise, do not call this method if you are unsure if the data is
     // not structured properly. We can guarantee this in verkle trie.
-    fn from_bytes(bytes: [u8; 288]) -> Result<StemMeta, SerializationError> {
+    fn from_bytes(bytes: Vec<u8>) -> Result<StemMeta, SerializationError> {
         let len = bytes.len();
         if !(len == 64 * 3 + 32 * 3) {
             return Err(SerializationError::InvalidData); // TODO not the most accurate error msg for now
@@ -82,8 +94,8 @@ impl FromBytes<[u8; 288]> for StemMeta {
     }
 }
 
-impl ToBytes<[u8; 288]> for StemMeta {
-    fn to_bytes(&self) -> Result<[u8; 288], SerializationError> {
+impl ToBytes<Vec<u8>> for StemMeta {
+    fn to_bytes(&self) -> Result<Vec<u8>, SerializationError> {
         let mut bytes = Vec::with_capacity(3 * (64 + 32));
 
         bytes.extend(point_to_array(&self.c_1)?);
@@ -94,7 +106,7 @@ impl ToBytes<[u8; 288]> for StemMeta {
         bytes.extend(scalar_to_array(&self.hash_c2)?);
         bytes.extend(scalar_to_array(&self.hash_stem_commitment)?);
 
-        Ok(bytes.try_into().unwrap())
+        Ok(bytes)
     }
 }
 
@@ -127,13 +139,10 @@ impl BranchMeta {
     }
 }
 
-use crate::{
-    errors::VerkleError,
-    from_to_bytes::{FromBytes, ToBytes},
-};
+use crate::from_to_bytes::{FromBytes, ToBytes};
 
-impl FromBytes<[u8; 96]> for BranchMeta {
-    fn from_bytes(bytes: [u8; 96]) -> Result<BranchMeta, SerializationError> {
+impl FromBytes<Vec<u8>> for BranchMeta {
+    fn from_bytes(bytes: Vec<u8>) -> Result<BranchMeta, SerializationError> {
         let len = bytes.len();
         if !len == 32 + 64 {
             return Err(SerializationError::InvalidData);
@@ -152,8 +161,8 @@ impl FromBytes<[u8; 96]> for BranchMeta {
     }
 }
 
-impl ToBytes<[u8; 96]> for BranchMeta {
-    fn to_bytes(&self) -> Result<[u8; 96], SerializationError> {
+impl ToBytes<Vec<u8>> for BranchMeta {
+    fn to_bytes(&self) -> Result<Vec<u8>, SerializationError> {
         let mut bytes = Vec::with_capacity(64 + 32);
 
         bytes.extend(point_to_array(&self.commitment)?);
@@ -219,8 +228,8 @@ impl ToBytes<Vec<u8>> for BranchChild {
     }
 }
 
-impl FromBytes<&[u8]> for BranchChild {
-    fn from_bytes(bytes: &[u8]) -> Result<BranchChild, SerializationError> {
+impl FromBytes<Vec<u8>> for BranchChild {
+    fn from_bytes(bytes: Vec<u8>) -> Result<BranchChild, SerializationError> {
         if bytes.len() == 31 {
             return Ok(BranchChild::Stem(bytes.try_into().unwrap()));
         }

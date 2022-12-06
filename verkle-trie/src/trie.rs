@@ -766,8 +766,8 @@ mod tests {
     use crate::database::memory_db::MemoryDb;
     use crate::database::ReadOnlyHigherDb;
     use crate::trie::Trie;
-    use crate::{group_to_field, TestConfig};
     use crate::TrieTrait;
+    use crate::{group_to_field, TestConfig};
     use banderwagon::{Element, Fr};
     use std::ops::Mul;
 

@@ -582,11 +582,11 @@ mod test {
     use ark_serialize::CanonicalSerialize;
 
     use crate::database::memory_db::MemoryDb;
+    use crate::database::ReadOnlyHigherDb;
     use crate::proof::prover;
     use crate::proof::stateless_updater::update_root;
     use crate::{committer::test::TestCommitter, trie::Trie, TrieTrait};
     use crate::{group_to_field, TestConfig};
-    use crate::database::ReadOnlyHigherDb;
 
     #[test]
     fn basic_update() {
@@ -700,7 +700,7 @@ mod test {
         }
 
         let root = vec![];
-        
+
         let meta = trie.storage.get_branch_meta(&root).unwrap();
 
         let proof = prover::create_verkle_proof(&trie.storage, keys.clone());
