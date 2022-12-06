@@ -538,10 +538,11 @@ impl SparseVerkleTree {
         // Now lets fetch the parent node's commitment and recursively update each parent
 
         while !prefix.is_empty() {
-            let child_index = prefix.pop().unwrap(); // Safety: Fine unwrap because we've checked prefix isn't empty
-                                                     // If we have never updated the parent node before,
-                                                     // then it will be the old commitment
-                                                     // If we have then it will be in updated commitments
+            // Safety: Fine unwrap because we've checked prefix isn't empty
+            // If we have never updated the parent node before,
+            // then it will be the old commitment
+            // If we have then it will be in updated commitments
+            let child_index = prefix.pop().unwrap(); 
             let parent_comm = self.updated_commitments_by_path.get(&prefix);
             let old_parent_comm = match parent_comm {
                 Some(comm) => *comm,

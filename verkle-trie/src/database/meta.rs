@@ -69,6 +69,7 @@ impl FromBytes<Vec<u8>> for StemMeta {
     // not structured properly. We can guarantee this in verkle trie.
     fn from_bytes(bytes: Vec<u8>) -> Result<StemMeta, SerializationError> {
         let len = bytes.len();
+        // TODO: Explain where this number comes from
         if !(len == 64 * 3 + 32 * 3) {
             return Err(SerializationError::InvalidData); // TODO not the most accurate error msg for now
         }
