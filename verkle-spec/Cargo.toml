@@ -6,4 +6,5 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-ethereum-types = "0.13.1"
+ethereum-types = "0.14.1"
+verkle-trie = { git = "https://github.com/crate-crypto/rust-verkle" }

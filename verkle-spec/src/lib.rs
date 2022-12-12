@@ -17,7 +17,22 @@ pub use storage::Storage;
 
 // Used to hash the input in get_tree_key
 pub trait Hasher {
-    fn hash64(bytes64: [u8; 64]) -> H256;
+    fn hash64(bytes64: [u8; 64]) -> H256 {
+        use verkle_trie::{
+            committer::{test::TestCommitter, Committer},
+            Element,
+        };
+
+        let committer = TestCommitter::default();
+        let mut result = Element::zero();
+
+        let inputs = Self::chunk64(bytes64);
+
+        for (index, input) in inputs.into_iter().enumerate() {
+            result += committer.scalar_mul(input.into(), index);
+        }
+        H256::from(result.to_bytes())
+    }
 
     fn chunk64(bytes64: [u8; 64]) -> [u128; 5] {
         crate::util::chunk64(bytes64)
