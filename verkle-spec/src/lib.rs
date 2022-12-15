@@ -18,20 +18,7 @@ pub use storage::Storage;
 // Used to hash the input in get_tree_key
 pub trait Hasher {
     fn hash64(bytes64: [u8; 64]) -> H256 {
-        use verkle_trie::{
-            committer::{test::TestCommitter, Committer},
-            Element,
-        };
-
-        let committer = TestCommitter::default();
-        let mut result = Element::zero();
-
-        let inputs = Self::chunk64(bytes64);
-
-        for (index, input) in inputs.into_iter().enumerate() {
-            result += committer.scalar_mul(input.into(), index);
-        }
-        H256::from(result.to_bytes())
+        hash64(bytes64)
     }
 
     fn chunk64(bytes64: [u8; 64]) -> [u128; 5] {
@@ -40,6 +27,31 @@ pub trait Hasher {
     fn chunk_bytes(bytes: &[u8]) -> Vec<u128> {
         crate::util::chunk_bytes(bytes)
     }
+}
+
+// This is the default implementation for `pedersen_hash`
+// in the EIP. Since the EIP hashes 64 bytes (address32 + tree_index),
+// we just special case the method here to hash 64 bytes.
+pub fn hash64(bytes64: [u8; 64]) -> H256 {
+    use verkle_trie::{
+        committer::{test::TestCommitter, Committer},
+        Element,
+    };
+
+    let committer = TestCommitter::default();
+    let mut result = Element::zero();
+
+    let inputs = crate::util::chunk64(bytes64);
+
+    for (index, input) in inputs.into_iter().enumerate() {
+        result += committer.scalar_mul(input.into(), index);
+    }
+
+    // Reverse the endian of the byte array
+    let mut output = result.to_bytes();
+    output.reverse();
+
+    H256::from(output)
 }
 
 // Old address styles
