@@ -56,7 +56,7 @@ pub(super) fn create_prover_queries<Storage: ReadOnlyHigherDb>(
     storage: &Storage,
     keys: Vec<[u8; 32]>,
 ) -> (Vec<ProverQuery>, VerificationHint) {
-    assert!(keys.len() > 0, "cannot create a proof with no keys");
+    assert!(!keys.is_empty(), "cannot create a proof without keys");
 
     let opening_data = OpeningData::collect_opening_data(keys, storage);
     let openings = opening_data.openings;

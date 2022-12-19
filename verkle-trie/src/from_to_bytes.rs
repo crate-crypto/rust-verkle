@@ -1,4 +1,3 @@
-use crate::errors::VerkleError;
 use ark_serialize::SerializationError;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use banderwagon::{Element, Fr};
@@ -25,7 +24,7 @@ impl ToBytes<[u8; 32]> for Element {
 }
 impl FromBytes<&[u8]> for Element {
     fn from_bytes(bytes: &[u8]) -> Result<Self, SerializationError> {
-        Ok(CanonicalDeserialize::deserialize(bytes)?)
+        CanonicalDeserialize::deserialize(bytes)
     }
 }
 impl ToBytes<[u8; 32]> for Fr {
@@ -38,6 +37,6 @@ impl ToBytes<[u8; 32]> for Fr {
 }
 impl FromBytes<&[u8]> for Fr {
     fn from_bytes(bytes: &[u8]) -> Result<Self, SerializationError> {
-        Ok(CanonicalDeserialize::deserialize(bytes)?)
+        CanonicalDeserialize::deserialize(bytes)
     }
 }

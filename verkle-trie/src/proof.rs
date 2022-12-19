@@ -1,5 +1,5 @@
 use crate::constants::{CRS, PRECOMPUTED_WEIGHTS};
-use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, SerializationError};
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 
 use banderwagon::Element;
 use ipa_multipoint::multiproof::MultiPointProof;
@@ -261,17 +261,15 @@ impl std::fmt::Display for VerkleProof {
         write!(f, " * commitments: ")?;
         for comm in self.comms_sorted.iter().map(|comm| {
             let mut comm_serialised = [0u8; 32];
-            let result = comm.serialize(&mut comm_serialised[..]);
-            match result {
-                Err(_) => return Err(std::fmt::Result::Err(std::fmt::Error)),
+            match comm.serialize(&mut comm_serialised[..]) {
+                Err(_) => Err(std::fmt::Result::Err(std::fmt::Error)),
                 Ok(_) => Ok(hex::encode(comm_serialised)),
             }
         }) {
-            let output;
-            match comm {
+            let output = match comm {
                 Err(_) => return Err(std::fmt::Error),
-                Ok(v) => output = v,
-            }
+                Ok(v) => v,
+            };
             write!(f, "{} ", output)?;
         }
         std::fmt::Result::Ok(())

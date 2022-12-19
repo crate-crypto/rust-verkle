@@ -70,7 +70,7 @@ impl FromBytes<Vec<u8>> for StemMeta {
     fn from_bytes(bytes: Vec<u8>) -> Result<StemMeta, SerializationError> {
         let len = bytes.len();
         // TODO: Explain where this number comes from
-        if !(len == 64 * 3 + 32 * 3) {
+        if len != 64 * 3 + 32 * 3 {
             return Err(SerializationError::InvalidData); // TODO not the most accurate error msg for now
         }
 
@@ -169,11 +169,11 @@ impl ToBytes<Vec<u8>> for BranchMeta {
         bytes.extend(point_to_array(&self.commitment)?);
         bytes.extend(scalar_to_array(&self.hash_commitment)?);
 
-        Ok(bytes.try_into().unwrap())
+        Ok(bytes)
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum Meta {
     Stem(StemMeta),
     Branch(BranchMeta),

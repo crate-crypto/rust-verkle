@@ -382,22 +382,6 @@ impl Openings {
             Openings::Branch(b) => b,
         }
     }
-    pub(crate) fn as_mut_ext(&mut self) -> &mut ExtOpeningData {
-        match self {
-            Openings::Suffix(_) | Openings::Branch(_) => {
-                panic!("unexpected enum variant")
-            }
-            Openings::Extension(e) => e,
-        }
-    }
-    pub(crate) fn as_mut_suffix(&mut self) -> &mut SuffixOpeningData {
-        match self {
-            Openings::Extension(_) | Openings::Branch(_) => {
-                panic!("unexpected enum variant")
-            }
-            Openings::Suffix(s) => s,
-        }
-    }
 }
 
 fn get_branch_children_hashes<Storage: ReadOnlyHigherDb>(

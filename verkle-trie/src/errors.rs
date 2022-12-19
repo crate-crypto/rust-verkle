@@ -21,7 +21,7 @@ pub enum VerkleError {
     #[error("Invalid proof supplied")]
     InvalidProof,
     #[error("Invalid Length for Updated Values")]
-    UnexpectedUpdatedLength,
+    UnexpectedUpdatedLength(usize, usize),
     #[error("Mismatched Length of Supplied Keys from expected")]
     MismatchedKeyLength,
     #[error("All Keys must be unique")]

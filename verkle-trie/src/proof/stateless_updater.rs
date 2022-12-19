@@ -24,9 +24,9 @@ pub fn verify_and_update<C: Committer>(
     }
     let update_hint =
         update_hint.expect("update hint should be `Some` if the proof passes verification");
-    let new_root = update_root(update_hint, keys, values, updated_values, root, commiter);
-
-    new_root
+    
+    // Return the new root
+    update_root(update_hint, keys, values, updated_values, root, commiter)
 }
 
 pub(crate) fn update_root<C: Committer>(
@@ -38,7 +38,10 @@ pub(crate) fn update_root<C: Committer>(
     committer: C,
 ) -> Result<Element, VerkleError> {
     if !values.len() == updated_values.len() {
-        return Err(VerkleError::UnexpectedUpdatedLength);
+        return Err(VerkleError::UnexpectedUpdatedLength(
+            values.len(),
+            updated_values.len(),
+        ));
     }
     if !keys.len() == updated_values.len() {
         return Err(VerkleError::MismatchedKeyLength);
@@ -88,7 +91,7 @@ pub(crate) fn update_root<C: Committer>(
 
         updated_stems
             .entry(stem)
-            .or_insert(BTreeMap::new())
+            .or_default()
             .insert(suffix, (old_value, updated_value));
     }
 
@@ -361,12 +364,6 @@ fn build_subtree<C: Committer>(
                 Node::Stem(_) => panic!("found stem"),
             }
         }
-        fn commitment(&self) -> Element {
-            match self {
-                Node::Inner(inner) => inner.commitment,
-                Node::Stem(stem) => stem.commitment,
-            }
-        }
     }
 
     for (stem, commitment) in elements {
@@ -542,7 +539,7 @@ impl SparseVerkleTree {
             // If we have never updated the parent node before,
             // then it will be the old commitment
             // If we have then it will be in updated commitments
-            let child_index = prefix.pop().unwrap(); 
+            let child_index = prefix.pop().unwrap();
             let parent_comm = self.updated_commitments_by_path.get(&prefix);
             let old_parent_comm = match parent_comm {
                 Some(comm) => *comm,

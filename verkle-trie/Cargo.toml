@@ -28,29 +28,9 @@ itertools = "0.10.1"
 criterion = "0.3.4"
 tempfile = "3.2.0"
 
-[profile.bench]
-debug = true
-opt-level = 3
-debug-assertions = true
-incremental = true
-
-[profile.release]
-opt-level = 3
-debug = true
-debug-assertions = true
-incremental = true
-
-
 [[bench]]
 name = "benchmark_main"
 harness = false
-
-
-[profile.test]
-opt-level = 3
-debug-assertions = true
-incremental = true
-debug = true
 
 [features]
 default = ["parallel"]
