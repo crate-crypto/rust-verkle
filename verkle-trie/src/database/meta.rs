@@ -1,3 +1,5 @@
+#![allow(clippy::identity_op)]
+#![allow(clippy::large_enum_variant)]
 use ark_serialize::{CanonicalDeserialize, SerializationError};
 use banderwagon::{Element, Fr};
 
@@ -75,11 +77,13 @@ impl FromBytes<Vec<u8>> for StemMeta {
         }
 
         let point_bytes = &bytes[0..64 * 3];
+        #[allow(clippy::erasing_op)]
         let c_1 = Element::deserialize_uncompressed(&point_bytes[0 * 64..1 * 64])?;
         let c_2 = Element::deserialize_uncompressed(&point_bytes[1 * 64..2 * 64])?;
         let stem_commitment = Element::deserialize_uncompressed(&point_bytes[2 * 64..3 * 64])?;
 
         let scalar_bytes = &bytes[64 * 3..];
+        #[allow(clippy::erasing_op)]
         let hash_c1 = Fr::deserialize_uncompressed(&scalar_bytes[0 * 32..1 * 32])?;
         let hash_c2 = Fr::deserialize_uncompressed(&scalar_bytes[1 * 32..2 * 32])?;
         let hash_stem_commitment = Fr::deserialize_uncompressed(&scalar_bytes[2 * 32..3 * 32])?;

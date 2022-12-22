@@ -1,3 +1,4 @@
+#![allow(clippy::large_enum_variant)]
 use super::ExtPresent;
 use crate::{
     constants::TWO_POW_128,

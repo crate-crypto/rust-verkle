@@ -1,3 +1,4 @@
+#![allow(clippy::large_enum_variant)]
 use crate::constants::{CRS, TWO_POW_128};
 use crate::database::{BranchMeta, Flush, Meta, ReadWriteHigherDb, StemMeta};
 use crate::{committer::Committer, Config};

@@ -22,9 +22,10 @@ pub fn verify_and_update<C: Committer>(
     if !ok {
         return Err(VerkleError::InvalidProof);
     }
+
     let update_hint =
         update_hint.expect("update hint should be `Some` if the proof passes verification");
-    
+
     // Return the new root
     update_root(update_hint, keys, values, updated_values, root, commiter)
 }
@@ -623,7 +624,7 @@ mod test {
         trie.insert_single(keys[0], [0u8; 32]);
         let expected_root = trie.root_hash();
         let mut expected_bytes = [0u8; 32];
-        expected_root.serialize(&mut expected_bytes[..]);
+        expected_root.serialize(&mut expected_bytes[..]).unwrap();
 
         assert_eq!(got_bytes, expected_bytes)
     }

@@ -147,10 +147,8 @@ impl LagrangeTablePoints {
 mod test {
 
     use crate::committer::precompute::LagrangeTablePoints;
-    use crate::committer::Committer;
-    use ark_ff::{ToBytes, Zero};
     use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
-    use banderwagon::{Element, Fr};
+    use banderwagon::Element;
 
     #[test]
     fn read_write() {

@@ -214,7 +214,7 @@ pub fn create_verifier_queries(
     let zs = all_paths_and_zs
         .into_iter()
         .map(|(_, z)| Fr::from(z as u128));
-    let ys = ys_by_path_and_z.into_iter().map(|(_, y)| y);
+    let ys = ys_by_path_and_z.into_values();
 
     let mut queries = Vec::with_capacity(cs.len());
     for ((y, z), comm) in ys.into_iter().zip(zs).zip(cs) {
