@@ -9,7 +9,7 @@ pub const FLUSH_BATCH: u32 = 20_000;
 pub const VERKLE_NODE_WIDTH: usize = 256;
 // Seed used to compute the 256 pedersen generators
 // using try-and-increment
-const PEDERSEN_SEED: &'static [u8] = b"eth_verkle_oct_2021";
+const PEDERSEN_SEED: &[u8] = b"eth_verkle_oct_2021";
 
 pub(crate) const TWO_POW_128: Fr = Fr::new(BigInteger256([
     3195623856215021945,

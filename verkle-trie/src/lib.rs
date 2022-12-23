@@ -3,10 +3,10 @@ pub mod committer;
 pub mod config;
 pub mod constants;
 pub mod database;
+pub mod errors;
 pub mod from_to_bytes;
 pub mod proof;
 pub mod trie;
-mod trie_fuzzer;
 
 pub use config::*;
 pub use trie::Trie;

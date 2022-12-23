@@ -1,9 +1,6 @@
 use crate::{committer::Committer, constants::CRS};
-use ark_ec::ProjectiveCurve;
-use ark_ff::PrimeField;
-use ark_ff::Zero;
-
 use banderwagon::{Element, Fr};
+
 // A Basic Commit struct to be used in tests.
 // In production, we will use the Precomputed points
 #[derive(Debug, Clone, Copy)]

@@ -210,14 +210,14 @@ pub fn create_verifier_queries(
         ys_by_path_and_z.insert((path.clone(), *z), y);
     }
 
-    let Cs = commitment_by_path_and_z.values();
+    let cs = commitment_by_path_and_z.values();
     let zs = all_paths_and_zs
         .into_iter()
         .map(|(_, z)| Fr::from(z as u128));
-    let ys = ys_by_path_and_z.into_iter().map(|(_, y)| y);
+    let ys = ys_by_path_and_z.into_values();
 
-    let mut queries = Vec::with_capacity(Cs.len());
-    for ((y, z), comm) in ys.into_iter().zip(zs).zip(Cs) {
+    let mut queries = Vec::with_capacity(cs.len());
+    for ((y, z), comm) in ys.into_iter().zip(zs).zip(cs) {
         let query = VerifierQuery {
             commitment: *comm,
             point: z,

@@ -1,3 +1,4 @@
+#![allow(clippy::large_enum_variant)]
 use super::ExtPresent;
 use crate::{
     constants::TWO_POW_128,
@@ -6,8 +7,7 @@ use crate::{
 };
 use ark_ff::{One, PrimeField, Zero};
 use banderwagon::Fr;
-use ipa_multipoint::lagrange_basis::LagrangeBasis;
-use ipa_multipoint::multiproof::{ProverQuery, VerifierQuery};
+use ipa_multipoint::{lagrange_basis::LagrangeBasis, multiproof::ProverQuery};
 use std::{
     collections::{BTreeMap, BTreeSet},
     convert::TryInto,
@@ -167,7 +167,7 @@ impl OpeningData {
             // Lets see if it was the stem for the key in question
             // If it is for a different stem, then we only need to show
             // existence of the extension, and not open C1 or C2
-            if let Some(_) = key_state.different_stem() {
+            if key_state.different_stem().is_some() {
                 opening_data.insert_stem_extension_status(stem, ext_pres);
                 opening_data.insert_ext_opening(last_node_path, current_stem, last_node_meta);
 
@@ -246,7 +246,7 @@ impl ExtOpeningData {
                 commitment: stem_meta.stem_commitment,
                 point: 3,
                 result: stem_meta.hash_c2,
-                poly: LagrangeBasis::new(ext_func.clone()),
+                poly: LagrangeBasis::new(ext_func),
             };
             open_queries.push(open_at_c2);
         }
@@ -307,18 +307,18 @@ impl SuffixOpeningData {
                 get_half_of_stem_children_children_hashes(self.ext.stem, offset, storage);
 
             let commitment = if *sfx < 128 {
-                stem_meta.C_1
+                stem_meta.c_1
             } else {
-                stem_meta.C_2
+                stem_meta.c_2
             };
             let open_at_val_low = ProverQuery {
-                commitment: commitment,
+                commitment,
                 point: value_lower_index as usize,
                 result: value_low,
                 poly: LagrangeBasis::new(c1_or_c2.clone()),
             };
             let open_at_val_upper = ProverQuery {
-                commitment: commitment,
+                commitment,
                 point: value_upper_index as usize,
                 result: value_high,
                 poly: LagrangeBasis::new(c1_or_c2),
@@ -352,7 +352,7 @@ impl BranchOpeningData {
 
         // Create queries for all of the children we need
         for child_index in &self.children {
-            let child_value = polynomial[*child_index as usize].clone();
+            let child_value = polynomial[*child_index as usize];
 
             let branch_query = ProverQuery {
                 commitment: branch_meta.commitment,
@@ -381,22 +381,6 @@ impl Openings {
                 panic!("unexpected enum variant")
             }
             Openings::Branch(b) => b,
-        }
-    }
-    pub(crate) fn as_mut_ext(&mut self) -> &mut ExtOpeningData {
-        match self {
-            Openings::Suffix(_) | Openings::Branch(_) => {
-                panic!("unexpected enum variant")
-            }
-            Openings::Extension(e) => e,
-        }
-    }
-    pub(crate) fn as_mut_suffix(&mut self) -> &mut SuffixOpeningData {
-        match self {
-            Openings::Extension(_) | Openings::Branch(_) => {
-                panic!("unexpected enum variant")
-            }
-            Openings::Suffix(s) => s,
         }
     }
 }

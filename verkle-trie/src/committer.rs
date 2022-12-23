@@ -4,7 +4,7 @@ pub mod precompute;
 pub mod test;
 
 // This is the functionality that commits to the branch nodes and computes the delta optimisation
-// For consistency with the PCS, ensure that this component uses the same CRS as the PCS
+// For consistency with the Pcs, ensure that this component uses the same CRS as the Pcs
 // This is being done in the config file automatically
 pub trait Committer {
     // Commit to a lagrange polynomial, evaluations.len() must equal the size of the SRS at the moment
@@ -21,6 +21,6 @@ pub trait Committer {
             result += self.scalar_mul(value, lagrange_index)
         }
 
-        return result;
+        result
     }
 }

@@ -30,6 +30,12 @@ impl MemoryDb {
     }
 }
 
+impl Default for MemoryDb {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ReadOnlyHigherDb for MemoryDb {
     fn get_stem_meta(&self, stem_key: [u8; 31]) -> Option<StemMeta> {
         self.stem_table.get(&stem_key).copied()
@@ -97,7 +103,7 @@ impl ReadOnlyHigherDb for MemoryDb {
 
     fn get_branch_child(&self, branch_id: &[u8], index: u8) -> Option<BranchChild> {
         let mut child_index = Vec::with_capacity(branch_id.len());
-        child_index.extend_from_slice(&branch_id);
+        child_index.extend_from_slice(branch_id);
         child_index.push(index);
 
         self.branch_table.get(&child_index).copied()
@@ -116,7 +122,7 @@ impl WriteOnlyHigherDb for MemoryDb {
         };
         match b_child {
             BranchChild::Stem(_) => None, // If its a stem, we return None, this only happens in ChainInsert
-            BranchChild::Branch(b_meta) => return Some(b_meta),
+            BranchChild::Branch(b_meta) => Some(b_meta),
         }
     }
 

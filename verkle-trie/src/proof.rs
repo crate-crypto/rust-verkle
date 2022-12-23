@@ -1,15 +1,17 @@
-use crate::constants::CRS;
-use ark_ec::AffineCurve;
+use crate::constants::{CRS, PRECOMPUTED_WEIGHTS};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 
 use banderwagon::Element;
 use ipa_multipoint::multiproof::MultiPointProof;
+use ipa_multipoint::transcript::Transcript;
 use std::collections::{BTreeMap, BTreeSet};
 
+use std::io::{Error, ErrorKind, Read, Result, Write};
+
 // TODO: We use the IO Result while we do not have a dedicated Error enum
-type IOResult<T> = ark_std::io::Result<T>;
-type IOError = ark_std::io::Error;
-type IOErrorKind = ark_std::io::ErrorKind;
+type IOResult<T> = Result<T>;
+type IOError = Error;
+type IOErrorKind = ErrorKind;
 
 mod key_path_finder;
 mod opening_data;
@@ -59,7 +61,7 @@ impl std::fmt::Display for VerificationHint {
             write!(f, "{:?} ", e)?;
         }
         for s in &self.diff_stem_no_proof {
-            write!(f, "{} ", hex::encode(s));
+            write!(f, "{} ", hex::encode(s))?;
         }
         std::fmt::Result::Ok(())
     }
@@ -69,7 +71,7 @@ impl VerificationHint {
     // We need the number of keys because we do not serialise the length of
     // the ext_status|| depth. This is equal to the number of keys in the proof, which
     // we assume the user knows.
-    pub fn read<R: ark_std::io::Read>(mut reader: R) -> IOResult<VerificationHint> {
+    pub fn read<R: Read>(mut reader: R) -> IOResult<VerificationHint> {
         // First extract the stems with no values opened for them
         let mut num_stems = [0u8; 4];
         reader.read_exact(&mut num_stems)?;
@@ -115,17 +117,17 @@ impl VerificationHint {
             diff_stem_no_proof,
         })
     }
-    pub fn write<W: ark_std::io::Write>(&self, writer: &mut W) -> IOResult<()> {
+    pub fn write<W: Write>(&self, writer: &mut W) -> IOResult<()> {
         // Encode the number of stems with no value openings
         let num_stems = self.diff_stem_no_proof.len() as u32;
-        writer.write(&num_stems.to_le_bytes());
+        writer.write_all(&num_stems.to_le_bytes())?;
 
         for stem in &self.diff_stem_no_proof {
-            writer.write(stem)?;
+            writer.write_all(stem)?;
         }
 
         let num_depths = self.depths.len() as u32;
-        writer.write(&num_depths.to_le_bytes());
+        writer.write_all(&num_depths.to_le_bytes())?;
 
         // The depths and extension status can be put into a single byte
         // because extension status only needs 3 bits and depth only needs at most 5 bits
@@ -152,9 +154,9 @@ impl VerificationHint {
             // Encode depth into the byte, it should only be less
             // than or equal to 32, and so we only need 5 bits.
             debug_assert!(*depth <= 32);
-            byte = byte | (depth << 3);
+            byte |= depth << 3;
 
-            writer.write(&[byte])?;
+            writer.write_all(&[byte])?;
         }
         Ok(())
     }
@@ -180,7 +182,7 @@ pub struct VerkleProof {
 }
 
 impl VerkleProof {
-    pub fn read<R: ark_std::io::Read>(mut reader: R) -> IOResult<VerkleProof> {
+    pub fn read<R: Read>(mut reader: R) -> IOResult<VerkleProof> {
         let verification_hint = VerificationHint::read(&mut reader)?;
 
         let mut num_comms = [0u8; 4];
@@ -205,22 +207,24 @@ impl VerkleProof {
         })
     }
 
-    pub fn write<W: ark_std::io::Write>(&self, mut writer: W) -> IOResult<()> {
-        self.verification_hint.write(&mut writer);
+    pub fn write<W: Write>(&self, mut writer: W) -> IOResult<()> {
+        // Errors are handled via anyhow because they are generic IO errors, not Verkle-specific
+        self.verification_hint.write(&mut writer)?;
 
         let num_comms = self.comms_sorted.len() as u32;
-        writer.write(&num_comms.to_le_bytes());
+        writer.write_all(&num_comms.to_le_bytes())?;
 
         for comm in &self.comms_sorted {
             let mut comm_serialised = [0u8; 32];
             comm.serialize(&mut comm_serialised[..])
-                .map_err(|_| IOError::from(IOErrorKind::InvalidInput));
-            writer.write(&comm_serialised);
+                .map_err(|_| IOError::from(IOErrorKind::InvalidInput))?;
+            writer.write_all(&comm_serialised)?;
         }
 
         // Serialise the Multipoint proof
         let proof_bytes = self.proof.to_bytes()?;
-        writer.write(&proof_bytes);
+        writer.write_all(&proof_bytes)?;
+
         Ok(())
     }
 
@@ -243,9 +247,6 @@ impl VerkleProof {
             None => return (false, None),
         };
 
-        use crate::constants::{PRECOMPUTED_WEIGHTS, VERKLE_NODE_WIDTH};
-        use ipa_multipoint::transcript::Transcript;
-
         let mut transcript = Transcript::new(b"vt");
         let ok = proof.check(&CRS, &PRECOMPUTED_WEIGHTS, &queries, &mut transcript);
 
@@ -255,15 +256,21 @@ impl VerkleProof {
 
 impl std::fmt::Display for VerkleProof {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        writeln!(f, "Verkle proof:");
+        writeln!(f, "Verkle proof:")?;
         writeln!(f, " * verification hints: {}", self.verification_hint)?;
         write!(f, " * commitments: ")?;
         for comm in self.comms_sorted.iter().map(|comm| {
             let mut comm_serialised = [0u8; 32];
-            comm.serialize(&mut comm_serialised[..]);
-            hex::encode(comm_serialised)
+            match comm.serialize(&mut comm_serialised[..]) {
+                Err(_) => Err(std::fmt::Result::Err(std::fmt::Error)),
+                Ok(_) => Ok(hex::encode(comm_serialised)),
+            }
         }) {
-            write!(f, "{} ", comm)?;
+            let output = match comm {
+                Err(_) => return Err(std::fmt::Error),
+                Ok(v) => v,
+            };
+            write!(f, "{} ", output)?;
         }
         std::fmt::Result::Ok(())
     }
@@ -300,9 +307,8 @@ mod test {
     }
     #[test]
     fn proof_of_absence_edge_case() {
-        use ark_serialize::CanonicalSerialize;
         let db = MemoryDb::new();
-        let mut trie = Trie::new(TestConfig::new(db));
+        let trie = Trie::new(TestConfig::new(db));
 
         let absent_keys = vec![[3; 32]];
         let absent_values = vec![None];
@@ -358,12 +364,12 @@ mod test {
             trie.insert_single(key_0, key_0);
         }
         let root = vec![];
-        let meta = trie.storage.get_branch_meta(&root).unwrap();
+        let _meta = trie.storage.get_branch_meta(&root).unwrap();
 
         let proof = prover::create_verkle_proof(&trie.storage, keys.clone());
 
         let mut bytes = Vec::new();
-        proof.write(&mut bytes);
+        proof.write(&mut bytes).unwrap();
         let deserialised_proof = VerkleProof::read(&bytes[..]).unwrap();
         assert_eq!(proof, deserialised_proof);
     }

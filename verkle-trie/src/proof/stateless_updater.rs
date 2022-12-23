@@ -1,5 +1,5 @@
 use crate::constants::TWO_POW_128;
-use crate::{committer::Committer, group_to_field, proof::ExtPresent};
+use crate::{committer::Committer, errors::VerkleError, group_to_field, proof::ExtPresent};
 use ark_ff::{One, PrimeField, Zero};
 use banderwagon::{Element, Fr};
 use std::collections::{BTreeMap, HashSet};
@@ -16,16 +16,18 @@ pub fn verify_and_update<C: Committer>(
     values: Vec<Option<[u8; 32]>>,
     updated_values: Vec<Option<[u8; 32]>>,
     commiter: C,
-) -> Result<Element, ()> {
+) -> Result<Element, VerkleError> {
     // TODO: replace Clone with references if possible
     let (ok, update_hint) = proof.check(keys.clone(), values.clone(), root);
     if !ok {
-        return Err(());
+        return Err(VerkleError::InvalidProof);
     }
+
     let update_hint =
         update_hint.expect("update hint should be `Some` if the proof passes verification");
-    let new_root = update_root(update_hint, keys, values, updated_values, root, commiter);
-    Ok(new_root)
+
+    // Return the new root
+    update_root(update_hint, keys, values, updated_values, root, commiter)
 }
 
 pub(crate) fn update_root<C: Committer>(
@@ -35,14 +37,24 @@ pub(crate) fn update_root<C: Committer>(
     updated_values: Vec<Option<[u8; 32]>>,
     root: Element,
     committer: C,
-) -> Element {
-    assert_eq!(values.len(), updated_values.len());
-    assert_eq!(keys.len(), updated_values.len());
+) -> Result<Element, VerkleError> {
+    if !values.len() == updated_values.len() {
+        return Err(VerkleError::UnexpectedUpdatedLength(
+            values.len(),
+            updated_values.len(),
+        ));
+    }
+    if !keys.len() == updated_values.len() {
+        return Err(VerkleError::MismatchedKeyLength);
+    }
 
     // check that keys are unique
+    // Since this is the main place this is used, make sure to exit early as soon as 2 keys are the same
     let keys_unique = has_unique_elements(keys.iter());
     // TODO return an error instead of panic
-    assert!(keys_unique);
+    if !keys_unique {
+        return Err(VerkleError::DuplicateKeys);
+    }
     // TODO Check root against the root in commitments by path
 
     // type Prefix = Vec<u8>;
@@ -80,7 +92,7 @@ pub(crate) fn update_root<C: Committer>(
 
         updated_stems
             .entry(stem)
-            .or_insert(BTreeMap::new())
+            .or_default()
             .insert(suffix, (old_value, updated_value));
     }
 
@@ -93,14 +105,14 @@ pub(crate) fn update_root<C: Committer>(
         let prefix = stem[0..depth as usize].to_vec();
         updated_stems_by_prefix
             .entry(prefix.clone())
-            .or_insert(HashSet::new())
+            .or_insert_with(HashSet::new)
             .insert(stem);
 
         if ext_pres == ExtPresent::Present {
             let ext_path = stem[0..depth as usize].to_vec(); // It is the prefix
 
-            let mut C_1_delta_update = Element::zero();
-            let mut C_2_delta_update = Element::zero();
+            let mut c_1_delta_update = Element::zero();
+            let mut c_2_delta_update = Element::zero();
 
             // TODO abstract this into a function, since it's duplicated
             for (suffix, (old_value, new_value)) in suffix_update {
@@ -123,7 +135,7 @@ pub(crate) fn update_root<C: Committer>(
                     Fr::from_le_bytes_mod_order(&new_value_high_16) - old_value_high_16;
 
                 let position = suffix;
-                let is_c1_comm_update = if position < 128 { true } else { false };
+                let is_c1_comm_update = position < 128;
 
                 let pos_mod_128 = position % 128;
 
@@ -134,30 +146,30 @@ pub(crate) fn update_root<C: Committer>(
                 let generator_high = committer.scalar_mul(delta_high, high_index);
 
                 if is_c1_comm_update {
-                    C_1_delta_update += generator_low + generator_high;
+                    c_1_delta_update += generator_low + generator_high;
                 } else {
-                    C_2_delta_update += generator_low + generator_high;
+                    c_2_delta_update += generator_low + generator_high;
                 }
             }
             // Compute the delta for C1 and C2, so that we can update the extension commitment
             let mut hash_c1_delta = Fr::zero();
             let mut hash_c2_delta = Fr::zero();
-            if !C_1_delta_update.is_zero() {
+            if !c_1_delta_update.is_zero() {
                 let mut c1_path = ext_path.clone();
                 c1_path.push(2);
 
                 let old_c1_comm = hint.commitments_by_path[&c1_path];
-                let new_c1_commitment = old_c1_comm + C_1_delta_update;
+                let new_c1_commitment = old_c1_comm + c_1_delta_update;
                 let hash_c1_new = group_to_field(&new_c1_commitment);
                 let hash_c1_old = group_to_field(&old_c1_comm);
                 hash_c1_delta = hash_c1_new - hash_c1_old;
             }
-            if !C_2_delta_update.is_zero() {
+            if !c_2_delta_update.is_zero() {
                 let mut c2_path = ext_path.clone();
                 c2_path.push(3);
 
                 let old_c2_comm = hint.commitments_by_path[&c2_path];
-                let new_c2_commitment = old_c2_comm + C_2_delta_update;
+                let new_c2_commitment = old_c2_comm + c_2_delta_update;
                 let hash_c2_new = group_to_field(&new_c2_commitment);
                 let hash_c2_old = group_to_field(&old_c2_comm);
                 hash_c2_delta = hash_c2_new - hash_c2_old;
@@ -174,62 +186,61 @@ pub(crate) fn update_root<C: Committer>(
             // Note that we have been given a stem to which we know is in the trie (ext_pres) and
             // we have computed all of the updates for that particular stem
             updated_commitents_by_stem.insert(stem, (stem_comm_new, hash_stem_comm_new));
-        } else {
-            if ext_pres == ExtPresent::DifferentStem {
-                let other_stem = hint.other_stems_by_prefix[&prefix];
-                updated_stems_by_prefix
-                    .entry(prefix)
-                    .or_insert(HashSet::new())
-                    .insert(other_stem);
+        } else if ext_pres == ExtPresent::DifferentStem {
+            let other_stem = hint.other_stems_by_prefix[&prefix];
+            updated_stems_by_prefix
+                .entry(prefix)
+                .or_insert_with(HashSet::new)
+                .insert(other_stem);
 
-                // Since this stem was not present in the trie, we need to make its initial stem commitment
-                //
-                // This is similar to the case of ExtPres::Present, except that the old_value is zero, so we can ignore it
-                // TODO we could take this for loop out of the if statement and then use the if statement for the rest
-                let mut C_1 = Element::zero();
-                let mut C_2 = Element::zero();
-                for (suffix, (old_value, new_value)) in suffix_update {
-                    assert!(old_value.is_none(), "since the extension was not present in the trie, the suffix cannot have any previous values");
-
-                    // Split values into low_16 and high_16
-                    let new_value_low_16 = new_value[0..16].to_vec();
-                    let new_value_high_16 = new_value[16..32].to_vec();
-
-                    // We need to compute two deltas
-                    let value_low = Fr::from_le_bytes_mod_order(&new_value_low_16) + TWO_POW_128;
-                    let value_high = Fr::from_le_bytes_mod_order(&new_value_high_16);
-
-                    let position = suffix;
-                    let is_c1_comm_update = if position < 128 { true } else { false };
-
-                    let pos_mod_128 = position % 128;
-
-                    let low_index = 2 * pos_mod_128 as usize;
-                    let high_index = low_index + 1;
-
-                    let generator_low = committer.scalar_mul(value_low, low_index);
-                    let generator_high = committer.scalar_mul(value_high, high_index);
-
-                    if is_c1_comm_update {
-                        C_1 += generator_low + generator_high;
-                    } else {
-                        C_2 += generator_low + generator_high;
-                    }
+            // Since this stem was not present in the trie, we need to make its initial stem commitment
+            //
+            // This is similar to the case of ExtPres::Present, except that the old_value is zero, so we can ignore it
+            // TODO we could take this for loop out of the if statement and then use the if statement for the rest
+            let mut c_1 = Element::zero();
+            let mut c_2 = Element::zero();
+            for (suffix, (old_value, new_value)) in suffix_update {
+                if old_value.is_some() {
+                    return Err(VerkleError::OldValueIsPopulated);
                 }
+                // Split values into low_16 and high_16
+                let new_value_low_16 = new_value[0..16].to_vec();
+                let new_value_high_16 = new_value[16..32].to_vec();
 
-                let stem_comm_0 = Fr::one(); // TODO: We can get rid of this and just add SRS[0]
-                let stem_comm_1 = Fr::from_le_bytes_mod_order(&stem);
-                let stem_comm_2 = group_to_field(&C_1);
-                let stem_comm_3 = group_to_field(&C_2);
-                let stem_comm = committer.commit_sparse(vec![
-                    (stem_comm_0, 0),
-                    (stem_comm_1, 1),
-                    (stem_comm_2, 2),
-                    (stem_comm_3, 3),
-                ]);
-                let hash_stem_comm = group_to_field(&stem_comm);
-                updated_commitents_by_stem.insert(stem, (stem_comm, hash_stem_comm));
+                // We need to compute two deltas
+                let value_low = Fr::from_le_bytes_mod_order(&new_value_low_16) + TWO_POW_128;
+                let value_high = Fr::from_le_bytes_mod_order(&new_value_high_16);
+
+                let position = suffix;
+                let is_c1_comm_update = position < 128;
+
+                let pos_mod_128 = position % 128;
+
+                let low_index = 2 * pos_mod_128 as usize;
+                let high_index = low_index + 1;
+
+                let generator_low = committer.scalar_mul(value_low, low_index);
+                let generator_high = committer.scalar_mul(value_high, high_index);
+
+                if is_c1_comm_update {
+                    c_1 += generator_low + generator_high;
+                } else {
+                    c_2 += generator_low + generator_high;
+                }
             }
+
+            let stem_comm_0 = Fr::one(); // TODO: We can get rid of this and just add SRS[0]
+            let stem_comm_1 = Fr::from_le_bytes_mod_order(&stem);
+            let stem_comm_2 = group_to_field(&c_1);
+            let stem_comm_3 = group_to_field(&c_2);
+            let stem_comm = committer.commit_sparse(vec![
+                (stem_comm_0, 0),
+                (stem_comm_1, 1),
+                (stem_comm_2, 2),
+                (stem_comm_3, 3),
+            ]);
+            let hash_stem_comm = group_to_field(&stem_comm);
+            updated_commitents_by_stem.insert(stem, (stem_comm, hash_stem_comm));
         }
 
         //We have now processed all of the necessary extension proof edits that need to be completed.
@@ -256,7 +267,8 @@ pub(crate) fn update_root<C: Committer>(
                 prefix.clone(),
                 old_hash_value,
                 new_hash_value,
-            );
+            )
+            .unwrap();
         } else {
             // If we have more than one stem to be processed for a prefix, we need to build a subtree and
             // then update the prefix with the root of the subtree
@@ -283,12 +295,13 @@ pub(crate) fn update_root<C: Committer>(
                 prefix.clone(),
                 old_hash_value,
                 new_hash_value,
-            );
+            )
+            .unwrap();
         }
     }
 
     // There are two types of updates that we need to distinguish, an update where the key was None (Other stem) and an update where the key was some
-    tree.root
+    Ok(tree.root)
 }
 
 // Build a subtree from a set of stems and their commitments
@@ -352,18 +365,12 @@ fn build_subtree<C: Committer>(
                 Node::Stem(_) => panic!("found stem"),
             }
         }
-        fn commitment(&self) -> Element {
-            match self {
-                Node::Inner(inner) => inner.commitment,
-                Node::Stem(stem) => stem.commitment,
-            }
-        }
     }
 
     for (stem, commitment) in elements {
         let mut depth = prefix.len();
         // Everything before the prefix is irrelevant to the subtree
-        let relative_stem = &stem[depth..];
+        let _relative_stem = &stem[depth..];
 
         let mut path = vec![];
         let mut current_node = tree[&path].clone();
@@ -516,9 +523,11 @@ impl SparseVerkleTree {
         mut prefix: Vec<u8>,
         old_value: Fr,
         new_value: Fr,
-    ) {
+    ) -> Result<(), VerkleError> {
         // TODO check edge case, when prefix.is_empty is passed in
-
+        if prefix.is_empty() {
+            return Err(VerkleError::EmptyPrefix);
+        }
         // First lets compute the delta between the old_value and the new value
         let mut delta = new_value - old_value;
 
@@ -527,10 +536,11 @@ impl SparseVerkleTree {
         // Now lets fetch the parent node's commitment and recursively update each parent
 
         while !prefix.is_empty() {
-            let child_index = prefix.pop().unwrap();
+            // Safety: Fine unwrap because we've checked prefix isn't empty
             // If we have never updated the parent node before,
             // then it will be the old commitment
             // If we have then it will be in updated commitments
+            let child_index = prefix.pop().unwrap();
             let parent_comm = self.updated_commitments_by_path.get(&prefix);
             let old_parent_comm = match parent_comm {
                 Some(comm) => *comm,
@@ -549,6 +559,8 @@ impl SparseVerkleTree {
         }
 
         self.root = current_parent_comm.unwrap();
+
+        Ok(())
     }
 }
 
@@ -605,7 +617,7 @@ mod test {
         );
 
         let mut got_bytes = [0u8; 32];
-        group_to_field(&new_root_comm)
+        group_to_field(&new_root_comm.unwrap())
             .serialize(&mut got_bytes[..])
             .unwrap();
 
@@ -652,7 +664,7 @@ mod test {
         );
 
         let mut got_bytes = [0u8; 32];
-        group_to_field(&new_root_comm)
+        group_to_field(&new_root_comm.unwrap())
             .serialize(&mut got_bytes[..])
             .unwrap();
 
@@ -687,6 +699,7 @@ mod test {
         }
 
         let root = vec![];
+
         let meta = trie.storage.get_branch_meta(&root).unwrap();
 
         let proof = prover::create_verkle_proof(&trie.storage, keys.clone());
@@ -703,7 +716,7 @@ mod test {
         );
 
         let mut got_bytes = [0u8; 32];
-        group_to_field(&new_root_comm)
+        group_to_field(&new_root_comm.unwrap())
             .serialize(&mut got_bytes[..])
             .unwrap();
 

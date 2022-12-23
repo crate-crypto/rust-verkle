@@ -1,12 +1,12 @@
-use crate::{
-    committer::precompute::PrecomputeLagrange, constants::CRS, database::memory_db::MemoryDb, Trie,
-    TrieTrait, VerkleConfig,
-};
 use once_cell::sync::Lazy;
+use verkle_trie::{
+    committer::precompute::PrecomputeLagrange, database::memory_db::MemoryDb, Trie, TrieTrait,
+    VerkleConfig,
+};
 pub static CONFIG: Lazy<VerkleConfig<MemoryDb>> = Lazy::new(|| {
     match VerkleConfig::new(MemoryDb::new()) {
         Ok(config) => config,
-        Err(err) => {
+        Err(_) => {
             // An error means that the file was already created
             // Lets call open instead
             VerkleConfig::open(MemoryDb::new()).expect("should be infallible")

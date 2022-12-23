@@ -56,10 +56,7 @@ impl KeyPath {
     // if the last node was a stem.
     // This occurs in all cases, except for `Empty`
     pub(crate) fn requires_extension_proof(&self) -> bool {
-        match self.key_state {
-            KeyState::NotFound(KeyNotFound::Empty) => false,
-            _ => true,
-        }
+        !matches!(self.key_state, KeyState::NotFound(KeyNotFound::Empty))
     }
 }
 
@@ -123,7 +120,7 @@ impl KeyPathFinder {
                     //
                     // We will need this path for update proofs
 
-                    if &stem_id == &key[0..31] {
+                    if stem_id == key[0..31] {
                         return KeyPath {
                             nodes: nodes_by_path,
                             key_state: KeyState::NotFound(KeyNotFound::StemFound),

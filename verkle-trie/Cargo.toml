@@ -7,15 +7,15 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+anyhow = "1.0"
 tempfile = "3.2.0"
+thiserror = "1.0"
 ipa-multipoint = { git = "https://github.com/crate-crypto/ipa_multipoint", branch = "banderwagon_migration" }
 banderwagon = { git = "https://github.com/crate-crypto/banderwagon" }
 ark-ff = { version = "^0.3.0", default-features = false }
 ark-ec = { version = "^0.3.0", default-features = false }
 ark-serialize = { version = "^0.3.0", default-features = false }
-ark-std = { version = "^0.3.0", default-features = false }
 verkle-db = { path = "../verkle-db", default-features = false }
-
 once_cell = "1.8.0"
 hex = "0.4.3"
 rand_chacha = { version = "0.3.0", default-features = false }
@@ -28,31 +28,10 @@ itertools = "0.10.1"
 criterion = "0.3.4"
 tempfile = "3.2.0"
 
-[profile.bench]
-debug = true
-opt-level = 3
-debug-assertions = true
-incremental = true
-
-[profile.release]
-opt-level = 3
-debug = true
-debug-assertions = true
-incremental = true
-
-
-# [[bench]]
-# name = "benchmark_main"
-# harness = false
-
-
-[profile.test]
-opt-level = 3
-debug-assertions = true
-incremental = true
-debug = true
+[[bench]]
+name = "benchmark_main"
+harness = false
 
 [features]
 default = ["parallel"]
 parallel = ["ark-ff/parallel", "ark-ff/asm", "ark-ec/parallel"]
-std = ["ark-std/std"]                                           # REmove ark-std and change this to ark-serialize-std

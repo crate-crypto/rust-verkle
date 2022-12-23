@@ -1,36 +1,42 @@
+use ark_serialize::SerializationError;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use banderwagon::{Element, Fr};
+use std::result::Result;
+
 // TODO: The only things that need to be converted to bytes are Points and scalars
 // so maybe we can return a [u8;32] and avoid allocating
 // Then use this instead of ark_serialize in the codebase
-pub trait ToBytes {
-    fn to_bytes(&self) -> Vec<u8>;
+pub trait ToBytes<T> {
+    fn to_bytes(&self) -> Result<T, SerializationError>;
 }
-pub trait FromBytes {
-    fn from_bytes(bytes: &[u8]) -> Self;
+pub trait FromBytes<T> {
+    fn from_bytes(bytes: T) -> Result<Self, SerializationError>
+    where
+        Self: Sized;
 }
 
-impl ToBytes for Element {
-    fn to_bytes(&self) -> Vec<u8> {
+impl ToBytes<[u8; 32]> for Element {
+    fn to_bytes(&self) -> Result<[u8; 32], SerializationError> {
         let mut bytes = [0u8; 32];
-        self.serialize(&mut bytes[..]).unwrap();
-        bytes.to_vec()
+        self.serialize(&mut bytes[..])?;
+        Ok(bytes)
     }
 }
-impl FromBytes for Element {
-    fn from_bytes(bytes: &[u8]) -> Self {
-        CanonicalDeserialize::deserialize(bytes).unwrap()
+impl FromBytes<&[u8]> for Element {
+    fn from_bytes(bytes: &[u8]) -> Result<Self, SerializationError> {
+        CanonicalDeserialize::deserialize(bytes)
     }
 }
-impl ToBytes for Fr {
-    fn to_bytes(&self) -> Vec<u8> {
+impl ToBytes<[u8; 32]> for Fr {
+    fn to_bytes(&self) -> Result<[u8; 32], SerializationError> {
         let mut bytes = [0u8; 32];
-        self.serialize(&mut bytes[..]).unwrap();
-        bytes.to_vec()
+        self.serialize(&mut bytes[..])?;
+
+        Ok(bytes)
     }
 }
-impl FromBytes for Fr {
-    fn from_bytes(bytes: &[u8]) -> Self {
-        CanonicalDeserialize::deserialize(bytes).unwrap()
+impl FromBytes<&[u8]> for Fr {
+    fn from_bytes(bytes: &[u8]) -> Result<Self, SerializationError> {
+        CanonicalDeserialize::deserialize(bytes)
     }
 }

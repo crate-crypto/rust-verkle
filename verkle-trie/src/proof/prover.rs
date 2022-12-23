@@ -1,11 +1,13 @@
 use super::{VerificationHint, VerkleProof};
 use crate::{
-    constants::CRS,
+    constants::{CRS, PRECOMPUTED_WEIGHTS},
     database::ReadOnlyHigherDb,
     proof::opening_data::{OpeningData, Openings},
 };
-use ipa_multipoint::multiproof::MultiPoint;
-use ipa_multipoint::multiproof::ProverQuery;
+use ipa_multipoint::{
+    multiproof::{MultiPoint, ProverQuery},
+    transcript::Transcript,
+};
 use itertools::Itertools;
 use std::collections::BTreeSet;
 
@@ -13,7 +15,7 @@ pub fn create_verkle_proof<Storage: ReadOnlyHigherDb>(
     storage: &Storage,
     keys: Vec<[u8; 32]>,
 ) -> VerkleProof {
-    assert!(keys.len() > 0, "cannot create a proof with no keys");
+    assert!(!keys.is_empty(), "cannot create a proof with no keys");
 
     let (queries, verification_hint) = create_prover_queries(storage, keys);
 
@@ -33,9 +35,6 @@ pub fn create_verkle_proof<Storage: ReadOnlyHigherDb>(
         // Duplicate all commitments
         .dedup()
         .collect();
-
-    use crate::constants::{PRECOMPUTED_WEIGHTS, VERKLE_NODE_WIDTH};
-    use ipa_multipoint::transcript::Transcript;
 
     let mut transcript = Transcript::new(b"vt");
     let proof = MultiPoint::open(CRS.clone(), &PRECOMPUTED_WEIGHTS, &mut transcript, queries);
@@ -57,7 +56,7 @@ pub(super) fn create_prover_queries<Storage: ReadOnlyHigherDb>(
     storage: &Storage,
     keys: Vec<[u8; 32]>,
 ) -> (Vec<ProverQuery>, VerificationHint) {
-    assert!(keys.len() > 0, "cannot create a proof with no keys");
+    assert!(!keys.is_empty(), "cannot create a proof without keys");
 
     let opening_data = OpeningData::collect_opening_data(keys, storage);
     let openings = opening_data.openings;

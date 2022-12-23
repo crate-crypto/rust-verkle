@@ -48,7 +48,7 @@ pub(crate) fn chunk_bytes(input: &[u8]) -> Vec<u128> {
     let type_encoding: u128 = 2;
     // 256 * input.len() has an upper bound of 2^8 * 2^8 ^ 2^4
     // hence any integer that can hold more than 20 bits, will be enough
-    let encoding_flag: u128 = (type_encoding + 256 * input.len() as u128) as u128;
+    let encoding_flag: u128 = type_encoding + 256 * input.len() as u128;
 
     // We will pad the input with zeroes. This is to ensure
     // that when we chunk the slice into 16 byte integers, everything is aligned

@@ -6,19 +6,18 @@ use verkle_trie::trie::Trie;
 use verkle_trie::TestConfig;
 use verkle_trie::TrieTrait;
 
-fn insert_10k_from_10mil_step(c: &mut Criterion) {
-    let mut group = c.benchmark_group("insert 10k");
+fn proof_10k_from_10mil_step(c: &mut Criterion) {
+    let mut group = c.benchmark_group("proof 10k");
+
+    let db = MemoryDb::new();
+    let config = TestConfig::new(db);
+    let mut trie = Trie::new(config);
+    // Initial set of keys
+    let keys = generate_set_of_keys(1_000_000);
+    let key_vals = KEYS_10K.iter().map(|key_bytes| (*key_bytes, *key_bytes));
+    trie.insert(key_vals);
 
     for initial_keys in (0..=100_000).step_by(100_000) {
-        // let db = verkle_db::DefaultSledDb::from_path(&temp_dir);
-        let db = MemoryDb::new();
-        let config = TestConfig::new(db);
-        let mut trie = Trie::new(config);
-        // Initial set of keys
-        let keys = generate_set_of_keys(initial_keys);
-        let key_vals = keys.into_iter().map(|key_bytes| (key_bytes, key_bytes));
-        trie.insert(key_vals);
-
         group.bench_with_input(
             BenchmarkId::from_parameter(initial_keys),
             &initial_keys,
@@ -27,8 +26,8 @@ fn insert_10k_from_10mil_step(c: &mut Criterion) {
                     || trie.clone(),
                     |mut trie| {
                         // Insert different keys
-                        let key_vals = KEYS_10K.iter().map(|key_bytes| (*key_bytes, *key_bytes));
-                        black_box(trie.insert(key_vals))
+                        let key_vals = KEYS_10K.iter().map(|bytes| *bytes);
+                        black_box(trie.create_verkle_proof(key_vals))
                     },
                     BatchSize::SmallInput,
                 )
@@ -41,4 +40,5 @@ fn insert_10k_from_10mil_step(c: &mut Criterion) {
 criterion_group!(
     name = benches;
     config = Criterion::default().significance_level(0.1).sample_size(10);
-    targets = insert_10k_from_10mil_step);
+    targets = proof_10k_from_10mil_step
+);
