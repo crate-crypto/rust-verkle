@@ -209,7 +209,7 @@ fn simple_chunkify_test() {
             23, 24, 25, 26, 27, 28, 29, 30,
         ],
     ];
-    let code = code.clone().into_iter().flatten().collect();
+    let code = code.into_iter().flatten().collect();
 
     let chunked_code = chunkify_code(code);
 

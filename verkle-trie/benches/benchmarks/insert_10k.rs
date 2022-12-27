@@ -28,6 +28,7 @@ fn insert_10k_from_10mil_step(c: &mut Criterion) {
                     |mut trie| {
                         // Insert different keys
                         let key_vals = KEYS_10K.iter().map(|key_bytes| (*key_bytes, *key_bytes));
+                        #[allow(clippy::unit_arg)]
                         black_box(trie.insert(key_vals))
                     },
                     BatchSize::SmallInput,

@@ -119,7 +119,7 @@ fn swap_byte() {
     let hash = H256::repeat_byte(2);
     let got = swap_last_byte(hash, U256::from(replacement_byte));
 
-    let mut expected = hash.as_fixed_bytes().clone();
+    let mut expected = *hash.as_fixed_bytes();
     *expected.last_mut().unwrap() = replacement_byte;
 
     assert_eq!(*got.as_fixed_bytes(), expected)

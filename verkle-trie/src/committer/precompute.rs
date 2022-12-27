@@ -14,7 +14,7 @@ pub struct PrecomputeLagrange {
 impl<'a> Committer for &'a PrecomputeLagrange {
     // If compute these points at compile time, we can
     // dictate that evaluations should be an array
-    fn commit_lagrange(&self, evaluations: &[Fr]) -> Element {
+    fn commit_lagrange(&self, evaluations: &[Fr; 256]) -> Element {
         if evaluations.len() != self.num_points {
             panic!("wrong number of points")
         }
@@ -59,7 +59,7 @@ impl<'a> Committer for &'a PrecomputeLagrange {
     }
 }
 impl Committer for PrecomputeLagrange {
-    fn commit_lagrange(&self, evaluations: &[Fr]) -> Element {
+    fn commit_lagrange(&self, evaluations: &[Fr; 256]) -> Element {
         (&self).commit_lagrange(evaluations)
     }
 

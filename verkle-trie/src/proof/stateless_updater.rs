@@ -1,5 +1,5 @@
 use crate::constants::TWO_POW_128;
-use crate::{committer::Committer, errors::VerkleError, group_to_field, proof::ExtPresent};
+use crate::{committer::Committer, errors::VerificationError, group_to_field, proof::ExtPresent};
 use ark_ff::{One, PrimeField, Zero};
 use banderwagon::{Element, Fr};
 use std::collections::{BTreeMap, HashSet};
@@ -16,11 +16,11 @@ pub fn verify_and_update<C: Committer>(
     values: Vec<Option<[u8; 32]>>,
     updated_values: Vec<Option<[u8; 32]>>,
     commiter: C,
-) -> Result<Element, VerkleError> {
+) -> Result<Element, VerificationError> {
     // TODO: replace Clone with references if possible
     let (ok, update_hint) = proof.check(keys.clone(), values.clone(), root);
     if !ok {
-        return Err(VerkleError::InvalidProof);
+        return Err(VerificationError::InvalidProof);
     }
 
     let update_hint =
@@ -37,23 +37,22 @@ pub(crate) fn update_root<C: Committer>(
     updated_values: Vec<Option<[u8; 32]>>,
     root: Element,
     committer: C,
-) -> Result<Element, VerkleError> {
+) -> Result<Element, VerificationError> {
     if !values.len() == updated_values.len() {
-        return Err(VerkleError::UnexpectedUpdatedLength(
+        return Err(VerificationError::UnexpectedUpdatedLength(
             values.len(),
             updated_values.len(),
         ));
     }
     if !keys.len() == updated_values.len() {
-        return Err(VerkleError::MismatchedKeyLength);
+        return Err(VerificationError::MismatchedKeyLength);
     }
 
     // check that keys are unique
     // Since this is the main place this is used, make sure to exit early as soon as 2 keys are the same
     let keys_unique = has_unique_elements(keys.iter());
-    // TODO return an error instead of panic
     if !keys_unique {
-        return Err(VerkleError::DuplicateKeys);
+        return Err(VerificationError::DuplicateKeys);
     }
     // TODO Check root against the root in commitments by path
 
@@ -201,7 +200,7 @@ pub(crate) fn update_root<C: Committer>(
             let mut c_2 = Element::zero();
             for (suffix, (old_value, new_value)) in suffix_update {
                 if old_value.is_some() {
-                    return Err(VerkleError::OldValueIsPopulated);
+                    return Err(VerificationError::OldValueIsPopulated);
                 }
                 // Split values into low_16 and high_16
                 let new_value_low_16 = new_value[0..16].to_vec();
@@ -523,10 +522,9 @@ impl SparseVerkleTree {
         mut prefix: Vec<u8>,
         old_value: Fr,
         new_value: Fr,
-    ) -> Result<(), VerkleError> {
-        // TODO check edge case, when prefix.is_empty is passed in
+    ) -> Result<(), VerificationError> {
         if prefix.is_empty() {
-            return Err(VerkleError::EmptyPrefix);
+            return Err(VerificationError::EmptyPrefix);
         }
         // First lets compute the delta between the old_value and the new value
         let mut delta = new_value - old_value;
@@ -602,7 +600,7 @@ mod test {
         let root = vec![];
         let meta = trie.storage.get_branch_meta(&root).unwrap();
 
-        let proof = prover::create_verkle_proof(&trie.storage, keys.clone());
+        let proof = prover::create_verkle_proof(&trie.storage, keys.clone()).unwrap();
         let values: Vec<_> = keys.iter().map(|val| Some(*val)).collect();
         let (ok, updated_hint) = proof.check(keys.clone(), values.clone(), meta.commitment);
         assert!(ok);
@@ -648,7 +646,7 @@ mod test {
         let root = vec![];
         let meta = trie.storage.get_branch_meta(&root).unwrap();
 
-        let proof = prover::create_verkle_proof(&trie.storage, keys.clone());
+        let proof = prover::create_verkle_proof(&trie.storage, keys.clone()).unwrap();
         let (ok, updated_hint) = proof.check(keys.clone(), values.clone(), meta.commitment);
         assert!(ok);
 
@@ -702,7 +700,7 @@ mod test {
 
         let meta = trie.storage.get_branch_meta(&root).unwrap();
 
-        let proof = prover::create_verkle_proof(&trie.storage, keys.clone());
+        let proof = prover::create_verkle_proof(&trie.storage, keys.clone()).unwrap();
         let (ok, updated_hint) = proof.check(keys.clone(), values.clone(), meta.commitment);
         assert!(ok);
 

@@ -9,6 +9,7 @@ pub mod proof;
 pub mod trie;
 
 pub use config::*;
+use errors::ProofCreationError;
 pub use trie::Trie;
 
 pub use banderwagon::{Element, Fr};
@@ -29,6 +30,7 @@ pub trait TrieTrait {
     fn insert_single(&mut self, key: Key, value: Value) {
         self.insert(vec![(key, value)].into_iter())
     }
+
     /// Gets the value at the `Key` if it exists
     /// Returns an error if it does not exist
     /// TODO: Find out if this method is ever needed
@@ -41,8 +43,10 @@ pub trait TrieTrait {
     fn root_commitment(&self) -> Element;
 
     /// Creates a verkle proof over many keys
-    /// TODO: This will return a Result in the future
-    fn create_verkle_proof(&self, key: impl Iterator<Item = Key>) -> proof::VerkleProof;
+    fn create_verkle_proof(
+        &self,
+        key: impl Iterator<Item = Key>,
+    ) -> Result<proof::VerkleProof, ProofCreationError>;
 }
 
 // Note: This is a 2 to 1 map, but the two preimages are identified to be the same
@@ -80,6 +84,6 @@ mod tests {
         group_to_field(&generator)
             .serialize(&mut bytes[..])
             .unwrap();
-        assert_eq!(hex::encode(&bytes), expected);
+        assert_eq!(hex::encode(bytes), expected);
     }
 }

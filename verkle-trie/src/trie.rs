@@ -40,7 +40,7 @@ impl<S: ReadWriteHigherDb, P: Committer> TrieTrait for Trie<S, P> {
     fn create_verkle_proof(
         &self,
         keys: impl Iterator<Item = [u8; 32]>,
-    ) -> crate::proof::VerkleProof {
+    ) -> Result<crate::proof::VerkleProof, crate::errors::ProofCreationError> {
         use crate::proof::prover;
         prover::create_verkle_proof(&self.storage, keys.collect())
     }
@@ -1029,7 +1029,7 @@ mod tests {
         let mut byts = [0u8; 32];
         trie.root_hash().serialize(&mut byts[..]).unwrap();
         assert_eq!(
-            hex::encode(&byts),
+            hex::encode(byts),
             "fe2e17833b90719eddcad493c352ccd491730643ecee39060c7c1fff5fcc621a"
         );
     }
@@ -1060,7 +1060,7 @@ mod tests {
         let mut byts = [0u8; 32];
         trie.root_hash().serialize(&mut byts[..]).unwrap();
         assert_eq!(
-            hex::encode(&byts),
+            hex::encode(byts),
             "74ff8821eca20188de49340124f249dac94404efdb3838bb6b4d298e483cc20e"
         );
     }
