@@ -32,9 +32,9 @@ pub enum ConfigError {
     PrecomputedPointsFileExists,
     #[error("Issue opening PrecomputedPointsFile")]
     FileError(std::io::Error),
-    #[error("Precomputed Lagrage Points File Couldn't not be found")]
+    #[error("Precomputed Lagrange Points File Couldn't not be found")]
     PrecomputedPointsNotFound,
-    #[error("Serialization Either Failer or Data is Invalid")]
+    #[error("Serialization Either Failed or Data is Invalid")]
     SerializationError(#[from] SerializationError),
 }
 

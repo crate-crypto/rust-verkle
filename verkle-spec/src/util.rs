@@ -80,7 +80,6 @@ pub(crate) fn chunk_bytes(input: &[u8]) -> Vec<u128> {
 // Specialised version of `chunk_bytes` for 64 bytes without the padding
 pub(crate) fn chunk64(bytes64: [u8; 64]) -> [u128; 5] {
     const INPUT_LEN: u128 = 64;
-    debug_assert!(bytes64.len() as u128 == INPUT_LEN);
 
     let mut chunked_input = [[0u8; 16]; 5];
 
@@ -107,8 +106,10 @@ pub(crate) fn zero_align_bytes(mut bytes: Vec<u8>, alignment: usize) -> Vec<u8> 
     if bytes.len() % alignment == 0 {
         return bytes;
     }
+
     let pad_by = alignment - bytes.len() % alignment;
     bytes.extend(vec![0u8; pad_by]);
+
     bytes
 }
 

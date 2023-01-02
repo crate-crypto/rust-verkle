@@ -64,8 +64,6 @@ impl std::fmt::Display for VerificationHint {
     }
 }
 
-use std::result::Result;
-
 impl VerificationHint {
     // We need the number of keys because we do not serialise the length of
     // the ext_status|| depth. This is equal to the number of keys in the proof, which
@@ -116,7 +114,7 @@ impl VerificationHint {
             diff_stem_no_proof,
         })
     }
-    pub fn write<W: Write>(&self, writer: &mut W) -> Result<(), std::io::Error> {
+    pub fn write<W: Write>(&self, writer: &mut W) -> Result<(), HintError> {
         // Encode the number of stems with no value openings
         let num_stems = self.diff_stem_no_proof.len() as u32;
         writer.write_all(&num_stems.to_le_bytes())?;

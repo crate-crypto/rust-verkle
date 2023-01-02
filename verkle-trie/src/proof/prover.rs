@@ -23,14 +23,10 @@ pub fn create_verkle_proof<Storage: ReadOnlyHigherDb>(
 
     // Commitments without duplicates and without the root, (implicitly) sorted by path, since the queries were
     // processed by path order
-    let root_query = queries.first();
-
-    if root_query.is_none() {
-        return Err(ProofCreationError::ExpectedOneQueryAgainstRoot);
-    }
-
-    // Explicit Check, so it's fine
-    let root_query = root_query.unwrap();
+    let root_query = match queries.first() {
+        Some(query) => query,
+        None => return Err(ProofCreationError::ExpectedOneQueryAgainstRoot),
+    };
 
     let root_comm = root_query.commitment;
 
