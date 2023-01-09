@@ -13,7 +13,8 @@ fn proof_10k_from_10mil_step(c: &mut Criterion) {
     let config = TestConfig::new(db);
     let mut trie = Trie::new(config);
     // Initial set of keys
-    let keys = generate_set_of_keys(1_000_000);
+    let _keys = generate_set_of_keys(1_000_000);
+
     let key_vals = KEYS_10K.iter().map(|key_bytes| (*key_bytes, *key_bytes));
     trie.insert(key_vals);
 
@@ -24,9 +25,9 @@ fn proof_10k_from_10mil_step(c: &mut Criterion) {
             |b, _| {
                 b.iter_batched(
                     || trie.clone(),
-                    |mut trie| {
+                    |trie| {
                         // Insert different keys
-                        let key_vals = KEYS_10K.iter().map(|bytes| *bytes);
+                        let key_vals = KEYS_10K.iter().copied();
                         black_box(trie.create_verkle_proof(key_vals))
                     },
                     BatchSize::SmallInput,

@@ -2,3 +2,4 @@
 Cargo.lock
 .DS_Store
 notes.md
+precomputed_points.bin

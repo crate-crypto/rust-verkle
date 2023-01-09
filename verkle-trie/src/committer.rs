@@ -8,9 +8,8 @@ pub mod test;
 // This is being done in the config file automatically
 pub trait Committer {
     // Commit to a lagrange polynomial, evaluations.len() must equal the size of the SRS at the moment
-    //TODO: We can make this &[Fr;256] since we have committed to 256, this would force the caller
-    // to handle the size of the slice
-    fn commit_lagrange(&self, evaluations: &[Fr]) -> Element;
+    fn commit_lagrange(&self, evaluations: &[Fr; 256]) -> Element;
+
     // compute value * G for a specific generator in the SRS
     fn scalar_mul(&self, value: Fr, lagrange_index: usize) -> Element;
 

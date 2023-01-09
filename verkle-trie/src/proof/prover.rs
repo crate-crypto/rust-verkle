@@ -2,6 +2,7 @@ use super::{VerificationHint, VerkleProof};
 use crate::{
     constants::{CRS, PRECOMPUTED_WEIGHTS},
     database::ReadOnlyHigherDb,
+    errors::ProofCreationError,
     proof::opening_data::{OpeningData, Openings},
 };
 use ipa_multipoint::{
@@ -14,17 +15,20 @@ use std::collections::BTreeSet;
 pub fn create_verkle_proof<Storage: ReadOnlyHigherDb>(
     storage: &Storage,
     keys: Vec<[u8; 32]>,
-) -> VerkleProof {
-    assert!(!keys.is_empty(), "cannot create a proof with no keys");
-
+) -> Result<VerkleProof, ProofCreationError> {
+    if keys.is_empty() {
+        return Err(ProofCreationError::EmptyKeySet);
+    }
     let (queries, verification_hint) = create_prover_queries(storage, keys);
 
     // Commitments without duplicates and without the root, (implicitly) sorted by path, since the queries were
     // processed by path order
-    let root_comm = queries
-        .first()
-        .expect("expected to have at least one query. The first query will be against the root")
-        .commitment;
+    let root_query = match queries.first() {
+        Some(query) => query,
+        None => return Err(ProofCreationError::ExpectedOneQueryAgainstRoot),
+    };
+
+    let root_comm = root_query.commitment;
 
     let comms_sorted: Vec<_> = queries
         .iter()
@@ -39,11 +43,11 @@ pub fn create_verkle_proof<Storage: ReadOnlyHigherDb>(
     let mut transcript = Transcript::new(b"vt");
     let proof = MultiPoint::open(CRS.clone(), &PRECOMPUTED_WEIGHTS, &mut transcript, queries);
 
-    VerkleProof {
+    Ok(VerkleProof {
         comms_sorted,
         verification_hint,
         proof,
-    }
+    })
 }
 
 // First we need to produce all of the key paths for a key

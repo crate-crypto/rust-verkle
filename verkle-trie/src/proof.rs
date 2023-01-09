@@ -1,17 +1,14 @@
-use crate::constants::{CRS, PRECOMPUTED_WEIGHTS};
+use crate::{
+    constants::{CRS, PRECOMPUTED_WEIGHTS},
+    errors::HintError,
+};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 
 use banderwagon::Element;
 use ipa_multipoint::multiproof::MultiPointProof;
 use ipa_multipoint::transcript::Transcript;
 use std::collections::{BTreeMap, BTreeSet};
-
-use std::io::{Error, ErrorKind, Read, Result, Write};
-
-// TODO: We use the IO Result while we do not have a dedicated Error enum
-type IOResult<T> = Result<T>;
-type IOError = Error;
-type IOErrorKind = ErrorKind;
+use std::io::{Read, Write};
 
 mod key_path_finder;
 mod opening_data;
@@ -71,7 +68,7 @@ impl VerificationHint {
     // We need the number of keys because we do not serialise the length of
     // the ext_status|| depth. This is equal to the number of keys in the proof, which
     // we assume the user knows.
-    pub fn read<R: Read>(mut reader: R) -> IOResult<VerificationHint> {
+    pub fn read<R: Read>(mut reader: R) -> Result<VerificationHint, HintError> {
         // First extract the stems with no values opened for them
         let mut num_stems = [0u8; 4];
         reader.read_exact(&mut num_stems)?;
@@ -117,7 +114,7 @@ impl VerificationHint {
             diff_stem_no_proof,
         })
     }
-    pub fn write<W: Write>(&self, writer: &mut W) -> IOResult<()> {
+    pub fn write<W: Write>(&self, writer: &mut W) -> Result<(), HintError> {
         // Encode the number of stems with no value openings
         let num_stems = self.diff_stem_no_proof.len() as u32;
         writer.write_all(&num_stems.to_le_bytes())?;
@@ -182,7 +179,7 @@ pub struct VerkleProof {
 }
 
 impl VerkleProof {
-    pub fn read<R: Read>(mut reader: R) -> IOResult<VerkleProof> {
+    pub fn read<R: Read>(mut reader: R) -> Result<VerkleProof, HintError> {
         let verification_hint = VerificationHint::read(&mut reader)?;
 
         let mut num_comms = [0u8; 4];
@@ -191,8 +188,9 @@ impl VerkleProof {
 
         let mut comms_sorted = Vec::new();
         for _ in 0..num_comms {
-            let point: Element = CanonicalDeserialize::deserialize(&mut reader)
-                .map_err(|_| IOError::from(IOErrorKind::InvalidData))?;
+            let point: Element = CanonicalDeserialize::deserialize(&mut reader).map_err(|_| {
+                HintError::from(std::io::Error::from(std::io::ErrorKind::InvalidData))
+            })?;
             comms_sorted.push(point);
         }
 
@@ -207,7 +205,7 @@ impl VerkleProof {
         })
     }
 
-    pub fn write<W: Write>(&self, mut writer: W) -> IOResult<()> {
+    pub fn write<W: Write>(&self, mut writer: W) -> Result<(), HintError> {
         // Errors are handled via anyhow because they are generic IO errors, not Verkle-specific
         self.verification_hint.write(&mut writer)?;
 
@@ -216,8 +214,9 @@ impl VerkleProof {
 
         for comm in &self.comms_sorted {
             let mut comm_serialised = [0u8; 32];
-            comm.serialize(&mut comm_serialised[..])
-                .map_err(|_| IOError::from(IOErrorKind::InvalidInput))?;
+            comm.serialize(&mut comm_serialised[..]).map_err(|_| {
+                HintError::from(std::io::Error::from(std::io::ErrorKind::InvalidInput))
+            })?;
             writer.write_all(&comm_serialised)?;
         }
 
@@ -300,7 +299,7 @@ mod test {
         let root = vec![];
         let meta = trie.storage.get_branch_meta(&root).unwrap();
 
-        let proof = prover::create_verkle_proof(&trie.storage, keys.clone());
+        let proof = prover::create_verkle_proof(&trie.storage, keys.clone()).unwrap();
         let values: Vec<_> = keys.iter().map(|val| Some(*val)).collect();
         let (ok, _) = proof.check(keys, values, meta.commitment);
         assert!(ok);
@@ -316,7 +315,7 @@ mod test {
         let root = vec![];
         let meta = trie.storage.get_branch_meta(&root).unwrap();
 
-        let proof = prover::create_verkle_proof(&trie.storage, absent_keys.clone());
+        let proof = prover::create_verkle_proof(&trie.storage, absent_keys.clone()).unwrap();
 
         let (ok, _) = proof.check(absent_keys, absent_values, meta.commitment);
         assert!(ok);
@@ -338,7 +337,7 @@ mod test {
         let meta = trie.storage.get_branch_meta(&root).unwrap();
 
         let (pq, _) = prover::create_prover_queries(&trie.storage, keys.clone());
-        let proof = prover::create_verkle_proof(&trie.storage, keys.clone());
+        let proof = prover::create_verkle_proof(&trie.storage, keys.clone()).unwrap();
 
         let values: Vec<_> = keys.iter().map(|val| Some(*val)).collect();
         let (vq, _) =
@@ -366,7 +365,7 @@ mod test {
         let root = vec![];
         let _meta = trie.storage.get_branch_meta(&root).unwrap();
 
-        let proof = prover::create_verkle_proof(&trie.storage, keys.clone());
+        let proof = prover::create_verkle_proof(&trie.storage, keys.clone()).unwrap();
 
         let mut bytes = Vec::new();
         proof.write(&mut bytes).unwrap();

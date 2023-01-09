@@ -6,7 +6,7 @@ use banderwagon::{Element, Fr};
 #[derive(Debug, Clone, Copy)]
 pub struct TestCommitter;
 impl Committer for TestCommitter {
-    fn commit_lagrange(&self, evaluations: &[Fr]) -> Element {
+    fn commit_lagrange(&self, evaluations: &[Fr; 256]) -> Element {
         let mut res = Element::zero();
         for (val, point) in evaluations.iter().zip(CRS.G.iter()) {
             res += point * val;

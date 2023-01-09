@@ -6,6 +6,7 @@ use sha2::{Digest, Sha256};
 
 pub static KEYS_10K: Lazy<Vec<[u8; 32]>> =
     Lazy::new(|| generate_diff_set_of_keys(10_000).collect());
+#[allow(dead_code)]
 pub static SAME_KEYS_10K: Lazy<Vec<[u8; 32]>> =
     Lazy::new(|| generate_set_of_keys(10_000).collect());
 
