@@ -11,7 +11,7 @@ use rand::Rng;
 use rayon::prelude::IntoParallelIterator;
 use rayon::prelude::*;
 
-const VECTOR_WIDTH :usize = 256;
+const VECTOR_WIDTH: usize = 256;
 
 fn multiproof(c: &mut Criterion) {
     let mut group = c.benchmark_group("multiproof");
