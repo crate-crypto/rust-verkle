@@ -6,5 +6,5 @@ criterion_main! {
     benchmarks::insert_10k::benches,
     // benchmarks::edit_10k::benches,
     benchmarks::proof_10k::benches,
-    benchmarks::multipoint::benches,
+    benchmarks::proof_ipa::benches,
 }
