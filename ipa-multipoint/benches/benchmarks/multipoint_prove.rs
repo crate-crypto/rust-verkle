@@ -2,10 +2,10 @@ use ark_std::UniformRand;
 use banderwagon::Fr;
 use criterion::BenchmarkId;
 use criterion::{black_box, criterion_group, criterion_main, BatchSize, Criterion};
+use ipa_multipoint::crs::CRS;
 use ipa_multipoint::lagrange_basis::*;
 use ipa_multipoint::multiproof::*;
 use ipa_multipoint::transcript::Transcript;
-use ipa_multipoint::crs::CRS;
 
 pub fn criterion_benchmark(c: &mut Criterion) {
     let mut group = c.benchmark_group("multiproof - prove (256)");
