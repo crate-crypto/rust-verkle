@@ -1,6 +1,6 @@
 [workspace]
 
-members = ["verkle-db", "verkle-trie", "verkle-spec"]
+members = ["verkle-db", "verkle-trie", "verkle-spec", "ipa-multipoint"]
 
 [profile.bench]
 debug = true
