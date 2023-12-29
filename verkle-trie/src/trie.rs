@@ -229,16 +229,17 @@ impl<Storage: ReadWriteHigherDb, PolyCommit: Committer> Trie<Storage, PolyCommit
                 // TODO and database work in pages of ~4Kb
                 // The new key and the old child belong under the same stem
                 let leaf_val = self.storage.get_leaf(key_bytes);
-                let (old_leaf_val, leaf_already_present_in_trie) = match leaf_val {
-                    Some(old_val) => {
-                        // There was an old value in the stem, so this is an update
-                        (old_val, true)
-                    }
-                    None => {
-                        // There are other values under this stem, but this is the first value under this entry
-                        ([0u8; 32], false)
-                    }
-                };
+                let (old_leaf_val, leaf_already_present_in_trie) =
+                    match leaf_val {
+                        Some(old_val) => {
+                            // There was an old value in the stem, so this is an update
+                            (old_val, true)
+                        }
+                        None => {
+                            // There are other values under this stem, but this is the first value under this entry
+                            ([0u8; 32], false)
+                        }
+                    };
 
                 // If the key is being updated to exactly the same value, we just return nothing
                 // This is an optimisation that allows one to avoid doing work,
@@ -586,34 +587,36 @@ impl<Storage: ReadWriteHigherDb, PolyCommit: Committer> Trie<Storage, PolyCommit
 
         let stem: [u8; 31] = update_leaf.key[0..31].try_into().unwrap();
 
-        let (c_1, old_hash_c1, c_2, old_hash_c2, stem_comm, old_hash_stem_comm) =
-            match self.storage.get_stem_meta(stem) {
-                Some(comm_val) => (
-                    comm_val.c_1,
-                    comm_val.hash_c1,
-                    comm_val.c_2,
-                    comm_val.hash_c2,
-                    comm_val.stem_commitment,
-                    Some(comm_val.hash_stem_commitment),
-                ),
-                None => {
-                    // This is the first leaf for the stem, so the C1, C2 commitments will be zero
-                    // The stem commitment will be 1 * G_1 + stem * G_2
+        let (c_1, old_hash_c1, c_2, old_hash_c2, stem_comm, old_hash_stem_comm) = match self
+            .storage
+            .get_stem_meta(stem)
+        {
+            Some(comm_val) => (
+                comm_val.c_1,
+                comm_val.hash_c1,
+                comm_val.c_2,
+                comm_val.hash_c2,
+                comm_val.stem_commitment,
+                Some(comm_val.hash_stem_commitment),
+            ),
+            None => {
+                // This is the first leaf for the stem, so the C1, C2 commitments will be zero
+                // The stem commitment will be 1 * G_1 + stem * G_2
 
-                    let stem_comm = CRS[0]
-                        + self
-                            .committer
-                            .scalar_mul(Fr::from_le_bytes_mod_order(&stem), 1);
-                    (
-                        Element::zero(),
-                        group_to_field(&Element::zero()),
-                        Element::zero(),
-                        group_to_field(&Element::zero()),
-                        stem_comm,
-                        None,
-                    )
-                }
-            };
+                let stem_comm = CRS[0]
+                    + self
+                        .committer
+                        .scalar_mul(Fr::from_le_bytes_mod_order(&stem), 1);
+                (
+                    Element::zero(),
+                    group_to_field(&Element::zero()),
+                    Element::zero(),
+                    group_to_field(&Element::zero()),
+                    stem_comm,
+                    None,
+                )
+            }
+        };
 
         // Compute the delta for the stem commitment
         let (updated_c_1, new_hash_c1, updated_c_2, new_hash_c2, updated_stem_comm) =
@@ -1124,11 +1127,12 @@ mod tests {
     fn simple_rel_paths() {
         let parent = vec![0, 1, 2];
         let rel = vec![5, 6, 7];
-        let expected = vec![
-            vec![0, 1, 2, 5],
-            vec![0, 1, 2, 5, 6],
-            vec![0, 1, 2, 5, 6, 7],
-        ];
+        let expected =
+            vec![
+                vec![0, 1, 2, 5],
+                vec![0, 1, 2, 5, 6],
+                vec![0, 1, 2, 5, 6, 7],
+            ];
         let result = super::paths_from_relative(parent, rel);
 
         assert_eq!(result.len(), expected.len());

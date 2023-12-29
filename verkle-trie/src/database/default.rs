@@ -154,9 +154,7 @@ impl<S: BareMetalKVDb> ReadOnlyHigherDb for VerkleDb<S> {
         for (index, val) in children_from_batch {
             children.insert(index, val);
         }
-        children
-            .into_iter()
-            .collect()
+        children.into_iter().collect()
     }
 
     fn get_stem_children(&self, stem_key: [u8; 31]) -> Vec<(u8, [u8; 32])> {
@@ -184,9 +182,7 @@ impl<S: BareMetalKVDb> ReadOnlyHigherDb for VerkleDb<S> {
         for (index, val) in children_from_batch {
             children.insert(index, val);
         }
-        children
-            .into_iter()
-            .collect()
+        children.into_iter().collect()
     }
 }
 

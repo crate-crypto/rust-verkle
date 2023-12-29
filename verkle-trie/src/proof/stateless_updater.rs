@@ -232,12 +232,13 @@ pub(crate) fn update_root<C: Committer>(
             let stem_comm_1 = Fr::from_le_bytes_mod_order(&stem);
             let stem_comm_2 = group_to_field(&c_1);
             let stem_comm_3 = group_to_field(&c_2);
-            let stem_comm = committer.commit_sparse(vec![
-                (stem_comm_0, 0),
-                (stem_comm_1, 1),
-                (stem_comm_2, 2),
-                (stem_comm_3, 3),
-            ]);
+            let stem_comm =
+                committer.commit_sparse(vec![
+                    (stem_comm_0, 0),
+                    (stem_comm_1, 1),
+                    (stem_comm_2, 2),
+                    (stem_comm_3, 3),
+                ]);
             let hash_stem_comm = group_to_field(&stem_comm);
             updated_commitents_by_stem.insert(stem, (stem_comm, hash_stem_comm));
         }
@@ -388,106 +389,106 @@ fn build_subtree<C: Committer>(
             };
         }
 
-        let (mut child_old_value, mut child_new_value) = match current_node {
-            Node::Inner(_) => {
-                // Add a stem at the path which points to the child of the previous node
+        let (mut child_old_value, mut child_new_value) =
+            match current_node {
+                Node::Inner(_) => {
+                    // Add a stem at the path which points to the child of the previous node
 
-                tree.insert(
-                    path.clone(),
-                    Node::Stem(Stem {
-                        id: stem,
-                        commitment,
-                    }),
-                );
+                    tree.insert(
+                        path.clone(),
+                        Node::Stem(Stem {
+                            id: stem,
+                            commitment,
+                        }),
+                    );
 
-                let child_new_value = group_to_field(&commitment);
-                let child_old_value = Fr::zero();
+                    let child_new_value = group_to_field(&commitment);
+                    let child_old_value = Fr::zero();
 
-                (child_old_value, child_new_value)
-            }
-            Node::Stem(old_stem) => {
-                // assert_ne!(old_stem.id, stem);
-                // We now need to add a  bunch of new inner nodes for each index that these two stems share
-                // The current node which is a stem will be shifted down the tree, the node that was pointing to this stem will now point to an inner node
-                let mut new_inner_node = InnerNode {
-                    commitment: Element::zero(),
-                };
-                let stem_to_innernode_path = path.clone(); // Save the path of the node which was a stem and is now a inner node (currently an edge case)
-                tree.insert(path.clone(), Node::Inner(new_inner_node)); // This inner node now replaces the old_stem
-
-                while old_stem.id[depth] == stem[depth] {
-                    let index = stem[depth];
-                    depth += 1;
-                    path.push(index);
-                    new_inner_node = InnerNode {
+                    (child_old_value, child_new_value)
+                }
+                Node::Stem(old_stem) => {
+                    // assert_ne!(old_stem.id, stem);
+                    // We now need to add a  bunch of new inner nodes for each index that these two stems share
+                    // The current node which is a stem will be shifted down the tree, the node that was pointing to this stem will now point to an inner node
+                    let mut new_inner_node = InnerNode {
                         commitment: Element::zero(),
                     };
-                    tree.insert(path.clone(), Node::Inner(new_inner_node));
-                }
+                    let stem_to_innernode_path = path.clone(); // Save the path of the node which was a stem and is now a inner node (currently an edge case)
+                    tree.insert(path.clone(), Node::Inner(new_inner_node)); // This inner node now replaces the old_stem
 
-                let mut old_stem_path = path.clone();
-                let old_stem_index = old_stem.id[depth];
-                old_stem_path.push(old_stem_index);
-                tree.insert(old_stem_path, Node::Stem(old_stem));
+                    while old_stem.id[depth] == stem[depth] {
+                        let index = stem[depth];
+                        depth += 1;
+                        path.push(index);
+                        new_inner_node = InnerNode {
+                            commitment: Element::zero(),
+                        };
+                        tree.insert(path.clone(), Node::Inner(new_inner_node));
+                    }
 
-                let mut stem_path = path.clone();
-                let stem_index = stem[depth];
-                stem_path.push(stem_index);
-                tree.insert(
-                    stem_path,
-                    Node::Stem(Stem {
-                        id: stem,
-                        commitment,
-                    }),
-                );
+                    let mut old_stem_path = path.clone();
+                    let old_stem_index = old_stem.id[depth];
+                    old_stem_path.push(old_stem_index);
+                    tree.insert(old_stem_path, Node::Stem(old_stem));
 
-                // Now lets modify the bottom inner node's commitment with respects to the two new stems
-                let old_stem_child_comm = committer.scalar_mul(
-                    group_to_field(&old_stem.commitment),
-                    old_stem_index as usize,
-                );
-                let stem_child_comm =
-                    committer.scalar_mul(group_to_field(&commitment), stem_index as usize);
+                    let mut stem_path = path.clone();
+                    let stem_index = stem[depth];
+                    stem_path.push(stem_index);
+                    tree.insert(
+                        stem_path,
+                        Node::Stem(Stem {
+                            id: stem,
+                            commitment,
+                        }),
+                    );
 
-                let delta_comm = old_stem_child_comm + stem_child_comm;
-                tree.get_mut(&path).unwrap().inner_mut().commitment += delta_comm;
-                let comm = tree.get(&path).unwrap().inner().commitment;
+                    // Now lets modify the bottom inner node's commitment with respects to the two new stems
+                    let old_stem_child_comm = committer.scalar_mul(
+                        group_to_field(&old_stem.commitment),
+                        old_stem_index as usize,
+                    );
+                    let stem_child_comm =
+                        committer.scalar_mul(group_to_field(&commitment), stem_index as usize);
 
-                let mut child_new_value = group_to_field(&comm);
-                let mut child_old_value = Fr::zero(); // previous value of this bottom inner node was zero
+                    let delta_comm = old_stem_child_comm + stem_child_comm;
+                    tree.get_mut(&path).unwrap().inner_mut().commitment += delta_comm;
+                    let comm = tree.get(&path).unwrap().inner().commitment;
 
-                // Process the chain of inner nodes who only have one child which is an inner node
-                while path != stem_to_innernode_path {
+                    let mut child_new_value = group_to_field(&comm);
+                    let mut child_old_value = Fr::zero(); // previous value of this bottom inner node was zero
+
+                    // Process the chain of inner nodes who only have one child which is an inner node
+                    while path != stem_to_innernode_path {
+                        let child_index = path.pop().unwrap();
+
+                        let parent_old_comm = tree.get(&path).unwrap().inner().commitment;
+
+                        let delta = child_new_value - child_old_value;
+                        tree.get_mut(&path).unwrap().inner_mut().commitment +=
+                            committer.scalar_mul(delta, child_index as usize);
+
+                        child_old_value = group_to_field(&parent_old_comm);
+                        child_new_value =
+                            group_to_field(&tree.get(&path).unwrap().inner().commitment);
+                    }
+
+                    // Now process the node which was previously a stem and is now an inner node
+                    child_old_value = group_to_field(&old_stem.commitment);
                     let child_index = path.pop().unwrap();
-
-                    let parent_old_comm = tree.get(&path).unwrap().inner().commitment;
-
                     let delta = child_new_value - child_old_value;
+                    let parent_old_comm = tree[&path].inner().commitment;
                     tree.get_mut(&path).unwrap().inner_mut().commitment +=
                         committer.scalar_mul(delta, child_index as usize);
 
                     child_old_value = group_to_field(&parent_old_comm);
                     child_new_value = group_to_field(&tree.get(&path).unwrap().inner().commitment);
+
+                    (child_old_value, child_new_value)
                 }
-
-                // Now process the node which was previously a stem and is now an inner node
-                child_old_value = group_to_field(&old_stem.commitment);
-                let child_index = path.pop().unwrap();
-                let delta = child_new_value - child_old_value;
-                let parent_old_comm = tree[&path].inner().commitment;
-                tree.get_mut(&path).unwrap().inner_mut().commitment +=
-                    committer.scalar_mul(delta, child_index as usize);
-
-                child_old_value = group_to_field(&parent_old_comm);
-                child_new_value = group_to_field(&tree.get(&path).unwrap().inner().commitment);
-
-                (child_old_value, child_new_value)
-            }
-        };
+            };
 
         while let Some(child_index) = path.pop() {
-            
-
             let parent_old_comm = tree.get(&path).unwrap().inner().commitment;
 
             let delta = child_new_value - child_old_value;
@@ -538,7 +539,7 @@ impl SparseVerkleTree {
             // If we have never updated the parent node before,
             // then it will be the old commitment
             // If we have then it will be in updated commitments
-            
+
             let parent_comm = self.updated_commitments_by_path.get(&prefix);
             let old_parent_comm = match parent_comm {
                 Some(comm) => *comm,

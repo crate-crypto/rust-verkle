@@ -188,9 +188,9 @@ impl VerkleProof {
 
         let mut comms_sorted = Vec::new();
         for _ in 0..num_comms {
-            let point: Element = CanonicalDeserialize::deserialize(&mut reader).map_err(|_| {
-                HintError::from(std::io::Error::from(std::io::ErrorKind::InvalidData))
-            })?;
+            let point: Element = CanonicalDeserialize::deserialize(&mut reader).map_err(
+                |_| HintError::from(std::io::Error::from(std::io::ErrorKind::InvalidData))
+            )?;
             comms_sorted.push(point);
         }
 
@@ -214,9 +214,9 @@ impl VerkleProof {
 
         for comm in &self.comms_sorted {
             let mut comm_serialised = [0u8; 32];
-            comm.serialize(&mut comm_serialised[..]).map_err(|_| {
-                HintError::from(std::io::Error::from(std::io::ErrorKind::InvalidInput))
-            })?;
+            comm.serialize(&mut comm_serialised[..]).map_err(
+                |_| HintError::from(std::io::Error::from(std::io::ErrorKind::InvalidInput))
+            )?;
             writer.write_all(&comm_serialised)?;
         }
 
@@ -258,13 +258,15 @@ impl std::fmt::Display for VerkleProof {
         writeln!(f, "Verkle proof:")?;
         writeln!(f, " * verification hints: {}", self.verification_hint)?;
         write!(f, " * commitments: ")?;
-        for comm in self.comms_sorted.iter().map(|comm| {
-            let mut comm_serialised = [0u8; 32];
-            match comm.serialize(&mut comm_serialised[..]) {
-                Err(_) => Err(std::fmt::Result::Err(std::fmt::Error)),
-                Ok(_) => Ok(hex::encode(comm_serialised)),
-            }
-        }) {
+        for comm in
+            self.comms_sorted.iter().map(|comm| {
+                let mut comm_serialised = [0u8; 32];
+                match comm.serialize(&mut comm_serialised[..]) {
+                    Err(_) => Err(std::fmt::Result::Err(std::fmt::Error)),
+                    Ok(_) => Ok(hex::encode(comm_serialised)),
+                }
+            })
+        {
             let output = match comm {
                 Err(_) => return Err(std::fmt::Error),
                 Ok(v) => v,

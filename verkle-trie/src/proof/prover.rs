@@ -87,9 +87,7 @@ pub(super) fn create_prover_queries<Storage: ReadOnlyHigherDb>(
 
     // Values to help the verifier reconstruct the trie and verify the proof
     let depths: Vec<_> = depths_by_stem.into_values().collect();
-    let extension_present: Vec<_> = extension_present_by_stem
-        .into_values()
-        .collect();
+    let extension_present: Vec<_> = extension_present_by_stem.into_values().collect();
 
     (
         queries,

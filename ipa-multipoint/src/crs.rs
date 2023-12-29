@@ -47,7 +47,6 @@ impl std::ops::Index<usize> for CRS {
 }
 
 fn generate_random_elements(num_required_points: usize, seed: &'static [u8]) -> Vec<Element> {
-    
     use ark_ff::PrimeField;
     use bandersnatch::Fq;
     use sha2::{Digest, Sha256};
@@ -86,7 +85,7 @@ fn crs_consistency() {
     // TODO is a bit different
     // See: https://hackmd.io/1RcGSMQgT4uREaq1CCx_cg#Methodology
     use ark_serialize::CanonicalSerialize;
-    
+
     use sha2::{Digest, Sha256};
 
     let points = generate_random_elements(256, b"eth_verkle_oct_2021");

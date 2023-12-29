@@ -34,9 +34,7 @@ impl Mul<Fr> for LagrangeBasis {
     type Output = LagrangeBasis;
 
     fn mul(mut self, rhs: Fr) -> Self::Output {
-        self.values
-            .iter_mut()
-            .for_each(|values| *values *= rhs);
+        self.values.iter_mut().for_each(|values| *values *= rhs);
         self
     }
 }
@@ -44,9 +42,7 @@ impl Sub<&Fr> for LagrangeBasis {
     type Output = LagrangeBasis;
 
     fn sub(mut self, rhs: &Fr) -> Self::Output {
-        self.values
-            .iter_mut()
-            .for_each(|values| *values -= rhs);
+        self.values.iter_mut().for_each(|values| *values -= rhs);
         self
     }
 }
@@ -262,7 +258,7 @@ impl LagrangeBasis {
 #[test]
 fn basic_interpolation() {
     use ark_poly::Polynomial;
-    
+
     let p1 = Fr::from(8u128);
     let p2 = Fr::from(2u128);
     let lag_poly = LagrangeBasis::new(vec![p1, p2]);

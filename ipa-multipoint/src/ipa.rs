@@ -413,11 +413,11 @@ mod tests {
     use super::*;
     use crate::crs::CRS;
     use crate::math_utils::{inner_product, powers_of};
-    
+
     use ark_std::rand::SeedableRng;
     use ark_std::UniformRand;
     use rand_chacha::ChaCha20Rng;
-    
+
     #[test]
     fn test_create_IPAProof_proof() {
         let n = 8;
