@@ -87,7 +87,7 @@ mod tests {
     #[test]
     fn test_vector_2() {
         let mut tr = Transcript::new(b"simple_protocol");
-        let five = Fr::from(5 as u128);
+        let five = Fr::from(5_u128);
 
         tr.append_scalar(b"five", &five);
         tr.append_scalar(b"five again", &five);
@@ -102,7 +102,7 @@ mod tests {
     #[test]
     fn test_vector_3() {
         let mut tr = Transcript::new(b"simple_protocol");
-        let one = Fr::from(1 as u128);
+        let one = Fr::from(1_u128);
         let minus_one = -one;
 
         tr.append_scalar(b"-1", &minus_one);

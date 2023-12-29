@@ -47,20 +47,19 @@ impl std::ops::Index<usize> for CRS {
 }
 
 fn generate_random_elements(num_required_points: usize, seed: &'static [u8]) -> Vec<Element> {
-    use ark_ec::group::Group;
+    
     use ark_ff::PrimeField;
     use bandersnatch::Fq;
     use sha2::{Digest, Sha256};
 
-    let choose_largest = false;
+    let _choose_largest = false;
 
     (0u64..)
-        .into_iter()
         // Hash the seed + i to get a possible x value
         .map(|i| {
             let mut hasher = Sha256::new();
             hasher.update(seed);
-            hasher.update(&i.to_be_bytes());
+            hasher.update(i.to_be_bytes());
             let bytes: Vec<u8> = hasher.finalize().to_vec();
             bytes
         })
@@ -76,8 +75,7 @@ fn generate_random_elements(num_required_points: usize, seed: &'static [u8]) -> 
             bytes
         })
         // Deserialise the x-cordinate to get a valid banderwagon element
-        .map(|bytes| Element::from_bytes(&bytes))
-        .filter_map(|point| point)
+        .filter_map(|bytes| Element::from_bytes(&bytes))
         .take(num_required_points)
         .collect()
 }
@@ -88,7 +86,7 @@ fn crs_consistency() {
     // TODO is a bit different
     // See: https://hackmd.io/1RcGSMQgT4uREaq1CCx_cg#Methodology
     use ark_serialize::CanonicalSerialize;
-    use bandersnatch::Fq;
+    
     use sha2::{Digest, Sha256};
 
     let points = generate_random_elements(256, b"eth_verkle_oct_2021");
@@ -96,14 +94,14 @@ fn crs_consistency() {
     let mut bytes = [0u8; 32];
     points[0].serialize(&mut bytes[..]).unwrap();
     assert_eq!(
-        hex::encode(&bytes),
+        hex::encode(bytes),
         "01587ad1336675eb912550ec2a28eb8923b824b490dd2ba82e48f14590a298a0",
         "the first point is incorrect"
     );
     let mut bytes = [0u8; 32];
     points[255].serialize(&mut bytes[..]).unwrap();
     assert_eq!(
-        hex::encode(&bytes),
+        hex::encode(bytes),
         "3de2be346b539395b0c0de56a5ccca54a317f1b5c80107b0802af9a62276a4d8",
         "the 256th (last) point is incorrect"
     );
@@ -112,11 +110,11 @@ fn crs_consistency() {
     for point in &points {
         let mut bytes = [0u8; 32];
         point.serialize(&mut bytes[..]).unwrap();
-        hasher.update(&bytes);
+        hasher.update(bytes);
     }
     let bytes = hasher.finalize().to_vec();
     assert_eq!(
-        hex::encode(&bytes),
+        hex::encode(bytes),
         "1fcaea10bf24f750200e06fa473c76ff0468007291fa548e2d99f09ba9256fdb",
         "unexpected point encountered"
     );

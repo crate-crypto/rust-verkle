@@ -104,7 +104,7 @@ pub(crate) fn update_root<C: Committer>(
         let prefix = stem[0..depth as usize].to_vec();
         updated_stems_by_prefix
             .entry(prefix.clone())
-            .or_insert_with(HashSet::new)
+            .or_default()
             .insert(stem);
 
         if ext_pres == ExtPresent::Present {
@@ -189,7 +189,7 @@ pub(crate) fn update_root<C: Committer>(
             let other_stem = hint.other_stems_by_prefix[&prefix];
             updated_stems_by_prefix
                 .entry(prefix)
-                .or_insert_with(HashSet::new)
+                .or_default()
                 .insert(other_stem);
 
             // Since this stem was not present in the trie, we need to make its initial stem commitment
@@ -485,8 +485,8 @@ fn build_subtree<C: Committer>(
             }
         };
 
-        while !path.is_empty() {
-            let child_index = path.pop().unwrap();
+        while let Some(child_index) = path.pop() {
+            
 
             let parent_old_comm = tree.get(&path).unwrap().inner().commitment;
 
@@ -533,12 +533,12 @@ impl SparseVerkleTree {
 
         // Now lets fetch the parent node's commitment and recursively update each parent
 
-        while !prefix.is_empty() {
+        while let Some(child_index) = prefix.pop() {
             // Safety: Fine unwrap because we've checked prefix isn't empty
             // If we have never updated the parent node before,
             // then it will be the old commitment
             // If we have then it will be in updated commitments
-            let child_index = prefix.pop().unwrap();
+            
             let parent_comm = self.updated_commitments_by_path.get(&prefix);
             let old_parent_comm = match parent_comm {
                 Some(comm) => *comm,
@@ -611,7 +611,7 @@ mod test {
             values,
             vec![Some([0u8; 32]), None],
             meta.commitment,
-            TestCommitter::default(),
+            TestCommitter,
         );
 
         let mut got_bytes = [0u8; 32];
@@ -658,7 +658,7 @@ mod test {
             values,
             updated_values,
             meta.commitment,
-            TestCommitter::default(),
+            TestCommitter,
         );
 
         let mut got_bytes = [0u8; 32];
@@ -710,7 +710,7 @@ mod test {
             values,
             updated_values,
             meta.commitment,
-            TestCommitter::default(),
+            TestCommitter,
         );
 
         let mut got_bytes = [0u8; 32];

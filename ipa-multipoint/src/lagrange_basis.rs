@@ -1,5 +1,5 @@
 use ark_ff::{batch_inversion, batch_inversion_and_mul, Field, One, Zero};
-use ark_poly::{univariate::DensePolynomial, Polynomial, UVPolynomial};
+use ark_poly::{univariate::DensePolynomial, UVPolynomial};
 use bandersnatch::Fr;
 use std::{
     convert::TryFrom,
@@ -25,8 +25,8 @@ impl Add<LagrangeBasis> for LagrangeBasis {
         }
         self.values
             .iter_mut()
-            .zip(rhs.values.into_iter())
-            .for_each(|(lhs, rhs)| *lhs = *lhs + rhs);
+            .zip(rhs.values)
+            .for_each(|(lhs, rhs)| *lhs += rhs);
         self
     }
 }
@@ -36,7 +36,7 @@ impl Mul<Fr> for LagrangeBasis {
     fn mul(mut self, rhs: Fr) -> Self::Output {
         self.values
             .iter_mut()
-            .for_each(|values| *values = *values * rhs);
+            .for_each(|values| *values *= rhs);
         self
     }
 }
@@ -46,7 +46,7 @@ impl Sub<&Fr> for LagrangeBasis {
     fn sub(mut self, rhs: &Fr) -> Self::Output {
         self.values
             .iter_mut()
-            .for_each(|values| *values = *values - rhs);
+            .for_each(|values| *values -= rhs);
         self
     }
 }
@@ -261,6 +261,8 @@ impl LagrangeBasis {
 
 #[test]
 fn basic_interpolation() {
+    use ark_poly::Polynomial;
+    
     let p1 = Fr::from(8u128);
     let p2 = Fr::from(2u128);
     let lag_poly = LagrangeBasis::new(vec![p1, p2]);
@@ -276,6 +278,8 @@ fn basic_interpolation() {
 
 #[test]
 fn simple_eval_outside_domain() {
+    use ark_poly::Polynomial;
+
     let numerator_lag =
         LagrangeBasis::new(vec![-Fr::from(2), Fr::from(0), Fr::from(12), Fr::from(40)]);
     let numerator_coeff = numerator_lag.interpolate();

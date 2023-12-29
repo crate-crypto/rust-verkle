@@ -188,7 +188,6 @@ pub fn create_verifier_queries(
     let commitments_by_path: BTreeMap<Vec<_>, Element> = all_paths
         .into_iter()
         .zip(commitments_sorted_by_path)
-        .map(|(path, comm)| (path, comm))
         .collect();
     let commitment_by_path_and_z: BTreeMap<_, _> = all_paths_and_zs
         .iter()

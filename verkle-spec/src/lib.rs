@@ -38,7 +38,7 @@ pub fn hash64(bytes64: [u8; 64]) -> H256 {
         Element,
     };
 
-    let committer = TestCommitter::default();
+    let committer = TestCommitter;
     let mut result = Element::zero();
 
     let inputs = crate::util::chunk64(bytes64);

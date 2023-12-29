@@ -1,6 +1,7 @@
 [workspace]
 
 members = ["verkle-db", "verkle-trie", "verkle-spec", "ipa-multipoint"]
+resolver = "2"
 
 [profile.bench]
 debug = true

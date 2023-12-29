@@ -2,20 +2,20 @@
 #![allow(non_snake_case)]
 
 use crate::crs::CRS;
-use crate::ipa::{self, slow_vartime_multiscalar_mul, IPAProof};
+use crate::ipa::{slow_vartime_multiscalar_mul, IPAProof};
 use crate::lagrange_basis::{LagrangeBasis, PrecomputedWeights};
-use crate::math_utils::inner_product;
+
 use crate::math_utils::powers_of;
 use crate::transcript::Transcript;
 use crate::transcript::TranscriptProtocol;
-use ark_ec::{AffineCurve, ProjectiveCurve};
-use ark_ff::PrimeField;
-use ark_ff::{batch_inversion, Field};
-use ark_ff::{One, Zero};
-use ark_poly::{Polynomial, UVPolynomial};
+
+
+use ark_ff::{batch_inversion};
+use ark_ff::{Zero};
+
 use std::collections::HashMap;
 
-use banderwagon::{multi_scalar_mul, Element, Fr};
+use banderwagon::{Element, Fr};
 pub struct MultiPoint;
 
 #[derive(Clone, Debug)]
@@ -132,7 +132,7 @@ impl MultiPoint {
 
         let g1_x = aggregated_queries
             .into_iter()
-            .zip(g1_den.into_iter())
+            .zip(g1_den)
             .map(|((_, agg_f_x), den_inv)| {
                 let term: Vec<_> = agg_f_x
                     .values()
@@ -160,7 +160,7 @@ impl MultiPoint {
 
         MultiPointProof {
             open_proof: g_3_ipa,
-            g_x_comm: g_x_comm,
+            g_x_comm,
         }
     }
 }
@@ -235,7 +235,7 @@ impl MultiPointProof {
 
         let helper_scalars: Vec<_> = powers_of_r
             .iter()
-            .zip(g2_den.into_iter())
+            .zip(g2_den)
             .map(|(r_i, den_inv)| den_inv * r_i)
             .collect();
 
@@ -246,7 +246,7 @@ impl MultiPointProof {
             .sum();
 
         //4. Compute [g_1(X)] = E
-        let comms: Vec<_> = queries.into_iter().map(|query| query.commitment).collect();
+        let comms: Vec<_> = queries.iter().map(|query| query.commitment).collect();
         let g1_comm = slow_vartime_multiscalar_mul(helper_scalars.iter(), comms.iter());
 
         transcript.append_point(b"E", &g1_comm);
@@ -255,7 +255,7 @@ impl MultiPointProof {
         let g3_comm = g1_comm - self.g_x_comm;
 
         // Check IPA
-        let b = LagrangeBasis::evaluate_lagrange_coefficients(&precomp, crs.n, t); // TODO: we could put this as a method on PrecomputedWeights
+        let b = LagrangeBasis::evaluate_lagrange_coefficients(precomp, crs.n, t); // TODO: we could put this as a method on PrecomputedWeights
 
         self.open_proof
             .verify_multiexp(transcript, crs, b, g3_comm, t, g2_t)
@@ -280,6 +280,8 @@ pub(crate) fn open_point_outside_of_domain(
 
 #[test]
 fn open_multiproof_lagrange() {
+    use ark_std::One;
+
     let poly = LagrangeBasis::new(vec![
         Fr::one(),
         Fr::from(10u128),
@@ -318,6 +320,8 @@ fn open_multiproof_lagrange() {
 
 #[test]
 fn open_multiproof_lagrange_2_polys() {
+    use ark_std::One;
+
     let poly = LagrangeBasis::new(vec![
         Fr::one(),
         Fr::from(10u128),
@@ -342,7 +346,7 @@ fn open_multiproof_lagrange_2_polys() {
     };
     let prover_query_j = ProverQuery {
         commitment: poly_comm,
-        poly: poly,
+        poly,
         point: x_j,
         result: y_j,
     };
@@ -369,11 +373,12 @@ fn open_multiproof_lagrange_2_polys() {
 }
 #[test]
 fn test_ipa_consistency() {
+    use crate::math_utils::inner_product;
     use ark_serialize::CanonicalSerialize;
     let n = 256;
     let crs = CRS::new(n, b"eth_verkle_oct_2021");
     let precomp = PrecomputedWeights::new(n);
-    let input_point = Fr::from(2101 as u128);
+    let input_point = Fr::from(2101_u128);
 
     let poly: Vec<Fr> = (0..n).map(|i| Fr::from(((i % 32) + 1) as u128)).collect();
     let polynomial = LagrangeBasis::new(poly.clone());
@@ -398,7 +403,7 @@ fn test_ipa_consistency() {
     let mut bytes = [0u8; 32];
     p_challenge.serialize(&mut bytes[..]).unwrap();
     assert_eq!(
-        hex::encode(&bytes),
+        hex::encode(bytes),
         "0a81881cbfd7d7197a54ebd67ed6a68b5867f3c783706675b34ece43e85e7306"
     );
 
@@ -437,6 +442,8 @@ fn test_ipa_consistency() {
 
 #[test]
 fn multiproof_consistency() {
+    use ark_std::One;
+
     use ark_serialize::CanonicalSerialize;
     let n = 256;
     let crs = CRS::new(n, b"eth_verkle_oct_2021");
@@ -456,7 +463,7 @@ fn multiproof_consistency() {
     let y_a = Fr::one();
 
     let point_b = 0;
-    let y_b = Fr::from(32 as u128);
+    let y_b = Fr::from(32_u128);
 
     let poly_comm_a = crs.commit_lagrange_poly(&polynomial_a);
     let poly_comm_b = crs.commit_lagrange_poly(&polynomial_b);
@@ -486,7 +493,7 @@ fn multiproof_consistency() {
     let mut bytes = [0u8; 32];
     p_challenge.serialize(&mut bytes[..]).unwrap();
     assert_eq!(
-        hex::encode(&bytes),
+        hex::encode(bytes),
         "eee8a80357ff74b766eba39db90797d022e8d6dee426ded71234241be504d519"
     );
 

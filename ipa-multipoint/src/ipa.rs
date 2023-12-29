@@ -114,7 +114,7 @@ pub fn create(
     let mut L_vec: Vec<Element> = Vec::with_capacity(num_rounds as usize);
     let mut R_vec: Vec<Element> = Vec::with_capacity(num_rounds as usize);
 
-    for k in 0..num_rounds {
+    for _k in 0..num_rounds {
         let (a_L, a_R) = halve(a);
         let (b_L, b_R) = halve(b);
         let (G_L, G_R) = halve(G);
@@ -140,9 +140,9 @@ pub fn create(
         let x = transcript.challenge_scalar(b"x");
         let x_inv = x.inverse().unwrap();
         for i in 0..a_L.len() {
-            a_L[i] = a_L[i] + x * a_R[i];
-            b_L[i] = b_L[i] + x_inv * b_R[i];
-            G_L[i] = G_L[i] + G_R[i] * x_inv;
+            a_L[i] += x * a_R[i];
+            b_L[i] += x_inv * b_R[i];
+            G_L[i] += G_R[i] * x_inv;
         }
 
         a = a_L;
@@ -221,8 +221,8 @@ impl IPAProof {
             let (b_L, b_R) = halve(b);
 
             for i in 0..G_L.len() {
-                G_L[i] = G_L[i] + G_R[i] * *x_inv;
-                b_L[i] = b_L[i] + b_R[i] * x_inv;
+                G_L[i] += G_R[i] * *x_inv;
+                b_L[i] += b_R[i] * x_inv;
             }
             G = G_L;
             b = b_L;
@@ -413,11 +413,11 @@ mod tests {
     use super::*;
     use crate::crs::CRS;
     use crate::math_utils::{inner_product, powers_of};
-    use ark_std::rand;
+    
     use ark_std::rand::SeedableRng;
     use ark_std::UniformRand;
     use rand_chacha::ChaCha20Rng;
-    use std::iter;
+    
     #[test]
     fn test_create_IPAProof_proof() {
         let n = 8;

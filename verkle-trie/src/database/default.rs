@@ -144,7 +144,6 @@ impl<S: BareMetalKVDb> ReadOnlyHigherDb for VerkleDb<S> {
             .storage
             .get_branch_children(branch_id)
             .into_iter()
-            .map(|(index, val)| (index, val))
             .collect();
         //
         // Then get the children from the batch
@@ -157,7 +156,6 @@ impl<S: BareMetalKVDb> ReadOnlyHigherDb for VerkleDb<S> {
         }
         children
             .into_iter()
-            .map(|(index, val)| (index, val))
             .collect()
     }
 
@@ -176,7 +174,6 @@ impl<S: BareMetalKVDb> ReadOnlyHigherDb for VerkleDb<S> {
             .storage
             .get_stem_children(stem_key)
             .into_iter()
-            .map(|(index, val)| (index, val))
             .collect();
         //
         // Then get the children from the batch
@@ -189,7 +186,6 @@ impl<S: BareMetalKVDb> ReadOnlyHigherDb for VerkleDb<S> {
         }
         children
             .into_iter()
-            .map(|(index, val)| (index, val))
             .collect()
     }
 }

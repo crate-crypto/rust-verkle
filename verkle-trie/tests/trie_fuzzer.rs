@@ -1,23 +1,26 @@
+use std::sync::Mutex;
+
 use once_cell::sync::Lazy;
 use verkle_trie::{
     committer::precompute::PrecomputeLagrange, database::memory_db::MemoryDb, Trie, TrieTrait,
     VerkleConfig,
 };
-pub static CONFIG: Lazy<VerkleConfig<MemoryDb>> = Lazy::new(|| {
-    match VerkleConfig::new(MemoryDb::new()) {
+
+pub static CONFIG: Lazy<Mutex<VerkleConfig<MemoryDb>>> = Lazy::new(|| {
+    Mutex::new(match VerkleConfig::new(MemoryDb::new()) {
         Ok(config) => config,
         Err(_) => {
             // An error means that the file was already created
             // Lets call open instead
             VerkleConfig::open(MemoryDb::new()).expect("should be infallible")
         }
-    }
+    })
 });
 
 #[test]
 fn test_vector_insert_100_step() {
     let mut prng = BasicPRNG::default();
-    let mut trie = Trie::new(CONFIG.clone());
+    let mut trie = Trie::new(CONFIG.lock().unwrap().clone());
     let batch_size = 100;
     // N = 100
     step_test_helper(
@@ -60,7 +63,7 @@ fn test_vector_insert_100_step() {
 #[test]
 fn test_vector_insert_1000_step() {
     let mut prng = BasicPRNG::default();
-    let mut trie = Trie::new(CONFIG.clone());
+    let mut trie = Trie::new(CONFIG.lock().unwrap().clone());
     let batch_size = 1_000;
 
     // N = 1_000

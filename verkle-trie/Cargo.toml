@@ -25,7 +25,7 @@ sha2 = "0.9.3"
 itertools = "0.10.1"
 
 [dev-dependencies]
-criterion = "0.3.4"
+criterion = "0.5.1"
 tempfile = "3.2.0"
 
 [[bench]]
