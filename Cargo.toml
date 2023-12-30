@@ -1,6 +1,12 @@
 [workspace]
 
-members = ["verkle-db", "verkle-trie", "verkle-spec", "ipa-multipoint"]
+members = [
+    "verkle-db",
+    "verkle-trie",
+    "verkle-spec",
+    "ipa-multipoint",
+    "banderwagon",
+]
 resolver = "2"
 
 [profile.bench]
