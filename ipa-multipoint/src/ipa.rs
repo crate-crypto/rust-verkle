@@ -38,21 +38,21 @@ impl IPAProof {
 
         for _ in 0..num_points {
             let chunk = chunks.next().unwrap();
-            let point: Element = CanonicalDeserialize::deserialize(chunk)
-                .map_err(|_| IOError::from(IOErrorKind::InvalidData))?;
+            let point: Element =
+                Element::from_bytes(chunk).ok_or(IOError::from(IOErrorKind::InvalidData))?;
             L_vec.push(point)
         }
 
         for _ in 0..num_points {
             let chunk = chunks.next().unwrap();
-            let point: Element = CanonicalDeserialize::deserialize(chunk)
-                .map_err(|_| IOError::from(IOErrorKind::InvalidData))?;
+            let point: Element =
+                Element::from_bytes(chunk).ok_or(IOError::from(IOErrorKind::InvalidData))?;
             R_vec.push(point)
         }
 
         let last_32_bytes = chunks.next().unwrap();
 
-        let a: Fr = CanonicalDeserialize::deserialize(last_32_bytes)
+        let a: Fr = CanonicalDeserialize::deserialize_compressed(last_32_bytes)
             .map_err(|_| IOError::from(IOErrorKind::InvalidData))?;
 
         Ok(IPAProof { L_vec, R_vec, a })
@@ -60,16 +60,17 @@ impl IPAProof {
     pub fn to_bytes(&self) -> IOResult<Vec<u8>> {
         // We do not serialise the length. We assume that the deserialiser knows this.
         let mut bytes = Vec::with_capacity(self.serialised_size());
+
         for L in &self.L_vec {
-            L.serialize(&mut bytes)
-                .map_err(|_| IOError::from(IOErrorKind::InvalidData))?;
+            bytes.extend(L.to_bytes());
         }
+
         for R in &self.R_vec {
-            R.serialize(&mut bytes)
-                .map_err(|_| IOError::from(IOErrorKind::InvalidData))?;
+            bytes.extend(R.to_bytes());
         }
+
         self.a
-            .serialize(&mut bytes)
+            .serialize_compressed(&mut bytes)
             .map_err(|_| IOError::from(IOErrorKind::InvalidData))?;
         Ok(bytes)
     }

@@ -1,6 +1,7 @@
+use ark_ed_on_bls12_381_bandersnatch::Fr;
 use ark_ff::{batch_inversion, batch_inversion_and_mul, Field, One, Zero};
-use ark_poly::{univariate::DensePolynomial, UVPolynomial};
-use bandersnatch::Fr;
+use ark_poly::univariate::DensePolynomial;
+use ark_poly::DenseUVPolynomial;
 use std::{
     convert::TryFrom,
     ops::{Add, Mul, Sub},

@@ -49,13 +49,13 @@ impl TranscriptProtocol for Transcript {
 
     fn append_point(&mut self, label: &'static [u8], point: &Element) {
         let mut bytes = [0u8; 32];
-        point.serialize(&mut bytes[..]).unwrap();
+        point.serialize_compressed(&mut bytes[..]).unwrap();
         self.append_message(&bytes, label)
     }
 
     fn append_scalar(&mut self, label: &'static [u8], scalar: &Fr) {
         let mut bytes = [0u8; 32];
-        scalar.serialize(&mut bytes[..]).unwrap();
+        scalar.serialize_compressed(&mut bytes[..]).unwrap();
         self.append_message(&bytes, label)
     }
 
@@ -120,7 +120,6 @@ mod tests {
     }
     #[test]
     fn test_vector_4() {
-        use ark_ec::ProjectiveCurve;
         let mut tr = Transcript::new(b"simple_protocol");
         let generator = Element::prime_subgroup_generator();
 
@@ -136,7 +135,7 @@ mod tests {
 
     fn scalar_to_hex(s: &Fr) -> String {
         let mut bytes = [0u8; 32];
-        s.serialize(&mut bytes[..]).unwrap();
+        s.serialize_compressed(&mut bytes[..]).unwrap();
         hex::encode(bytes)
     }
 }

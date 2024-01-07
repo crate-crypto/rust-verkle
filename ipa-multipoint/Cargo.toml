@@ -9,17 +9,17 @@ edition = "2018"
 [dependencies]
 rand = "0.6"
 criterion = "0.5.1"
-bandersnatch = "0.1.1"
-ark-ff = { version = "^0.3.0", default-features = false }
-ark-ec = { version = "^0.3.0", default-features = false }
-ark-std = { version = "^0.3.0", default-features = false }
-ark-serialize = { version = "^0.3.0", default-features = false }
-ark-poly = { version = "^0.3.0", default-features = false }
+ark-ed-on-bls12-381-bandersnatch = "0.4.0"
+ark-ff = { version = "^0.4.2", default-features = false }
+ark-ec = { version = "^0.4.2", default-features = false }
+ark-std = { version = "^0.4.0", default-features = false }
+ark-serialize = { version = "^0.4.2", default-features = false }
+ark-poly = { version = "^0.4.2", default-features = false }
 rand_chacha = { version = "0.3.0", default-features = false }
 itertools = "0.10.1"
 sha2 = "0.9.8"
 hex = "0.4.3"
-banderwagon = { git = "https://github.com/crate-crypto/banderwagon" }
+banderwagon = { path = "../banderwagon" }
 
 [[bench]]
 name = "benchmark_main"

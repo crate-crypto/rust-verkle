@@ -172,13 +172,11 @@ pub struct MultiPointProof {
 impl MultiPointProof {
     pub fn from_bytes(bytes: &[u8], poly_degree: usize) -> crate::IOResult<MultiPointProof> {
         use crate::{IOError, IOErrorKind};
-        use ark_serialize::CanonicalDeserialize;
 
         let g_x_comm_bytes = &bytes[0..32];
         let ipa_bytes = &bytes[32..]; // TODO: we should return a Result here incase the user gives us bad bytes
-
-        let point: Element = CanonicalDeserialize::deserialize(g_x_comm_bytes)
-            .map_err(|_| IOError::from(IOErrorKind::InvalidData))?;
+        let point: Element =
+            Element::from_bytes(g_x_comm_bytes).ok_or(IOError::from(IOErrorKind::InvalidData))?;
         let g_x_comm = point;
 
         let open_proof = IPAProof::from_bytes(ipa_bytes, poly_degree)?;
@@ -192,10 +190,7 @@ impl MultiPointProof {
         use ark_serialize::CanonicalSerialize;
 
         let mut bytes = Vec::with_capacity(self.open_proof.serialised_size() + 32);
-
-        self.g_x_comm
-            .serialize(&mut bytes)
-            .map_err(|_| IOError::from(IOErrorKind::InvalidData))?;
+        bytes.extend(self.g_x_comm.to_bytes());
 
         bytes.extend(self.open_proof.to_bytes()?);
         Ok(bytes)
@@ -402,7 +397,7 @@ fn test_ipa_consistency() {
 
     let p_challenge = prover_transcript.challenge_scalar(b"state");
     let mut bytes = [0u8; 32];
-    p_challenge.serialize(&mut bytes[..]).unwrap();
+    p_challenge.serialize_compressed(&mut bytes[..]).unwrap();
     assert_eq!(
         hex::encode(bytes),
         "0a81881cbfd7d7197a54ebd67ed6a68b5867f3c783706675b34ece43e85e7306"
@@ -412,7 +407,7 @@ fn test_ipa_consistency() {
     let b = LagrangeBasis::evaluate_lagrange_coefficients(&precomp, crs.n, input_point);
     let output_point = inner_product(&poly, &b);
     let mut bytes = [0u8; 32];
-    output_point.serialize(&mut bytes[..]).unwrap();
+    output_point.serialize_compressed(&mut bytes[..]).unwrap();
     assert_eq!(
         hex::encode(bytes),
         "4a353e70b03c89f161de002e8713beec0d740a5e20722fd5bd68b30540a33208"
@@ -494,7 +489,7 @@ fn multiproof_consistency() {
 
     let p_challenge = prover_transcript.challenge_scalar(b"state");
     let mut bytes = [0u8; 32];
-    p_challenge.serialize(&mut bytes[..]).unwrap();
+    p_challenge.serialize_compressed(&mut bytes[..]).unwrap();
     assert_eq!(
         hex::encode(bytes),
         "eee8a80357ff74b766eba39db90797d022e8d6dee426ded71234241be504d519"
