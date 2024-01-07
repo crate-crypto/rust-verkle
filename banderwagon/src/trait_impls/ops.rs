@@ -1,7 +1,5 @@
 use crate::Element;
-use ark_ec::ProjectiveCurve;
-use ark_ff::PrimeField;
-use bandersnatch::Fr;
+use ark_ed_on_bls12_381_bandersnatch::Fr;
 
 use std::{
     hash::Hash,
@@ -13,14 +11,14 @@ impl Mul<Fr> for Element {
     type Output = Element;
 
     fn mul(self, rhs: Fr) -> Self::Output {
-        Element(self.0.mul(rhs.into_repr()))
+        Element(self.0.mul(rhs))
     }
 }
 impl Mul<&Fr> for &Element {
     type Output = Element;
 
     fn mul(self, rhs: &Fr) -> Self::Output {
-        Element(self.0.mul(rhs.into_repr()))
+        Element(self.0.mul(rhs))
     }
 }
 impl Add<Element> for Element {
