@@ -1,7 +1,9 @@
-use ark_ec::{msm::VariableBaseMSM, ProjectiveCurve, TEModelParameters};
-use ark_ff::{Field, One, PrimeField, SquareRootField, Zero};
+use ark_ec::{twisted_edwards::TECurveConfig, Group, ScalarMul, VariableBaseMSM};
+use ark_ed_on_bls12_381_bandersnatch::{BandersnatchConfig, EdwardsAffine, EdwardsProjective, Fq};
+use ark_ff::{Field, One, Zero};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
-use bandersnatch::{BandersnatchParameters, EdwardsAffine, EdwardsProjective, Fq, Fr};
+
+pub use ark_ed_on_bls12_381_bandersnatch::Fr;
 
 #[derive(Debug, Clone, Copy, Eq)]
 pub struct Element(pub(crate) EdwardsProjective);
@@ -30,26 +32,21 @@ impl Element {
     pub fn to_bytes(&self) -> [u8; 32] {
         // We assume that internally this point is "correct"
         //
-        // We serialise a correct point by serialising the x co-ordinate times sign(y)
-        let affine = self.0.into_affine();
+        // We serialize a correct point by serializing the x co-ordinate times sign(y)
+        let affine = EdwardsAffine::from(self.0);
         let x = if is_positive(affine.y) {
             affine.x
         } else {
             -affine.x
         };
         let mut bytes = [0u8; 32];
-        x.serialize(&mut bytes[..]).expect("serialisation failed");
+        x.serialize_compressed(&mut bytes[..])
+            .expect("serialization failed");
 
-        // reverse bytes to big endian, for interopability
+        // reverse bytes to big endian, for interoperability
         bytes.reverse();
 
         bytes
-    }
-    pub const fn compressed_serialised_size() -> usize {
-        32
-    }
-    pub fn prime_subgroup_generator() -> Element {
-        Element(EdwardsProjective::prime_subgroup_generator())
     }
 
     pub fn from_bytes(bytes: &[u8]) -> Option<Element> {
@@ -57,28 +54,64 @@ impl Element {
         let mut bytes = bytes.to_vec();
         bytes.reverse();
 
-        let x: Fq = Fq::deserialize(&bytes[..]).ok()?;
+        let x: Fq = Fq::deserialize_compressed(&bytes[..]).ok()?;
 
         let return_positive_y = true;
-        let point = EdwardsAffine::get_point_from_x(x, return_positive_y)?;
 
-        // check legendre - checks whether 1 - ax^2 is a QR
-        // TODO: change the name of this method to subgroup_check or wrap it in a method named subgroup_check
-        let ok = legendre_check_point(&x);
-        if !ok {
+        // Construct a point that is in the group -- this point may or may not be in the prime subgroup
+        let point = Self::get_point_from_x(x, return_positive_y)?;
+
+        let element = Element(
+            EdwardsProjective::new_unchecked(point.x, point.y, point.x * point.y, Fq::one())
+        );
+
+        // Check if the point is in the correct subgroup
+        //
+        // Check legendre - checks whether 1 - ax^2 is a QR
+        if !element.subgroup_check() {
             return None;
         }
 
-        Some(Element(EdwardsProjective::new(
-            point.x,
-            point.y,
-            point.x * point.y,
-            Fq::one(),
-        )))
+        Some(element)
     }
 
-    pub fn map_to_field(&self) -> Fq {
+    pub const fn compressed_serialized_size() -> usize {
+        32
+    }
+
+    pub fn prime_subgroup_generator() -> Element {
+        Element(EdwardsProjective::generator())
+    }
+
+    fn get_point_from_x(x: Fq, choose_largest: bool) -> Option<EdwardsAffine> {
+        let dx_squared_minus_one = BandersnatchConfig::COEFF_D * x.square() - Fq::one();
+        let ax_squared_minus_one = BandersnatchConfig::COEFF_A * x.square() - Fq::one();
+        let y_squared = ax_squared_minus_one / dx_squared_minus_one;
+
+        let y = y_squared.sqrt()?;
+
+        let is_largest = is_positive(y);
+
+        let y = if is_largest && choose_largest { y } else { -y };
+
+        Some(EdwardsAffine::new_unchecked(x, y))
+    }
+
+    fn map_to_field(&self) -> Fq {
         self.0.x / self.0.y
+    }
+
+    // Note: This is a 2 to 1 map, but the two preimages are identified to be the same
+    pub fn map_to_scalar_field(&self) -> Fr {
+        use ark_ff::PrimeField;
+
+        let base_field = self.map_to_field();
+
+        let mut bytes = [0u8; 32];
+        base_field
+            .serialize_compressed(&mut bytes[..])
+            .expect("could not serialise point into a 32 byte array");
+        Fr::from_le_bytes_mod_order(&bytes)
     }
 
     pub fn zero() -> Element {
@@ -88,14 +121,19 @@ impl Element {
     pub fn is_zero(&self) -> bool {
         *self == Element::zero()
     }
+
+    pub(crate) fn subgroup_check(&self) -> bool {
+        legendre_check_point(&self.0.x)
+    }
 }
 
-fn is_positive(x: Fq) -> bool {
-    x > -x
+// The lexographically largest value is defined to be the positive value
+fn is_positive(coordinate: Fq) -> bool {
+    coordinate > -coordinate
 }
 
 fn legendre_check_point(x: &Fq) -> bool {
-    let res = Fq::one() - (BandersnatchParameters::COEFF_A * x.square());
+    let res = Fq::one() - (BandersnatchConfig::COEFF_A * x.square());
     res.legendre().is_qr()
 }
 
@@ -103,16 +141,33 @@ pub fn multi_scalar_mul(bases: &[Element], scalars: &[Fr]) -> Element {
     let bases_inner: Vec<_> = bases.into_iter().map(|element| element.0).collect();
 
     // XXX: Converting all of these to affine hurts performance
-    let bases = EdwardsProjective::batch_normalization_into_affine(&bases_inner);
+    let bases = EdwardsProjective::batch_convert_to_mul_base(&bases_inner);
 
-    let scalars: Vec<_> = scalars
-        .into_iter()
-        .map(|scalar| scalar.into_repr())
-        .collect();
-
-    let result = VariableBaseMSM::multi_scalar_mul(&bases, &scalars);
+    let result = EdwardsProjective::msm(&bases, scalars)
+        .expect("number of bases should equal number of scalars");
 
     Element(result)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use ark_serialize::CanonicalSerialize;
+    #[test]
+    fn consistent_group_to_field() {
+        // In python this is called commitment_to_field
+        // print(commitment_to_field(Point(generator=True)).to_bytes(32, "little").hex())
+        let expected = "d1e7de2aaea9603d5bc6c208d319596376556ecd8336671ba7670c2139772d14";
+
+        let generator = Element::prime_subgroup_generator();
+        let mut bytes = [0u8; 32];
+        generator
+            .map_to_scalar_field()
+            .serialize_compressed(&mut bytes[..])
+            .unwrap();
+        assert_eq!(hex::encode(bytes), expected);
+    }
 }
 
 #[cfg(test)]
@@ -120,15 +175,15 @@ mod test {
     use super::*;
     // Two torsion point, *not*  point at infinity {0,-1,0,1}
     fn two_torsion() -> EdwardsProjective {
-        EdwardsProjective::new(Fq::zero(), -Fq::one(), Fq::zero(), Fq::one())
+        EdwardsProjective::new_unchecked(Fq::zero(), -Fq::one(), Fq::zero(), Fq::one())
     }
     fn points_at_infinity() -> [EdwardsProjective; 2] {
-        let d = BandersnatchParameters::COEFF_D;
-        let a = BandersnatchParameters::COEFF_A;
+        let d = BandersnatchConfig::COEFF_D;
+        let a = BandersnatchConfig::COEFF_A;
         let sqrt_da = (d / a).sqrt().unwrap();
 
-        let p1 = EdwardsProjective::new(sqrt_da, Fq::zero(), Fq::one(), Fq::zero());
-        let p2 = EdwardsProjective::new(-sqrt_da, Fq::zero(), Fq::one(), Fq::zero());
+        let p1 = EdwardsProjective::new_unchecked(sqrt_da, Fq::zero(), Fq::one(), Fq::zero());
+        let p2 = EdwardsProjective::new_unchecked(-sqrt_da, Fq::zero(), Fq::one(), Fq::zero());
 
         [p1, p2]
     }
@@ -167,7 +222,7 @@ mod test {
 
     #[test]
     fn ser_der_roundtrip() {
-        let point = EdwardsProjective::prime_subgroup_generator();
+        let point = EdwardsProjective::generator();
 
         let two_torsion_point = two_torsion();
 
@@ -191,7 +246,7 @@ mod test {
         // affine co-ordinates. So we create a point which is
         // the sum of the point at infinity and another point
         let point = points_at_infinity()[0];
-        let gen = EdwardsProjective::prime_subgroup_generator();
+        let gen = EdwardsProjective::generator();
         let gen2 = gen + gen + gen + gen;
 
         let res = point + gen + gen2;
@@ -200,7 +255,7 @@ mod test {
         let bytes1 = element1.to_bytes();
 
         if let Some(_) = Element::from_bytes(&bytes1) {
-            panic!("point contains a point at infinity and should not have passed deserialisation")
+            panic!("point contains a point at infinity and should not have passed deserialization")
         }
     }
 
