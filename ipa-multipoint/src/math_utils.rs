@@ -1,5 +1,5 @@
-use ark_ed_on_bls12_381_bandersnatch::Fr;
 use ark_ff::One;
+use banderwagon::Fr;
 /// Computes the inner product between two scalar vectors
 pub fn inner_product(a: &[Fr], b: &[Fr]) -> Fr {
     a.iter().zip(b.iter()).map(|(a, b)| *a * *b).sum()
