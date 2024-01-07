@@ -21,7 +21,7 @@ pub struct IPAProof {
 }
 
 impl IPAProof {
-    pub(crate) fn serialised_size(&self) -> usize {
+    pub(crate) fn serialized_size(&self) -> usize {
         (self.L_vec.len() * 2 + 1) * 32
     }
     pub fn from_bytes(bytes: &[u8], poly_degree: usize) -> IOResult<IPAProof> {
@@ -58,8 +58,8 @@ impl IPAProof {
         Ok(IPAProof { L_vec, R_vec, a })
     }
     pub fn to_bytes(&self) -> IOResult<Vec<u8>> {
-        // We do not serialise the length. We assume that the deserialiser knows this.
-        let mut bytes = Vec::with_capacity(self.serialised_size());
+        // We do not serialize the length. We assume that the deserializer knows this.
+        let mut bytes = Vec::with_capacity(self.serialized_size());
 
         for L in &self.L_vec {
             bytes.extend(L.to_bytes());
