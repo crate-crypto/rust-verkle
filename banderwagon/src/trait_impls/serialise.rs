@@ -1,69 +1,70 @@
 use crate::Element;
-use ark_ec::ProjectiveCurve;
-use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, SerializationError};
-use bandersnatch::EdwardsProjective;
-
+use ark_ec::CurveGroup;
+use ark_ed_on_bls12_381_bandersnatch::EdwardsProjective;
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, SerializationError, Valid};
 impl CanonicalSerialize for Element {
-    fn serialize<W: ark_serialize::Write>(
+    fn serialize_with_mode<W: std::io::prelude::Write>(
         &self,
         mut writer: W,
-    ) -> Result<(), ark_serialize::SerializationError> {
-        match writer.write(&self.to_bytes()) {
-            Ok(_) => Ok(()),
-            Err(err) => Err(SerializationError::IoError(err)),
+        compress: ark_serialize::Compress,
+    ) -> Result<(), SerializationError> {
+        match compress {
+            ark_serialize::Compress::Yes => {
+                writer.write(&self.to_bytes())?;
+                Ok(())
+            }
+            ark_serialize::Compress::No => self.0.into_affine().serialize_uncompressed(writer),
         }
     }
 
-    fn serialized_size(&self) -> usize {
-        Element::compressed_serialised_size()
+    fn serialized_size(&self, compress: ark_serialize::Compress) -> usize {
+        match compress {
+            ark_serialize::Compress::Yes => Element::compressed_serialized_size(),
+            ark_serialize::Compress::No => self.0.uncompressed_size(),
+        }
     }
+}
 
-    fn serialize_uncompressed<W: ark_serialize::Write>(
-        &self,
-        writer: W,
-    ) -> Result<(), SerializationError> {
-        // Convert point to affine and serialise affine format
-        // This serialisation strategy is the same for both
-        // banderwagon and bandersnatch -- Ignoring serialise Long
-        self.0.into_affine().serialize_uncompressed(writer)
-    }
-
-    fn serialize_unchecked<W: ark_serialize::Write>(
-        &self,
-        writer: W,
-    ) -> Result<(), SerializationError> {
-        self.0.into_affine().serialize_unchecked(writer)
-    }
-
-    fn uncompressed_size(&self) -> usize {
-        self.0.uncompressed_size()
+impl Valid for Element {
+    // TODO: Arkworks has split up validation from serialization
+    // TODO Element doesnt currently work like this though
+    fn check(&self) -> Result<(), SerializationError> {
+        Ok(())
     }
 }
 
 impl CanonicalDeserialize for Element {
-    fn deserialize<R: ark_serialize::Read>(mut reader: R) -> Result<Self, SerializationError> {
-        let mut bytes = [0u8; Element::compressed_serialised_size()];
-        if let Err(err) = reader.read_exact(&mut bytes) {
-            return Err(SerializationError::IoError(err));
+    fn deserialize_with_mode<R: std::io::prelude::Read>(
+        reader: R,
+        compress: ark_serialize::Compress,
+        validate: ark_serialize::Validate,
+    ) -> Result<Self, SerializationError> {
+        fn deserialize_with_no_validation<R: std::io::prelude::Read>(
+            mut reader: R,
+            compress: ark_serialize::Compress,
+        ) -> Result<Element, SerializationError> {
+            match compress {
+                ark_serialize::Compress::Yes => {
+                    let mut bytes = [0u8; Element::compressed_serialized_size()];
+                    if let Err(err) = reader.read_exact(&mut bytes) {
+                        return Err(SerializationError::IoError(err));
+                    }
+
+                    match Element::from_bytes(&bytes) {
+                        Some(element) => Ok(element),
+                        None => Err(SerializationError::InvalidData),
+                    }
+                }
+                ark_serialize::Compress::No => {
+                    let point = EdwardsProjective::deserialize_uncompressed(reader)?;
+                    Ok(Element(point))
+                }
+            }
         }
 
-        match Element::from_bytes(&bytes) {
-            Some(element) => Ok(element),
-            None => Err(SerializationError::InvalidData),
+        match validate {
+            ark_serialize::Validate::Yes => deserialize_with_no_validation(reader, compress),
+            ark_serialize::Validate::No => deserialize_with_no_validation(reader, compress),
         }
-    }
-
-    fn deserialize_uncompressed<R: ark_serialize::Read>(
-        reader: R,
-    ) -> Result<Self, SerializationError> {
-        let point = EdwardsProjective::deserialize_uncompressed(reader)?;
-        Ok(Element(point))
-    }
-
-    fn deserialize_unchecked<R: ark_serialize::Read>(
-        reader: R,
-    ) -> Result<Self, SerializationError> {
-        let point = EdwardsProjective::deserialize_unchecked(reader)?;
-        Ok(Element(point))
     }
 }
