@@ -11,12 +11,7 @@ pub const VERKLE_NODE_WIDTH: usize = 256;
 // using try-and-increment
 const PEDERSEN_SEED: &[u8] = b"eth_verkle_oct_2021";
 
-pub(crate) const TWO_POW_128: Fr = Fr::new(BigInteger256([
-    3195623856215021945,
-    6342950750355062753,
-    18424290587888592554,
-    1249884543737537366,
-]));
+pub(crate) const TWO_POW_128: Fr = Fr::new(BigInteger256::new([0, 0, 1, 0]));
 
 pub static CRS: Lazy<CRS> = Lazy::new(|| CRS::new(VERKLE_NODE_WIDTH, PEDERSEN_SEED));
 

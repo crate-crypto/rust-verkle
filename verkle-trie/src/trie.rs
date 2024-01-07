@@ -1030,7 +1030,9 @@ mod tests {
         trie.insert_single(key_b, key_b);
 
         let mut byts = [0u8; 32];
-        trie.root_hash().serialize(&mut byts[..]).unwrap();
+        trie.root_hash()
+            .serialize_compressed(&mut byts[..])
+            .unwrap();
         assert_eq!(
             hex::encode(byts),
             "fe2e17833b90719eddcad493c352ccd491730643ecee39060c7c1fff5fcc621a"
@@ -1061,7 +1063,9 @@ mod tests {
         trie.process_instructions(ins);
 
         let mut byts = [0u8; 32];
-        trie.root_hash().serialize(&mut byts[..]).unwrap();
+        trie.root_hash()
+            .serialize_compressed(&mut byts[..])
+            .unwrap();
         assert_eq!(
             hex::encode(byts),
             "74ff8821eca20188de49340124f249dac94404efdb3838bb6b4d298e483cc20e"
@@ -1092,7 +1096,7 @@ mod tests {
 
         let mut byts = [0u8; 32];
         let root = trie.root_hash();
-        root.serialize(&mut byts[..]).unwrap();
+        root.serialize_compressed(&mut byts[..]).unwrap();
 
         assert_eq!(
             "029b6c4c8af9001f0ac76472766c6579f41eec84a73898da06eb97ebdab80a09",
@@ -1115,7 +1119,7 @@ mod tests {
 
         let mut byts = [0u8; 32];
         let root = trie.root_hash();
-        root.serialize(&mut byts[..]).unwrap();
+        root.serialize_compressed(&mut byts[..]).unwrap();
 
         assert_eq!(
             "029b6c4c8af9001f0ac76472766c6579f41eec84a73898da06eb97ebdab80a09",

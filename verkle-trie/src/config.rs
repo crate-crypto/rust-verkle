@@ -35,7 +35,7 @@ impl<Storage> VerkleConfig<Storage> {
         };
 
         let committer = PrecomputeLagrange::precompute(&CRS.G);
-        let serialization_result = committer.serialize_unchecked(&mut file);
+        let serialization_result = committer.serialize_uncompressed(&mut file);
         if let Err(e) = serialization_result {
             return Err(ConfigError::SerializationError(e));
         }
@@ -54,7 +54,7 @@ impl<Storage> VerkleConfig<Storage> {
         };
 
         let committer: PrecomputeLagrange =
-            match CanonicalDeserialize::deserialize_unchecked(&mut file) {
+            match CanonicalDeserialize::deserialize_uncompressed_unchecked(&mut file) {
                 Ok(v) => v,
                 Err(e) => return Err(ConfigError::SerializationError(e)),
             };

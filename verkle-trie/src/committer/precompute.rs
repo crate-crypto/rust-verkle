@@ -28,7 +28,8 @@ impl<'a> Committer for &'a PrecomputeLagrange {
 
         for (scalar, table) in scalar_table {
             // convert scalar to bytes in little endian
-            let bytes = ark_ff::to_bytes!(scalar).unwrap();
+            let mut bytes = [0u8; 32];
+            scalar.serialize_compressed(&mut bytes[..]).unwrap();
 
             let partial_result: Element = bytes
                 .into_iter()
@@ -46,7 +47,10 @@ impl<'a> Committer for &'a PrecomputeLagrange {
     fn scalar_mul(&self, value: Fr, lagrange_index: usize) -> Element {
         let table = &self.inner[lagrange_index];
 
-        let bytes = ark_ff::to_bytes!(value).unwrap();
+        let mut bytes = [0u8; 32];
+
+        value.serialize_compressed(&mut bytes[..]).unwrap();
+
         let result: Element = bytes
             .into_iter()
             .enumerate()
@@ -158,11 +162,11 @@ mod test {
 
         let expected_lagrange_table = LagrangeTablePoints::new(&point);
         expected_lagrange_table
-            .serialize(&mut serialized_lagrange_table)
+            .serialize_compressed(&mut serialized_lagrange_table)
             .unwrap();
 
         let got_lagrange_table: LagrangeTablePoints =
-            CanonicalDeserialize::deserialize(&*serialized_lagrange_table).unwrap();
+            CanonicalDeserialize::deserialize_compressed(&*serialized_lagrange_table).unwrap();
 
         assert_eq!(expected_lagrange_table, got_lagrange_table);
     }

@@ -119,7 +119,7 @@ fn step_test_helper(
 
     use ark_serialize::CanonicalSerialize;
     let mut root_bytes = [0u8; 32];
-    root.serialize(&mut root_bytes[..]).unwrap();
+    root.serialize_compressed(&mut root_bytes[..]).unwrap();
     assert_eq!(hex::encode(root_bytes), expected);
 }
 

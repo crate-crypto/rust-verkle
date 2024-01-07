@@ -188,12 +188,14 @@ impl VerkleProof {
 
         let mut comms_sorted = Vec::new();
         for _ in 0..num_comms {
-            let point: Element = CanonicalDeserialize::deserialize(&mut reader).map_err(
-                |_| HintError::from(std::io::Error::from(std::io::ErrorKind::InvalidData))
-            )?;
+            let mut comm_serialized = [0u8; 32];
+            reader.read_exact(&mut comm_serialized)?;
+
+            let point = Element::from_bytes(&comm_serialized)
+                .ok_or(HintError::from(std::io::Error::from(std::io::ErrorKind::InvalidData)))?;
+
             comms_sorted.push(point);
         }
-
         let mut bytes = Vec::new();
         reader.read_to_end(&mut bytes)?;
         let proof = MultiPointProof::from_bytes(&bytes, crate::constants::VERKLE_NODE_WIDTH)?;
@@ -213,10 +215,7 @@ impl VerkleProof {
         writer.write_all(&num_comms.to_le_bytes())?;
 
         for comm in &self.comms_sorted {
-            let mut comm_serialised = [0u8; 32];
-            comm.serialize(&mut comm_serialised[..]).map_err(
-                |_| HintError::from(std::io::Error::from(std::io::ErrorKind::InvalidInput))
-            )?;
+            let comm_serialised = comm.to_bytes();
             writer.write_all(&comm_serialised)?;
         }
 
@@ -258,20 +257,12 @@ impl std::fmt::Display for VerkleProof {
         writeln!(f, "Verkle proof:")?;
         writeln!(f, " * verification hints: {}", self.verification_hint)?;
         write!(f, " * commitments: ")?;
-        for comm in
-            self.comms_sorted.iter().map(|comm| {
-                let mut comm_serialised = [0u8; 32];
-                match comm.serialize(&mut comm_serialised[..]) {
-                    Err(_) => Err(std::fmt::Result::Err(std::fmt::Error)),
-                    Ok(_) => Ok(hex::encode(comm_serialised)),
-                }
-            })
+        for comm in self
+            .comms_sorted
+            .iter()
+            .map(|comm| hex::encode(comm.to_bytes()))
         {
-            let output = match comm {
-                Err(_) => return Err(std::fmt::Error),
-                Ok(v) => v,
-            };
-            write!(f, "{} ", output)?;
+            write!(f, "{} ", comm)?;
         }
         std::fmt::Result::Ok(())
     }

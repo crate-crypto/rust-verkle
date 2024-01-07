@@ -617,13 +617,15 @@ mod test {
 
         let mut got_bytes = [0u8; 32];
         group_to_field(&new_root_comm.unwrap())
-            .serialize(&mut got_bytes[..])
+            .serialize_compressed(&mut got_bytes[..])
             .unwrap();
 
         trie.insert_single(keys[0], [0u8; 32]);
         let expected_root = trie.root_hash();
         let mut expected_bytes = [0u8; 32];
-        expected_root.serialize(&mut expected_bytes[..]).unwrap();
+        expected_root
+            .serialize_compressed(&mut expected_bytes[..])
+            .unwrap();
 
         assert_eq!(got_bytes, expected_bytes)
     }
@@ -664,13 +666,15 @@ mod test {
 
         let mut got_bytes = [0u8; 32];
         group_to_field(&new_root_comm.unwrap())
-            .serialize(&mut got_bytes[..])
+            .serialize_compressed(&mut got_bytes[..])
             .unwrap();
 
         trie.insert_single(key_c, key_c);
         let expected_root = trie.root_hash();
         let mut expected_bytes = [0u8; 32];
-        expected_root.serialize(&mut expected_bytes[..]).unwrap();
+        expected_root
+            .serialize_compressed(&mut expected_bytes[..])
+            .unwrap();
 
         assert_eq!(got_bytes, expected_bytes)
     }
@@ -703,7 +707,7 @@ mod test {
 
         let proof = prover::create_verkle_proof(&trie.storage, keys.clone()).unwrap();
         let (ok, updated_hint) = proof.check(keys.clone(), values.clone(), meta.commitment);
-        assert!(ok);
+        assert!(ok, "proof failed to verify");
 
         let new_root_comm = update_root(
             updated_hint.unwrap(),
@@ -716,8 +720,9 @@ mod test {
 
         let mut got_bytes = [0u8; 32];
         group_to_field(&new_root_comm.unwrap())
-            .serialize(&mut got_bytes[..])
+            .serialize_uncompressed(&mut got_bytes[..])
             .unwrap();
+        dbg!(&got_bytes);
 
         for key in keys.into_iter().skip(2) {
             // skip two keys that are already in the trie
@@ -726,7 +731,10 @@ mod test {
 
         let expected_root = trie.root_hash();
         let mut expected_bytes = [0u8; 32];
-        expected_root.serialize(&mut expected_bytes[..]).unwrap();
+        expected_root
+            .serialize_uncompressed(&mut expected_bytes[..])
+            .unwrap();
+        dbg!(&expected_bytes);
         assert_eq!(got_bytes, expected_bytes)
     }
 }

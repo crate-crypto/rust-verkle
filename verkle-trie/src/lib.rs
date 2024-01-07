@@ -49,41 +49,11 @@ pub trait TrieTrait {
     ) -> Result<proof::VerkleProof, ProofCreationError>;
 }
 
-// Note: This is a 2 to 1 map, but the two preimages are identified to be the same
-// TODO: Create a document showing that this poses no problems
+// TODO: remove this, its here for backwards compatibility
 pub(crate) fn group_to_field(point: &Element) -> Fr {
-    use ark_ff::PrimeField;
-    use ark_serialize::CanonicalSerialize;
-
-    let base_field = point.map_to_field();
-
-    let mut bytes = [0u8; 32];
-    base_field
-        .serialize(&mut bytes[..])
-        .expect("could not serialise point into a 32 byte array");
-    Fr::from_le_bytes_mod_order(&bytes)
+    point.map_to_scalar_field()
 }
 
 // TODO: Possible optimisation. This means we never allocate for paths
 use smallvec::SmallVec;
 pub type SmallVec32 = SmallVec<[u8; 32]>;
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    use ark_serialize::CanonicalSerialize;
-    #[test]
-    fn consistent_group_to_field() {
-        // In python this is called commitment_to_field
-        // print(commitment_to_field(Point(generator=True)).to_bytes(32, "little").hex())
-        let expected = "d1e7de2aaea9603d5bc6c208d319596376556ecd8336671ba7670c2139772d14";
-
-        let generator = Element::prime_subgroup_generator();
-        let mut bytes = [0u8; 32];
-        group_to_field(&generator)
-            .serialize(&mut bytes[..])
-            .unwrap();
-        assert_eq!(hex::encode(bytes), expected);
-    }
-}

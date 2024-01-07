@@ -55,7 +55,7 @@ fn point_to_array(p: &Element) -> Result<[u8; 64], SerializationError> {
 }
 fn compress_point_to_array(p: &Element) -> Result<[u8; 32], SerializationError> {
     let mut bytes = [0u8; 32];
-    p.serialize(&mut bytes[..])?;
+    p.serialize_compressed(&mut bytes[..])?;
 
     Ok(bytes)
 }
