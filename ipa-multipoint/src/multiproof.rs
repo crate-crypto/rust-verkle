@@ -186,10 +186,7 @@ impl MultiPointProof {
         })
     }
     pub fn to_bytes(&self) -> crate::IOResult<Vec<u8>> {
-        use crate::{IOError, IOErrorKind};
-        use ark_serialize::CanonicalSerialize;
-
-        let mut bytes = Vec::with_capacity(self.open_proof.serialised_size() + 32);
+        let mut bytes = Vec::with_capacity(self.open_proof.serialized_size() + 32);
         bytes.extend(self.g_x_comm.to_bytes());
 
         bytes.extend(self.open_proof.to_bytes()?);
