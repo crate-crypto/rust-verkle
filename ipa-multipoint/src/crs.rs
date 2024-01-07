@@ -1,7 +1,5 @@
-use ark_serialize::CanonicalSerialize;
-use banderwagon::Element;
-
 use crate::{ipa::slow_vartime_multiscalar_mul, lagrange_basis::LagrangeBasis};
+use banderwagon::{try_reduce_to_element, Element};
 
 #[derive(Debug, Clone)]
 pub struct CRS {
@@ -46,35 +44,23 @@ impl std::ops::Index<usize> for CRS {
     }
 }
 
-fn generate_random_elements(num_required_points: usize, seed: &'static [u8]) -> Vec<Element> {
-    use ark_ed_on_bls12_381_bandersnatch::Fq;
-    use ark_ff::PrimeField;
+pub fn generate_random_elements(num_required_points: usize, seed: &'static [u8]) -> Vec<Element> {
     use sha2::{Digest, Sha256};
 
     let _choose_largest = false;
 
+    // Hash the seed + i to get a possible x value
+    let hash_to_x = |index: u64| -> Vec<u8> {
+        let mut hasher = Sha256::new();
+        hasher.update(seed);
+        hasher.update(index.to_be_bytes());
+        let bytes: Vec<u8> = hasher.finalize().to_vec();
+        bytes
+    };
+
     (0u64..)
-        // Hash the seed + i to get a possible x value
-        .map(|i| {
-            let mut hasher = Sha256::new();
-            hasher.update(seed);
-            hasher.update(i.to_be_bytes());
-            let bytes: Vec<u8> = hasher.finalize().to_vec();
-            bytes
-        })
-        // The Element::from_bytes method does not reduce the bytes, it expects the
-        // input to be in a canonical format, so we must do the reduction ourselves
-        .map(|hash_bytes| Fq::from_be_bytes_mod_order(&hash_bytes))
-        .map(|x_coord| {
-            let mut bytes = [0u8; 32];
-            x_coord.serialize_compressed(&mut bytes[..]).unwrap();
-            // TODO: this reverse is hacky, and its because there is no way to specify the endianness in arkworks
-            // TODO So we reverse it here, to be interopable with the banderwagon specs which needs big endian bytes
-            bytes.reverse();
-            bytes
-        })
-        // Deserialise the x-cordinate to get a valid banderwagon element
-        .filter_map(|bytes| Element::from_bytes(&bytes))
+        .map(hash_to_x)
+        .filter_map(|hash_bytes| try_reduce_to_element(&hash_bytes))
         .take(num_required_points)
         .collect()
 }
