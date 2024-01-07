@@ -12,8 +12,6 @@ tempfile = "3.2.0"
 thiserror = "1.0"
 ipa-multipoint = { path = "../ipa-multipoint" }
 banderwagon = { path = "../banderwagon" }
-ark-ff = { version = "^0.4.2", default-features = false }
-ark-ec = { version = "^0.4.2", default-features = false }
 ark-serialize = { version = "^0.4.2", default-features = false }
 verkle-db = { path = "../verkle-db", default-features = false }
 once_cell = "1.8.0"
@@ -33,5 +31,4 @@ name = "benchmark_main"
 harness = false
 
 [features]
-default = ["parallel"]
-parallel = ["ark-ff/parallel", "ark-ff/asm", "ark-ec/parallel"]
+default = []

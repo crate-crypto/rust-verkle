@@ -4,8 +4,7 @@ use crate::{
     group_to_field,
     proof::{ExtPresent, UpdateHint},
 };
-use ark_ff::{One, PrimeField, Zero};
-use banderwagon::{Element, Fr};
+use banderwagon::{Element, Fr, VerkleField};
 use ipa_multipoint::multiproof::VerifierQuery;
 use std::{
     collections::{BTreeMap, BTreeSet},

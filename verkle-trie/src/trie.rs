@@ -3,9 +3,8 @@ use crate::constants::{CRS, TWO_POW_128};
 use crate::database::{BranchMeta, Flush, Meta, ReadWriteHigherDb, StemMeta};
 use crate::{committer::Committer, Config};
 use crate::{group_to_field, TrieTrait};
-use ark_ff::{PrimeField, Zero};
 
-use banderwagon::{Element, Fr};
+use banderwagon::{Element, Fr, VerkleField};
 
 #[derive(Debug, Clone)]
 // The trie implements the logic to insert values, fetch values, and create paths to said values
@@ -763,8 +762,8 @@ fn paths_from_relative(parent_path: Vec<u8>, relative_paths: Vec<u8>) -> Vec<Vec
 }
 #[cfg(test)]
 mod tests {
-    use ark_ff::{PrimeField, Zero};
     use ark_serialize::CanonicalSerialize;
+    use banderwagon::VerkleField;
 
     use crate::constants::{CRS, TWO_POW_128};
     use crate::database::memory_db::MemoryDb;

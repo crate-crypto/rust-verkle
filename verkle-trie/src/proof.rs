@@ -2,7 +2,6 @@ use crate::{
     constants::{CRS, PRECOMPUTED_WEIGHTS},
     errors::HintError,
 };
-use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 
 use banderwagon::Element;
 use ipa_multipoint::multiproof::MultiPointProof;

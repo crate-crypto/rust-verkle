@@ -1,4 +1,4 @@
-use ark_ff::BigInteger256;
+use banderwagon::fr_from_u64_limbs;
 pub use banderwagon::Fr;
 use ipa_multipoint::{crs::CRS, lagrange_basis::PrecomputedWeights};
 use once_cell::sync::Lazy;
@@ -11,7 +11,7 @@ pub const VERKLE_NODE_WIDTH: usize = 256;
 // using try-and-increment
 const PEDERSEN_SEED: &[u8] = b"eth_verkle_oct_2021";
 
-pub(crate) const TWO_POW_128: Fr = Fr::new(BigInteger256::new([0, 0, 1, 0]));
+pub(crate) const TWO_POW_128: Fr = fr_from_u64_limbs([0, 0, 1, 0]);
 
 pub static CRS: Lazy<CRS> = Lazy::new(|| CRS::new(VERKLE_NODE_WIDTH, PEDERSEN_SEED));
 
@@ -21,8 +21,7 @@ pub static PRECOMPUTED_WEIGHTS: Lazy<PrecomputedWeights> =
 #[cfg(test)]
 mod tests {
     use super::TWO_POW_128;
-    use ark_ff::PrimeField;
-    use banderwagon::Fr;
+    use banderwagon::{Fr, VerkleField};
 
     #[test]
     fn test_two_pow128_constant() {

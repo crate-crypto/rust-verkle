@@ -1,9 +1,8 @@
 use crate::committer::Committer;
-use ark_ff::Zero;
 
-use banderwagon::{Element, Fr};
+use banderwagon::{Element, Fr, VerkleField};
 
-use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Read, SerializationError, Write};
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 
 #[derive(Debug, Clone, CanonicalSerialize, CanonicalDeserialize, PartialEq, Eq)]
 pub struct PrecomputeLagrange {

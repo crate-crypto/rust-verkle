@@ -5,8 +5,8 @@ use crate::{
     database::{Meta, ReadOnlyHigherDb},
     proof::key_path_finder::{KeyNotFound, KeyPathFinder, KeyState},
 };
-use ark_ff::{One, PrimeField, Zero};
-use banderwagon::Fr;
+
+use banderwagon::{Fr, VerkleField};
 use ipa_multipoint::{lagrange_basis::LagrangeBasis, multiproof::ProverQuery};
 use std::{
     collections::{BTreeMap, BTreeSet},

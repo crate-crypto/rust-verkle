@@ -136,7 +136,7 @@ impl std::fmt::Debug for BranchMeta {
 }
 impl BranchMeta {
     pub fn zero() -> BranchMeta {
-        use ark_ff::Zero;
+        use banderwagon::VerkleField;
         BranchMeta {
             commitment: Element::zero(),
             hash_commitment: Fr::zero(),

@@ -1,7 +1,6 @@
 use crate::constants::TWO_POW_128;
 use crate::{committer::Committer, errors::VerificationError, group_to_field, proof::ExtPresent};
-use ark_ff::{One, PrimeField, Zero};
-use banderwagon::{Element, Fr};
+use banderwagon::{Element, Fr, VerkleField};
 use std::collections::{BTreeMap, HashSet};
 
 use super::{UpdateHint, VerkleProof};
