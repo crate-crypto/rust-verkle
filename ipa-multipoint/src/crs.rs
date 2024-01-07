@@ -44,7 +44,7 @@ impl std::ops::Index<usize> for CRS {
     }
 }
 
-pub fn generate_random_elements(num_required_points: usize, seed: &'static [u8]) -> Vec<Element> {
+fn generate_random_elements(num_required_points: usize, seed: &'static [u8]) -> Vec<Element> {
     use sha2::{Digest, Sha256};
 
     let _choose_largest = false;
