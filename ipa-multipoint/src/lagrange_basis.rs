@@ -1,7 +1,6 @@
-use ark_ed_on_bls12_381_bandersnatch::Fr;
-use ark_ff::{batch_inversion, batch_inversion_and_mul, Field, One, Zero};
-use ark_poly::univariate::DensePolynomial;
-use ark_poly::DenseUVPolynomial;
+use ark_ff::{batch_inversion_and_mul, Field, Zero};
+use banderwagon::Fr;
+
 use std::{
     convert::TryFrom,
     ops::{Add, Mul, Sub},
@@ -118,6 +117,7 @@ impl PrecomputedWeights {
     pub fn get_barycentric_weight(&self, i: usize) -> Fr {
         self.barycentric_weights[i]
     }
+
     // gets 1 / A'(x_i)
     pub fn get_inverse_barycentric_weight(&self, i: usize) -> Fr {
         self.barycentric_weights[i + (self.barycentric_weights.len() / 2)]
@@ -136,7 +136,7 @@ impl PrecomputedWeights {
         weight
     }
 }
-// TODO: Lets make all of these methods pub(crate)
+
 impl LagrangeBasis {
     pub fn new(values: Vec<Fr>) -> LagrangeBasis {
         let domain = values.len();
@@ -151,19 +151,10 @@ impl LagrangeBasis {
         }
     }
 
-    // This is only for testing purposes
-    pub(crate) fn interpolate(&self) -> DensePolynomial<Fr> {
-        let domain: Vec<_> = (0..self.domain).map(|i| Fr::from(i as u128)).collect();
-        let points: Vec<_> = domain
-            .into_iter()
-            .zip(self.values.iter().cloned())
-            .collect();
-        let polynomial = interpolate(&points).unwrap();
-        DensePolynomial::from_coefficients_vec(polynomial)
-    }
-
     // A'(x_j) where x_j = domain_element
-    pub fn compute_barycentric_weight_for(&self, domain_element: usize) -> Fr {
+    #[deprecated(note = "Use PrecomputedWeights::compute_barycentric_weight_for instead")]
+    #[allow(unused)]
+    pub(crate) fn compute_barycentric_weight_for(&self, domain_element: usize) -> Fr {
         let domain_element_fr = Fr::from(domain_element as u128);
 
         let domain_size = self.domain;
@@ -211,12 +202,12 @@ impl LagrangeBasis {
         self.values[index]
     }
 
-    pub fn values(&self) -> &[Fr] {
+    pub(crate) fn values(&self) -> &[Fr] {
         &self.values
     }
 
     // We use this method to compute L_i(z) where z is not in the domain
-    pub fn evaluate_lagrange_coefficients(
+    pub(crate) fn evaluate_lagrange_coefficients(
         precomp: &PrecomputedWeights,
         domain_size: usize,
         point: Fr,
@@ -233,163 +224,190 @@ impl LagrangeBasis {
 
         lagrange_evaluations
     }
+}
 
-    pub fn evaluate_outside_domain(&self, precomp: &PrecomputedWeights, point: Fr) -> Fr {
-        let mut summand = Fr::zero();
+#[cfg(test)]
+mod tests {
+    use ark_ff::{batch_inversion, One, Zero};
+    use ark_poly::{univariate::DensePolynomial, DenseUVPolynomial};
 
-        // z - x_i
-        let mut point_minus_domain: Vec<_> = (0..self.domain)
-            .map(|i| point - Fr::from(i as u128))
-            .collect();
-        batch_inversion(&mut point_minus_domain);
-
-        for (x_i, (y_i, inv_z_min_xi)) in self.values.iter().zip(point_minus_domain).enumerate() {
-            let weight = precomp.get_inverse_barycentric_weight(x_i);
-            let term = weight * y_i * inv_z_min_xi;
-            summand += term;
+    impl LagrangeBasis {
+        #[cfg(test)]
+        // TODO: Lets see if we can remove this way of testing
+        // This is only for testing purposes
+        pub(crate) fn interpolate(&self) -> ark_poly::univariate::DensePolynomial<Fr> {
+            let domain: Vec<_> = (0..self.domain).map(|i| Fr::from(i as u128)).collect();
+            let points: Vec<_> = domain
+                .into_iter()
+                .zip(self.values.iter().cloned())
+                .collect();
+            let polynomial = interpolate(&points).unwrap();
+            DensePolynomial::from_coefficients_vec(polynomial)
         }
-        let a_z: Fr = (0..self.domain)
-            .map(|i| Fr::from(i as u128))
-            .map(|element| point - element)
-            .product();
-        summand * a_z
-    }
-}
 
-#[test]
-fn basic_interpolation() {
-    use ark_poly::Polynomial;
+        pub(crate) fn evaluate_outside_domain(
+            &self,
+            precomp: &PrecomputedWeights,
+            point: Fr,
+        ) -> Fr {
+            let mut summand = Fr::zero();
 
-    let p1 = Fr::from(8u128);
-    let p2 = Fr::from(2u128);
-    let lag_poly = LagrangeBasis::new(vec![p1, p2]);
+            // z - x_i
+            let mut point_minus_domain: Vec<_> = (0..self.domain)
+                .map(|i| point - Fr::from(i as u128))
+                .collect();
+            batch_inversion(&mut point_minus_domain);
 
-    let coeff_poly = lag_poly.interpolate();
-
-    let got_p1 = coeff_poly.evaluate(&Fr::from(0u128));
-    let got_p2 = coeff_poly.evaluate(&Fr::from(1u128));
-
-    assert_eq!(got_p1, p1);
-    assert_eq!(got_p2, p2);
-}
-
-#[test]
-fn simple_eval_outside_domain() {
-    use ark_poly::Polynomial;
-
-    let numerator_lag =
-        LagrangeBasis::new(vec![-Fr::from(2), Fr::from(0), Fr::from(12), Fr::from(40)]);
-    let numerator_coeff = numerator_lag.interpolate();
-
-    let precomp = PrecomputedWeights::new(numerator_lag.domain);
-
-    let point = Fr::from(300u128);
-
-    let got = numerator_lag.evaluate_outside_domain(&precomp, point);
-    let expected = numerator_coeff.evaluate(&point);
-    assert_eq!(got, expected);
-
-    // Another way to evaluate a point not in the domain,
-    // is to compute the lagrange coefficients first and then take the inner product of those and
-    // the evaluation points
-
-    let lag_evals =
-        LagrangeBasis::evaluate_lagrange_coefficients(&precomp, numerator_lag.domain, point);
-
-    let mut got = Fr::zero();
-    for (l_i, y_i) in lag_evals.into_iter().zip(numerator_lag.values().iter()) {
-        got += l_i * y_i
-    }
-    assert_eq!(got, expected)
-}
-#[test]
-fn simple_division() {
-    let domain_size = 4;
-    // (X-1))(X+1)(X+2)
-    let numerator_lag =
-        LagrangeBasis::new(vec![-Fr::from(2), Fr::from(0), Fr::from(12), Fr::from(40)]);
-    let numerator_coeff = numerator_lag.interpolate();
-
-    // X - 1
-    let index = 1;
-    let denom_coeff = DensePolynomial::from_coefficients_vec(vec![-Fr::one(), Fr::one()]);
-
-    let precomp = PrecomputedWeights::new(domain_size);
-    let quotient_lag = numerator_lag.divide_by_linear_vanishing(&precomp, index);
-    let quotient_coeff = quotient_lag.interpolate();
-
-    let quotient_expected = &numerator_coeff / &denom_coeff;
-
-    assert_eq!(quotient_expected, quotient_coeff)
-}
-
-// Taken from sapling-crypto -- O(n^2)
-fn interpolate(points: &[(Fr, Fr)]) -> Option<Vec<Fr>> {
-    let max_degree_plus_one = points.len();
-    assert!(
-        max_degree_plus_one >= 2,
-        "should interpolate for degree >= 1"
-    );
-    let mut coeffs = vec![Fr::zero(); max_degree_plus_one];
-    // external iterator
-    for (k, p_k) in points.iter().enumerate() {
-        let (x_k, y_k) = p_k;
-        // coeffs from 0 to max_degree - 1
-        let mut contribution = vec![Fr::zero(); max_degree_plus_one];
-        let mut demoninator = Fr::one();
-        let mut max_contribution_degree = 0;
-        // internal iterator
-        for (j, p_j) in points.iter().enumerate() {
-            let (x_j, _) = p_j;
-            if j == k {
-                continue;
+            for (x_i, (y_i, inv_z_min_xi)) in self.values.iter().zip(point_minus_domain).enumerate()
+            {
+                let weight = precomp.get_inverse_barycentric_weight(x_i);
+                let term = weight * y_i * inv_z_min_xi;
+                summand += term;
             }
+            let a_z: Fr = (0..self.domain)
+                .map(|i| Fr::from(i as u128))
+                .map(|element| point - element)
+                .product();
+            summand * a_z
+        }
+    }
 
-            let mut diff = *x_k;
-            diff -= x_j;
-            demoninator *= diff;
+    use super::*;
+    #[test]
+    fn basic_interpolation() {
+        use ark_poly::Polynomial;
 
-            if max_contribution_degree == 0 {
-                max_contribution_degree = 1;
-                *contribution
-                    .get_mut(0)
-                    .expect("must have enough coefficients") -= x_j;
-                *contribution
-                    .get_mut(1)
-                    .expect("must have enough coefficients") += Fr::one();
-            } else {
-                let mul_by_minus_x_j: Vec<Fr> = contribution
-                    .iter()
-                    .map(|el| {
-                        let mut tmp = *el;
-                        tmp *= x_j;
+        let p1 = Fr::from(8u128);
+        let p2 = Fr::from(2u128);
+        let lag_poly = LagrangeBasis::new(vec![p1, p2]);
 
-                        -tmp
-                    })
-                    .collect();
+        let coeff_poly = lag_poly.interpolate();
 
-                contribution.insert(0, Fr::zero());
-                contribution.truncate(max_degree_plus_one);
+        let got_p1 = coeff_poly.evaluate(&Fr::from(0u128));
+        let got_p2 = coeff_poly.evaluate(&Fr::from(1u128));
 
-                assert_eq!(mul_by_minus_x_j.len(), max_degree_plus_one);
-                for (i, c) in contribution.iter_mut().enumerate() {
-                    let other = mul_by_minus_x_j
-                        .get(i)
-                        .expect("should have enough elements");
-                    *c += other;
+        assert_eq!(got_p1, p1);
+        assert_eq!(got_p2, p2);
+    }
+
+    #[test]
+    fn simple_eval_outside_domain() {
+        use ark_poly::Polynomial;
+
+        let numerator_lag =
+            LagrangeBasis::new(vec![-Fr::from(2), Fr::from(0), Fr::from(12), Fr::from(40)]);
+        let numerator_coeff = numerator_lag.interpolate();
+
+        let precomp = PrecomputedWeights::new(numerator_lag.domain);
+
+        let point = Fr::from(300u128);
+
+        let got = numerator_lag.evaluate_outside_domain(&precomp, point);
+        let expected = numerator_coeff.evaluate(&point);
+        assert_eq!(got, expected);
+
+        // Another way to evaluate a point not in the domain,
+        // is to compute the lagrange coefficients first and then take the inner product of those and
+        // the evaluation points
+
+        let lag_evals =
+            LagrangeBasis::evaluate_lagrange_coefficients(&precomp, numerator_lag.domain, point);
+
+        let mut got = Fr::zero();
+        for (l_i, y_i) in lag_evals.into_iter().zip(numerator_lag.values().iter()) {
+            got += l_i * y_i
+        }
+        assert_eq!(got, expected)
+    }
+    #[test]
+    fn simple_division() {
+        let domain_size = 4;
+        // (X-1))(X+1)(X+2)
+        let numerator_lag =
+            LagrangeBasis::new(vec![-Fr::from(2), Fr::from(0), Fr::from(12), Fr::from(40)]);
+        let numerator_coeff = numerator_lag.interpolate();
+
+        // X - 1
+        let index = 1;
+        let denom_coeff = DensePolynomial::from_coefficients_vec(vec![-Fr::one(), Fr::one()]);
+
+        let precomp = PrecomputedWeights::new(domain_size);
+        let quotient_lag = numerator_lag.divide_by_linear_vanishing(&precomp, index);
+        let quotient_coeff = quotient_lag.interpolate();
+
+        let quotient_expected = &numerator_coeff / &denom_coeff;
+
+        assert_eq!(quotient_expected, quotient_coeff)
+    }
+
+    // Taken from sapling-crypto -- O(n^2)
+    fn interpolate(points: &[(Fr, Fr)]) -> Option<Vec<Fr>> {
+        let max_degree_plus_one = points.len();
+        assert!(
+            max_degree_plus_one >= 2,
+            "should interpolate for degree >= 1"
+        );
+        let mut coeffs = vec![Fr::zero(); max_degree_plus_one];
+        // external iterator
+        for (k, p_k) in points.iter().enumerate() {
+            let (x_k, y_k) = p_k;
+            // coeffs from 0 to max_degree - 1
+            let mut contribution = vec![Fr::zero(); max_degree_plus_one];
+            let mut denominator = Fr::one();
+            let mut max_contribution_degree = 0;
+            // internal iterator
+            for (j, p_j) in points.iter().enumerate() {
+                let (x_j, _) = p_j;
+                if j == k {
+                    continue;
+                }
+
+                let mut diff = *x_k;
+                diff -= x_j;
+                denominator *= diff;
+
+                if max_contribution_degree == 0 {
+                    max_contribution_degree = 1;
+                    *contribution
+                        .get_mut(0)
+                        .expect("must have enough coefficients") -= x_j;
+                    *contribution
+                        .get_mut(1)
+                        .expect("must have enough coefficients") += Fr::one();
+                } else {
+                    let mul_by_minus_x_j: Vec<Fr> = contribution
+                        .iter()
+                        .map(|el| {
+                            let mut tmp = *el;
+                            tmp *= x_j;
+
+                            -tmp
+                        })
+                        .collect();
+
+                    contribution.insert(0, Fr::zero());
+                    contribution.truncate(max_degree_plus_one);
+
+                    assert_eq!(mul_by_minus_x_j.len(), max_degree_plus_one);
+                    for (i, c) in contribution.iter_mut().enumerate() {
+                        let other = mul_by_minus_x_j
+                            .get(i)
+                            .expect("should have enough elements");
+                        *c += other;
+                    }
                 }
             }
+
+            denominator = denominator.inverse().expect("denominator must be non-zero");
+            for (i, this_contribution) in contribution.into_iter().enumerate() {
+                let c = coeffs.get_mut(i).expect("should have enough coefficients");
+                let mut tmp = this_contribution;
+                tmp *= denominator;
+                tmp *= y_k;
+                *c += tmp;
+            }
         }
 
-        demoninator = demoninator.inverse().expect("denominator must be non-zero");
-        for (i, this_contribution) in contribution.into_iter().enumerate() {
-            let c = coeffs.get_mut(i).expect("should have enough coefficients");
-            let mut tmp = this_contribution;
-            tmp *= demoninator;
-            tmp *= y_k;
-            *c += tmp;
-        }
+        Some(coeffs)
     }
-
-    Some(coeffs)
 }
