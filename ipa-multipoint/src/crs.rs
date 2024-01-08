@@ -1,6 +1,7 @@
 use crate::{ipa::slow_vartime_multiscalar_mul, lagrange_basis::LagrangeBasis};
 use banderwagon::{try_reduce_to_element, Element};
 
+#[allow(non_snake_case)]
 #[derive(Debug, Clone)]
 pub struct CRS {
     pub n: usize,
@@ -9,6 +10,7 @@ pub struct CRS {
 }
 
 impl CRS {
+    #[allow(non_snake_case)]
     pub fn new(n: usize, seed: &'static [u8]) -> CRS {
         // TODO generate the Q value from the seed also
         // TODO: this will also make assert_dedup work as expected

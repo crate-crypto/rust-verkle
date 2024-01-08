@@ -138,7 +138,7 @@ fn legendre_check_point(x: &Fq) -> bool {
 }
 
 pub fn multi_scalar_mul(bases: &[Element], scalars: &[Fr]) -> Element {
-    let bases_inner: Vec<_> = bases.into_iter().map(|element| element.0).collect();
+    let bases_inner: Vec<_> = bases.iter().map(|element| element.0).collect();
 
     // XXX: Converting all of these to affine hurts performance
     let bases = EdwardsProjective::batch_convert_to_mul_base(&bases_inner);

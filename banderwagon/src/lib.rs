@@ -51,7 +51,7 @@ pub fn try_reduce_to_element(bytes: &[u8]) -> Option<Element> {
 
     // The Element::from_bytes method does not reduce the bytes, it expects the
     // input to be in a canonical format, so we must do the reduction ourselves
-    let x_coord = Fq::from_be_bytes_mod_order(&bytes);
+    let x_coord = Fq::from_be_bytes_mod_order(bytes);
 
     let mut bytes = [0u8; 32];
     x_coord.serialize_compressed(&mut bytes[..]).unwrap();

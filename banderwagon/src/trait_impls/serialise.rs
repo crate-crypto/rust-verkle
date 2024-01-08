@@ -10,7 +10,7 @@ impl CanonicalSerialize for Element {
     ) -> Result<(), SerializationError> {
         match compress {
             ark_serialize::Compress::Yes => {
-                writer.write(&self.to_bytes())?;
+                writer.write_all(&self.to_bytes())?;
                 Ok(())
             }
             ark_serialize::Compress::No => self.0.into_affine().serialize_uncompressed(writer),
