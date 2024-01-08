@@ -1,4 +1,6 @@
+pub mod committer;
 pub mod crs;
+
 pub mod ipa; // follows the BCMS20 scheme
 pub mod math_utils;
 pub mod multiproof;
