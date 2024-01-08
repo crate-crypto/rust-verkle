@@ -185,14 +185,13 @@ mod test_mod {
 
         let values: Vec<_> = (1..=degree + 1).map(|i| Fr::from(i as u128)).collect();
 
-        let expected_comm =
-            {
-                let mut res = Element::zero();
-                for (val, point) in values.iter().zip(crs.G.iter()) {
-                    res += point * val
-                }
-                res
-            };
+        let expected_comm = {
+            let mut res = Element::zero();
+            for (val, point) in values.iter().zip(crs.G.iter()) {
+                res += point * val
+            }
+            res
+        };
 
         let values_arr: [Fr; 256] = values.try_into().unwrap();
         let base_points = PrecomputeLagrange::precompute(&crs.G);

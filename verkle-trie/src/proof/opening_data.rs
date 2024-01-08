@@ -109,15 +109,14 @@ impl OpeningData {
             let stem: [u8; 31] = key[0..31].try_into().unwrap();
             let suffix = key[31];
 
-            let ext_pres =
-                match key_state {
-                    KeyState::Found(_) => ExtPresent::Present,
-                    KeyState::NotFound(nf) => match nf {
-                        KeyNotFound::DifferentStem(_) => ExtPresent::DifferentStem,
-                        KeyNotFound::StemFound => ExtPresent::Present,
-                        KeyNotFound::Empty => ExtPresent::None,
-                    },
-                };
+            let ext_pres = match key_state {
+                KeyState::Found(_) => ExtPresent::Present,
+                KeyState::NotFound(nf) => match nf {
+                    KeyNotFound::DifferentStem(_) => ExtPresent::DifferentStem,
+                    KeyNotFound::StemFound => ExtPresent::Present,
+                    KeyNotFound::Empty => ExtPresent::None,
+                },
+            };
 
             let (last_node_path, _, last_node_meta) = node_path.last().cloned().unwrap();
 

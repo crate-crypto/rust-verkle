@@ -61,9 +61,12 @@ impl Element {
         // Construct a point that is in the group -- this point may or may not be in the prime subgroup
         let point = Self::get_point_from_x(x, return_positive_y)?;
 
-        let element = Element(
-            EdwardsProjective::new_unchecked(point.x, point.y, point.x * point.y, Fq::one())
-        );
+        let element = Element(EdwardsProjective::new_unchecked(
+            point.x,
+            point.y,
+            point.x * point.y,
+            Fq::one(),
+        ));
 
         // Check if the point is in the correct subgroup
         //

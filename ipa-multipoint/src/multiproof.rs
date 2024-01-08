@@ -329,13 +329,12 @@ fn open_multiproof_lagrange_2_polys() {
     let crs = CRS::new(n, b"random seed");
     let poly_comm = crs.commit_lagrange_poly(&poly);
 
-    let prover_query_i =
-        ProverQuery {
-            commitment: poly_comm,
-            poly: poly.clone(),
-            point: z_i,
-            result: y_i,
-        };
+    let prover_query_i = ProverQuery {
+        commitment: poly_comm,
+        poly: poly.clone(),
+        point: z_i,
+        result: y_i,
+    };
     let prover_query_j = ProverQuery {
         commitment: poly_comm,
         poly,
@@ -382,15 +381,14 @@ fn test_ipa_consistency() {
 
     let mut prover_transcript = Transcript::new(b"test");
 
-    let proof =
-        open_point_outside_of_domain(
-            crs.clone(),
-            &precomp,
-            &mut prover_transcript,
-            polynomial,
-            commitment,
-            input_point,
-        );
+    let proof = open_point_outside_of_domain(
+        crs.clone(),
+        &precomp,
+        &mut prover_transcript,
+        polynomial,
+        commitment,
+        input_point,
+    );
 
     let p_challenge = prover_transcript.challenge_scalar(b"state");
     let mut bytes = [0u8; 32];
@@ -461,20 +459,18 @@ fn multiproof_consistency() {
     let poly_comm_a = crs.commit_lagrange_poly(&polynomial_a);
     let poly_comm_b = crs.commit_lagrange_poly(&polynomial_b);
 
-    let prover_query_a =
-        ProverQuery {
-            commitment: poly_comm_a,
-            poly: polynomial_a,
-            point: point_a,
-            result: y_a,
-        };
-    let prover_query_b =
-        ProverQuery {
-            commitment: poly_comm_b,
-            poly: polynomial_b,
-            point: point_b,
-            result: y_b,
-        };
+    let prover_query_a = ProverQuery {
+        commitment: poly_comm_a,
+        poly: polynomial_a,
+        point: point_a,
+        result: y_a,
+    };
+    let prover_query_b = ProverQuery {
+        commitment: poly_comm_b,
+        poly: polynomial_b,
+        point: point_b,
+        result: y_b,
+    };
 
     let mut prover_transcript = Transcript::new(b"test");
     let multiproof = MultiPoint::open(

@@ -190,8 +190,9 @@ impl VerkleProof {
             let mut comm_serialized = [0u8; 32];
             reader.read_exact(&mut comm_serialized)?;
 
-            let point = Element::from_bytes(&comm_serialized)
-                .ok_or(HintError::from(std::io::Error::from(std::io::ErrorKind::InvalidData)))?;
+            let point = Element::from_bytes(&comm_serialized).ok_or(HintError::from(
+                std::io::Error::from(std::io::ErrorKind::InvalidData),
+            ))?;
 
             comms_sorted.push(point);
         }

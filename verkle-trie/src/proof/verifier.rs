@@ -188,15 +188,14 @@ pub fn create_verifier_queries(
         .into_iter()
         .zip(commitments_sorted_by_path)
         .collect();
-    let commitment_by_path_and_z: BTreeMap<_, _> =
-        all_paths_and_zs
-            .iter()
-            .cloned()
-            .map(|(path, z)| {
-                let comm = commitments_by_path[&path];
-                ((path, z), comm)
-            })
-            .collect();
+    let commitment_by_path_and_z: BTreeMap<_, _> = all_paths_and_zs
+        .iter()
+        .cloned()
+        .map(|(path, z)| {
+            let comm = commitments_by_path[&path];
+            ((path, z), comm)
+        })
+        .collect();
     let mut ys_by_path_and_z: BTreeMap<(Vec<u8>, u8), Fr> = BTreeMap::new();
     for (path, z) in &all_paths_and_zs {
         let mut child_path = path.clone();

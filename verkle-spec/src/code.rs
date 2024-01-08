@@ -167,11 +167,10 @@ fn leftover_fuzz() {
     assert_eq!(remaining, 2);
 
     // Push32 at the end of the chunk should give us a leftover of 32
-    let chunk: [u8; 32] =
-        [
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, PUSH32,
-        ];
+    let chunk: [u8; 32] = [
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, PUSH32,
+    ];
     let remaining = compute_leftover_push_data(&chunk);
     assert_eq!(remaining, 32);
 
