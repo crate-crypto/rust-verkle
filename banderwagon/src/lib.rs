@@ -16,6 +16,7 @@ pub trait VerkleField {
 }
 
 // TODO: This avoids leaking arkworks in verkle_trie, but it's not ideal
+// TODO: Another method would be to create a new type that wraps Fr
 impl VerkleField for Fr {
     fn zero() -> Self {
         ark_ff::Zero::zero()
