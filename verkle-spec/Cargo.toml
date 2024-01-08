@@ -9,3 +9,4 @@ edition = "2021"
 ethereum-types = "0.14.1"
 verkle-trie = { path = "../verkle-trie" }
 hex = "*"
+ipa-multipoint = { path = "../ipa-multipoint" }

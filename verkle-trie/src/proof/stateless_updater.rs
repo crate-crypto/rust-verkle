@@ -1,6 +1,7 @@
 use crate::constants::TWO_POW_128;
-use crate::{committer::Committer, errors::VerificationError, group_to_field, proof::ExtPresent};
+use crate::{errors::VerificationError, group_to_field, proof::ExtPresent};
 use banderwagon::{Element, Fr, VerkleField};
+use ipa_multipoint::committer::Committer;
 use std::collections::{BTreeMap, HashSet};
 
 use super::{UpdateHint, VerkleProof};
@@ -578,12 +579,14 @@ mod test {
 
     use ark_serialize::CanonicalSerialize;
 
+    use crate::constants::new_crs;
     use crate::database::memory_db::MemoryDb;
     use crate::database::ReadOnlyHigherDb;
     use crate::proof::prover;
     use crate::proof::stateless_updater::update_root;
-    use crate::{committer::test::TestCommitter, trie::Trie, TrieTrait};
     use crate::{group_to_field, TestConfig};
+    use crate::{trie::Trie, TrieTrait};
+    use ipa_multipoint::committer::test::TestCommitter;
 
     #[test]
     fn basic_update() {
@@ -611,7 +614,7 @@ mod test {
             values,
             vec![Some([0u8; 32]), None],
             meta.commitment,
-            TestCommitter,
+            TestCommitter(new_crs()),
         );
 
         let mut got_bytes = [0u8; 32];
@@ -660,7 +663,7 @@ mod test {
             values,
             updated_values,
             meta.commitment,
-            TestCommitter,
+            TestCommitter(new_crs()),
         );
 
         let mut got_bytes = [0u8; 32];
@@ -714,7 +717,7 @@ mod test {
             values,
             updated_values,
             meta.commitment,
-            TestCommitter,
+            TestCommitter(new_crs()),
         );
 
         let mut got_bytes = [0u8; 32];

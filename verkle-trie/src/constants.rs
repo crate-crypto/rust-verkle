@@ -14,7 +14,9 @@ const PEDERSEN_SEED: &[u8] = b"eth_verkle_oct_2021";
 pub(crate) const TWO_POW_128: Fr = fr_from_u64_limbs([0, 0, 1, 0]);
 
 pub static CRS: Lazy<CRS> = Lazy::new(|| CRS::new(VERKLE_NODE_WIDTH, PEDERSEN_SEED));
-
+pub fn new_crs() -> CRS {
+    CRS::new(VERKLE_NODE_WIDTH, PEDERSEN_SEED)
+}
 pub static PRECOMPUTED_WEIGHTS: Lazy<PrecomputedWeights> =
     Lazy::new(|| PrecomputedWeights::new(VERKLE_NODE_WIDTH));
 

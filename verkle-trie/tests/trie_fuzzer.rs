@@ -1,21 +1,11 @@
 use std::sync::Mutex;
 
+use ipa_multipoint::committer::Committer;
 use once_cell::sync::Lazy;
-use verkle_trie::{
-    committer::precompute::PrecomputeLagrange, database::memory_db::MemoryDb, Trie, TrieTrait,
-    VerkleConfig,
-};
+use verkle_trie::{database::memory_db::MemoryDb, Trie, TrieTrait, VerkleConfig};
 
-pub static CONFIG: Lazy<Mutex<VerkleConfig<MemoryDb>>> = Lazy::new(|| {
-    Mutex::new(match VerkleConfig::new(MemoryDb::new()) {
-        Ok(config) => config,
-        Err(_) => {
-            // An error means that the file was already created
-            // Lets call open instead
-            VerkleConfig::open(MemoryDb::new()).expect("should be infallible")
-        }
-    })
-});
+pub static CONFIG: Lazy<Mutex<VerkleConfig<MemoryDb>>> =
+    Lazy::new(|| Mutex::new(VerkleConfig::new(MemoryDb::new())));
 
 #[test]
 fn test_vector_insert_100_step() {
@@ -104,8 +94,8 @@ fn test_vector_insert_1000_step() {
     );
 }
 
-fn step_test_helper(
-    trie: &mut Trie<MemoryDb, PrecomputeLagrange>,
+fn step_test_helper<C: Committer>(
+    trie: &mut Trie<MemoryDb, C>,
     prng: &mut BasicPRNG,
     num_keys: usize,
     expected: &str,

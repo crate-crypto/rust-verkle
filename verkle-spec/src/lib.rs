@@ -14,6 +14,7 @@ pub use ethereum_types::{H160, H256, U256};
 pub use code::Code;
 pub use header::Header;
 pub use storage::Storage;
+use verkle_trie::constants::new_crs;
 
 // Used to hash the input in get_tree_key
 pub trait Hasher {
@@ -33,12 +34,12 @@ pub trait Hasher {
 // in the EIP. Since the EIP hashes 64 bytes (address32 + tree_index),
 // we just special case the method here to hash 64 bytes.
 pub fn hash64(bytes64: [u8; 64]) -> H256 {
-    use verkle_trie::{
-        committer::{test::TestCommitter, Committer},
-        Element,
-    };
+    use ipa_multipoint::committer::{test::TestCommitter, Committer};
+    use verkle_trie::Element;
 
-    let committer = TestCommitter;
+    // TODO: We should either make this a global or have it be passed in
+    // TODO: so that we don't create a new crs each time
+    let committer = TestCommitter(new_crs());
     let mut result = Element::zero();
 
     let inputs = crate::util::chunk64(bytes64);
