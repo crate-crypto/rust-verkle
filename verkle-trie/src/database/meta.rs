@@ -1,6 +1,6 @@
 #![allow(clippy::identity_op)]
 #![allow(clippy::large_enum_variant)]
-use ark_serialize::{CanonicalDeserialize, SerializationError};
+use banderwagon::trait_defs::*;
 use banderwagon::{Element, Fr};
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
@@ -44,8 +44,6 @@ impl std::fmt::Debug for StemMeta {
             .finish()
     }
 }
-
-use ark_serialize::CanonicalSerialize;
 
 fn point_to_array(p: &Element) -> Result<[u8; 64], SerializationError> {
     let mut bytes = [0u8; 64];
@@ -136,7 +134,7 @@ impl std::fmt::Debug for BranchMeta {
 }
 impl BranchMeta {
     pub fn zero() -> BranchMeta {
-        use banderwagon::VerkleField;
+        use banderwagon::trait_defs::*;
         BranchMeta {
             commitment: Element::zero(),
             hash_commitment: Fr::zero(),

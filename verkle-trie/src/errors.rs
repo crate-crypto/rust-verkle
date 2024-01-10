@@ -1,4 +1,4 @@
-use ark_serialize::SerializationError;
+use banderwagon::trait_defs::*;
 use thiserror::Error;
 
 // Right now there are lots of unwraps which are immediately switched to Results, but in the future

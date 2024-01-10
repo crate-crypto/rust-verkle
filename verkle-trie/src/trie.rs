@@ -5,7 +5,7 @@ use crate::Config;
 use crate::{group_to_field, TrieTrait};
 use ipa_multipoint::committer::Committer;
 
-use banderwagon::{Element, Fr, VerkleField};
+use banderwagon::{trait_defs::*, Element, Fr};
 
 #[derive(Debug, Clone)]
 // The trie implements the logic to insert values, fetch values, and create paths to said values
@@ -760,8 +760,6 @@ fn paths_from_relative(parent_path: Vec<u8>, relative_paths: Vec<u8>) -> Vec<Vec
 }
 #[cfg(test)]
 mod tests {
-    use ark_serialize::CanonicalSerialize;
-    use banderwagon::VerkleField;
 
     use crate::constants::{CRS, TWO_POW_128};
     use crate::database::memory_db::MemoryDb;
@@ -769,7 +767,7 @@ mod tests {
     use crate::trie::Trie;
     use crate::TrieTrait;
     use crate::{group_to_field, TestConfig};
-    use banderwagon::{Element, Fr};
+    use banderwagon::{trait_defs::*, Element, Fr};
     use std::ops::Mul;
 
     #[test]

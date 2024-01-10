@@ -12,7 +12,6 @@ tempfile = "3.2.0"
 thiserror = "1.0"
 ipa-multipoint = { path = "../ipa-multipoint" }
 banderwagon = { path = "../banderwagon" }
-ark-serialize = { version = "^0.4.2", default-features = false }
 verkle-db = { path = "../verkle-db", default-features = false }
 once_cell = "1.8.0"
 hex = "0.4.3"

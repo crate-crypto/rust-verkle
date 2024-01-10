@@ -1,6 +1,6 @@
 use crate::constants::TWO_POW_128;
 use crate::{errors::VerificationError, group_to_field, proof::ExtPresent};
-use banderwagon::{Element, Fr, VerkleField};
+use banderwagon::{trait_defs::*, Element, Fr};
 use ipa_multipoint::committer::Committer;
 use std::collections::{BTreeMap, HashSet};
 
@@ -574,7 +574,7 @@ where
 #[cfg(test)]
 mod test {
 
-    use ark_serialize::CanonicalSerialize;
+    use banderwagon::trait_defs::*;
 
     use crate::constants::new_crs;
     use crate::database::memory_db::MemoryDb;

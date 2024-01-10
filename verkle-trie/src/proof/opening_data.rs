@@ -6,7 +6,7 @@ use crate::{
     proof::key_path_finder::{KeyNotFound, KeyPathFinder, KeyState},
 };
 
-use banderwagon::{Fr, VerkleField};
+use banderwagon::{trait_defs::*, Fr};
 use ipa_multipoint::{lagrange_basis::LagrangeBasis, multiproof::ProverQuery};
 use std::{
     collections::{BTreeMap, BTreeSet},

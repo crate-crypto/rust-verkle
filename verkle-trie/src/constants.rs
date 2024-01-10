@@ -23,7 +23,7 @@ pub static PRECOMPUTED_WEIGHTS: Lazy<PrecomputedWeights> =
 #[cfg(test)]
 mod tests {
     use super::TWO_POW_128;
-    use banderwagon::{Fr, VerkleField};
+    use banderwagon::{trait_defs::*, Fr};
 
     #[test]
     fn test_two_pow128_constant() {

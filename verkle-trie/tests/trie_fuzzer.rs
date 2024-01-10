@@ -107,7 +107,7 @@ fn step_test_helper<C: Committer>(
 
     let root = trie.root_hash();
 
-    use ark_serialize::CanonicalSerialize;
+    use banderwagon::trait_defs::*;
     let mut root_bytes = [0u8; 32];
     root.serialize_compressed(&mut root_bytes[..]).unwrap();
     assert_eq!(hex::encode(root_bytes), expected);
