@@ -370,7 +370,7 @@ impl IPAProof {
         }
 
         let b_0 = inner_product(&b_Vec, &g_i);
-        let G_0 = slow_vartime_multiscalar_mul(g_i.iter(), crs.G.iter()); // TODO: Optimise the majority of the time is spent on this vector, precompute
+        let G_0 = slow_vartime_multiscalar_mul(g_i.iter(), crs.G.iter()); // TODO: Optimise; the majority of the time is spent on this vector, precompute
 
         let exp_P = (G_0 * self.a) + Q * (self.a * b_0);
 
