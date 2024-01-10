@@ -9,26 +9,27 @@ pub trait TranscriptProtocol {
 
 use sha2::{Digest, Sha256};
 pub struct Transcript {
-    state: Sha256,
+    state: Vec<u8>,
 }
 
 impl Transcript {
     pub fn new(label: &'static [u8]) -> Transcript {
-        let mut state = Sha256::new();
-        state.update(label);
+        // TODO: add a with capacity method, so we don't reallocate alot
+        let mut state = Vec::new();
+        state.extend(label);
         Transcript { state }
     }
 
     fn append_message(&mut self, message: &[u8], label: &'static [u8]) {
-        self.state.update(label);
-        self.state.update(message);
+        self.state.extend(label);
+        self.state.extend(message);
     }
     // TODO: Add this to the other implementations! or most likely, we just need to add
     // TODO sub protocol specific domain separators ipa_domain_sep(n) and under the roof
     // TODO it adds the ipa label and the argument size n
     pub fn append_u64(&mut self, label: &'static [u8], number: u64) {
-        self.state.update(label);
-        self.state.update(number.to_be_bytes());
+        self.state.extend(label);
+        self.state.extend(number.to_be_bytes());
     }
 }
 
@@ -36,7 +37,13 @@ impl TranscriptProtocol for Transcript {
     fn challenge_scalar(&mut self, label: &'static [u8]) -> Fr {
         self.domain_sep(label);
 
-        let hash: Vec<u8> = self.state.finalize_reset().to_vec();
+        // Hash entire transcript state
+        let mut sha256 = Sha256::new();
+        sha256.update(&self.state);
+        let hash: Vec<u8> = sha256.finalize_reset().to_vec();
+
+        // Clear the state
+        self.state.clear();
 
         let scalar = Fr::from_le_bytes_mod_order(&hash);
 
@@ -58,7 +65,7 @@ impl TranscriptProtocol for Transcript {
     }
 
     fn domain_sep(&mut self, label: &'static [u8]) {
-        self.state.update(label)
+        self.state.extend(label)
     }
 }
 #[cfg(test)]
