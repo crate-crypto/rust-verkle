@@ -7,16 +7,15 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-rand = "0.6"
-criterion = "0.5.1"
-rand_chacha = { version = "0.3.0", default-features = false }
+banderwagon = { path = "../banderwagon" }
 itertools = "0.10.1"
 sha2 = "0.9.8"
-hex = "0.4.3"
-rayon = "*"
-banderwagon = { path = "../banderwagon" }
+rayon = "1.8.0"
 
 [dev-dependencies]
+hex = "0.4.3"
+criterion = "0.5.1"
+rand_chacha = { version = "0.3.0", default-features = false }
 ark-poly = { version = "^0.4.2", default-features = false }
 ark-std = { version = "^0.4.0", default-features = false }
 
