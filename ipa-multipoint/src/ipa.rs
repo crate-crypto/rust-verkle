@@ -408,8 +408,7 @@ mod tests {
     use crate::crs::CRS;
     use crate::math_utils::{inner_product, powers_of};
 
-    use ark_std::rand::SeedableRng;
-    use ark_std::UniformRand;
+    use ark_std::{rand::SeedableRng, UniformRand};
     use rand_chacha::ChaCha20Rng;
 
     #[test]
