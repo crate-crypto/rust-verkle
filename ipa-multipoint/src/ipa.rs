@@ -381,11 +381,6 @@ fn to_bits(n: usize, bits_needed: usize) -> impl Iterator<Item = u8> {
     (0..bits_needed).map(move |i| ((n >> i) & 1) as u8).rev()
 }
 
-// TODO: use pippenger with endomorphism
-// We allocate unnecessarily here because the multi_scalar_mul algorithm requires scalars
-// TODO: in the unrolled version, we can collect points and scalars and then call
-// TODO VariableBaseMSM::multi_scalar_mul(&points, &scalars) directly
-// TODO check performance of that versus the current method
 pub fn slow_vartime_multiscalar_mul<'a>(
     scalars: impl Iterator<Item = &'a Fr>,
     points: impl Iterator<Item = &'a Element>,
