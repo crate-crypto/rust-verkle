@@ -274,13 +274,13 @@ mod test {
     use super::VerkleProof;
     use crate::database::{memory_db::MemoryDb, ReadOnlyHigherDb};
     use crate::proof::{prover, verifier};
-    use crate::{trie::Trie, TestConfig, TrieTrait};
+    use crate::{trie::Trie, DefaultConfig, TrieTrait};
     use banderwagon::Fr;
 
     #[test]
     fn basic_proof_true() {
         let db = MemoryDb::new();
-        let mut trie = Trie::new(TestConfig::new(db));
+        let mut trie = Trie::new(DefaultConfig::new(db));
 
         let mut keys = Vec::new();
         for i in 0..=3 {
@@ -300,7 +300,7 @@ mod test {
     #[test]
     fn proof_of_absence_edge_case() {
         let db = MemoryDb::new();
-        let trie = Trie::new(TestConfig::new(db));
+        let trie = Trie::new(DefaultConfig::new(db));
 
         let absent_keys = vec![[3; 32]];
         let absent_values = vec![None];
@@ -317,7 +317,7 @@ mod test {
     #[test]
     fn prover_queries_match_verifier_queries() {
         let db = MemoryDb::new();
-        let mut trie = Trie::new(TestConfig::new(db));
+        let mut trie = Trie::new(DefaultConfig::new(db));
 
         let mut keys = Vec::new();
         for i in 0..=3 {
@@ -346,7 +346,7 @@ mod test {
     #[test]
     fn simple_serialisation_consistency() {
         let db = MemoryDb::new();
-        let mut trie = Trie::new(TestConfig::new(db));
+        let mut trie = Trie::new(DefaultConfig::new(db));
 
         let mut keys = Vec::new();
         for i in 0..=3 {

@@ -23,11 +23,10 @@ pub trait Committer {
 }
 
 use crate::crs::CRS;
-// A Basic Commit struct to be used in tests.
-// In production, we will use the Precomputed points
+
 #[derive(Debug, Clone)]
-pub struct TestCommitter(pub CRS);
-impl Committer for TestCommitter {
+pub struct DefaultCommitter(pub CRS);
+impl Committer for DefaultCommitter {
     fn commit_lagrange(&self, evaluations: &[Fr; 256]) -> Element {
         let mut res = Element::zero();
         for (val, point) in evaluations.iter().zip(self.0.G.iter()) {

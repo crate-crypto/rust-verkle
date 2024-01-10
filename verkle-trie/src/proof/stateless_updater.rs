@@ -581,14 +581,14 @@ mod test {
     use crate::database::ReadOnlyHigherDb;
     use crate::proof::prover;
     use crate::proof::stateless_updater::update_root;
-    use crate::{group_to_field, TestConfig};
+    use crate::{group_to_field, DefaultConfig};
     use crate::{trie::Trie, TrieTrait};
-    use ipa_multipoint::committer::test::TestCommitter;
+    use ipa_multipoint::committer::DefaultCommitter;
 
     #[test]
     fn basic_update() {
         let db = MemoryDb::new();
-        let mut trie = Trie::new(TestConfig::new(db));
+        let mut trie = Trie::new(DefaultConfig::new(db));
 
         let mut keys = Vec::new();
         for i in 0..2 {
@@ -611,7 +611,7 @@ mod test {
             values,
             vec![Some([0u8; 32]), None],
             meta.commitment,
-            TestCommitter(new_crs()),
+            DefaultCommitter(new_crs()),
         );
 
         let mut got_bytes = [0u8; 32];
@@ -631,7 +631,7 @@ mod test {
     #[test]
     fn basic_update_using_subtree() {
         let db = MemoryDb::new();
-        let mut trie = Trie::new(TestConfig::new(db));
+        let mut trie = Trie::new(DefaultConfig::new(db));
 
         let key_a = [0u8; 32];
         trie.insert_single(key_a, key_a);
@@ -660,7 +660,7 @@ mod test {
             values,
             updated_values,
             meta.commitment,
-            TestCommitter(new_crs()),
+            DefaultCommitter(new_crs()),
         );
 
         let mut got_bytes = [0u8; 32];
@@ -681,7 +681,7 @@ mod test {
     fn basic_update3() {
         // traverse the subtree twice
         let db = MemoryDb::new();
-        let mut trie = Trie::new(TestConfig::new(db));
+        let mut trie = Trie::new(DefaultConfig::new(db));
 
         let key_a = [0u8; 32];
         trie.insert_single(key_a, key_a);
@@ -714,7 +714,7 @@ mod test {
             values,
             updated_values,
             meta.commitment,
-            TestCommitter(new_crs()),
+            DefaultCommitter(new_crs()),
         );
 
         let mut got_bytes = [0u8; 32];

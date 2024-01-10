@@ -3,7 +3,7 @@ use criterion::BenchmarkId;
 use criterion::{black_box, criterion_group, BatchSize, Criterion};
 use verkle_trie::database::memory_db::MemoryDb;
 use verkle_trie::trie::Trie;
-use verkle_trie::TestConfig;
+use verkle_trie::DefaultConfig;
 use verkle_trie::TrieTrait;
 
 fn insert_10k_from_10mil_step(c: &mut Criterion) {
@@ -12,7 +12,7 @@ fn insert_10k_from_10mil_step(c: &mut Criterion) {
     for initial_keys in (0..=100_000).step_by(100_000) {
         // let db = verkle_db::DefaultSledDb::from_path(&temp_dir);
         let db = MemoryDb::new();
-        let config = TestConfig::new(db);
+        let config = DefaultConfig::new(db);
         let mut trie = Trie::new(config);
         // Initial set of keys
         let keys = generate_set_of_keys(initial_keys);

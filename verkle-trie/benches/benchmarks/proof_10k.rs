@@ -3,14 +3,14 @@ use criterion::BenchmarkId;
 use criterion::{black_box, criterion_group, BatchSize, Criterion};
 use verkle_trie::database::memory_db::MemoryDb;
 use verkle_trie::trie::Trie;
-use verkle_trie::TestConfig;
+use verkle_trie::DefaultConfig;
 use verkle_trie::TrieTrait;
 
 fn proof_10k_from_10mil_step(c: &mut Criterion) {
     let mut group = c.benchmark_group("proof 10k");
 
     let db = MemoryDb::new();
-    let config = TestConfig::new(db);
+    let config = DefaultConfig::new(db);
     let mut trie = Trie::new(config);
     // Initial set of keys
     let _keys = generate_set_of_keys(1_000_000);

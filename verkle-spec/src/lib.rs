@@ -34,12 +34,12 @@ pub trait Hasher {
 // in the EIP. Since the EIP hashes 64 bytes (address32 + tree_index),
 // we just special case the method here to hash 64 bytes.
 pub fn hash64(bytes64: [u8; 64]) -> H256 {
-    use ipa_multipoint::committer::{test::TestCommitter, Committer};
+    use ipa_multipoint::committer::{Committer, DefaultCommitter};
     use verkle_trie::Element;
 
     // TODO: We should either make this a global or have it be passed in
     // TODO: so that we don't create a new crs each time
-    let committer = TestCommitter(new_crs());
+    let committer = DefaultCommitter(new_crs());
     let mut result = Element::zero();
 
     let inputs = crate::util::chunk64(bytes64);

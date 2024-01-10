@@ -766,7 +766,7 @@ mod tests {
     use crate::database::ReadOnlyHigherDb;
     use crate::trie::Trie;
     use crate::TrieTrait;
-    use crate::{group_to_field, TestConfig};
+    use crate::{group_to_field, DefaultConfig};
     use banderwagon::{trait_defs::*, Element, Fr};
     use std::ops::Mul;
 
@@ -777,7 +777,7 @@ mod tests {
     fn insert_key0value0() {
         let db = MemoryDb::new();
 
-        let mut trie = Trie::new(TestConfig::new(db));
+        let mut trie = Trie::new(DefaultConfig::new(db));
 
         let key = [0u8; 32];
         let stem: [u8; 31] = key[0..31].try_into().unwrap();
@@ -834,7 +834,7 @@ mod tests {
         use crate::database::ReadOnlyHigherDb;
 
         let db = MemoryDb::new();
-        let mut trie = Trie::new(TestConfig::new(db));
+        let mut trie = Trie::new(DefaultConfig::new(db));
 
         let key = [
             1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24,
@@ -899,7 +899,7 @@ mod tests {
     fn insert_same_stem_two_leaves() {
         use crate::database::ReadOnlyHigherDb;
         let db = MemoryDb::new();
-        let mut trie = Trie::new(TestConfig::new(db));
+        let mut trie = Trie::new(DefaultConfig::new(db));
 
         let key_a = [
             1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24,
@@ -988,7 +988,7 @@ mod tests {
         use crate::database::ReadOnlyHigherDb;
 
         let db = MemoryDb::new();
-        let mut trie = Trie::new(TestConfig::new(db));
+        let mut trie = Trie::new(DefaultConfig::new(db));
 
         let key_a = [0u8; 32];
         let stem_a: [u8; 31] = key_a[0..31].try_into().unwrap();
@@ -1015,7 +1015,7 @@ mod tests {
     // Test where keys create the longest path
     fn insert_longest_path() {
         let db = MemoryDb::new();
-        let mut trie = Trie::new(TestConfig::new(db));
+        let mut trie = Trie::new(DefaultConfig::new(db));
 
         let key_a = [0u8; 32];
         let mut key_b = [0u8; 32];
@@ -1037,7 +1037,7 @@ mod tests {
     // Test where keys create the longest path and the new key traverses that path
     fn insert_and_traverse_longest_path() {
         let db = MemoryDb::new();
-        let mut trie = Trie::new(TestConfig::new(db));
+        let mut trie = Trie::new(DefaultConfig::new(db));
 
         let key_a = [0u8; 32];
         let ins = trie.create_insert_instructions(key_a, key_a);
@@ -1072,7 +1072,7 @@ mod tests {
         // An empty tree should return zero as the root
 
         let db = MemoryDb::new();
-        let trie = Trie::new(TestConfig::new(db));
+        let trie = Trie::new(DefaultConfig::new(db));
 
         assert_eq!(trie.root_hash(), Fr::zero())
     }
@@ -1080,7 +1080,7 @@ mod tests {
     #[test]
     fn simple_insert() {
         let db = MemoryDb::new();
-        let mut trie = Trie::new(TestConfig::new(db));
+        let mut trie = Trie::new(DefaultConfig::new(db));
 
         let key_a = [
             1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24,
@@ -1102,7 +1102,7 @@ mod tests {
     #[test]
     fn simple_update() {
         let db = MemoryDb::new();
-        let mut trie = Trie::new(TestConfig::new(db));
+        let mut trie = Trie::new(DefaultConfig::new(db));
 
         let key_a = [
             1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24,
@@ -1145,7 +1145,7 @@ mod tests {
         let _temp_dir = tempdir().unwrap();
 
         let db = MemoryDb::new();
-        let mut trie = Trie::new(TestConfig::new(db));
+        let mut trie = Trie::new(DefaultConfig::new(db));
 
         let tree_key_version: [u8; 32] = [
             121, 85, 7, 198, 131, 230, 143, 90, 165, 129, 173, 81, 186, 89, 19, 191, 13, 107, 197,
