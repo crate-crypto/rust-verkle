@@ -15,7 +15,7 @@ pub use element::{multi_scalar_mul, Element, Fr};
 // This reexport allows us to avoid that.
 pub use trait_defs::*;
 pub mod trait_defs {
-    pub use ark_ff::{One, PrimeField, Zero};
+    pub use ark_ff::{batch_inversion, batch_inversion_and_mul, Field, One, PrimeField, Zero};
     pub use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, SerializationError};
 }
 

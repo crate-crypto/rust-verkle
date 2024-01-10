@@ -9,7 +9,6 @@ edition = "2021"
 [dependencies]
 rand = "0.6"
 criterion = "0.5.1"
-ark-ff = { version = "^0.4.2", default-features = false }
 ark-ec = { version = "^0.4.2", default-features = false }
 ark-std = { version = "^0.4.0", default-features = false }
 ark-poly = { version = "^0.4.2", default-features = false }

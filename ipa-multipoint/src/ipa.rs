@@ -2,8 +2,6 @@
 use crate::crs::CRS;
 use crate::math_utils::inner_product;
 use crate::transcript::{Transcript, TranscriptProtocol};
-use ark_ff::Field;
-use ark_ff::One;
 
 use banderwagon::{multi_scalar_mul, trait_defs::*, Element, Fr};
 use itertools::Itertools;
@@ -203,7 +201,7 @@ impl IPAProof {
 
         let challenges = generate_challenges(self, transcript);
         let mut challenges_inv = challenges.clone();
-        ark_ff::batch_inversion(&mut challenges_inv);
+        batch_inversion(&mut challenges_inv);
 
         // Compute the expected commitment
         // TODO use a multizip from itertools
@@ -265,7 +263,7 @@ impl IPAProof {
         // Generate all of the necessary challenges and their inverses
         let challenges = generate_challenges(self, transcript);
         let mut challenges_inv = challenges.clone();
-        ark_ff::batch_inversion(&mut challenges_inv);
+        batch_inversion(&mut challenges_inv);
 
         // Generate the coefficients for the `G` vector and the `b` vector
         // {-g_i}{-b_i}
@@ -342,7 +340,7 @@ impl IPAProof {
 
         let challenges = generate_challenges(self, transcript);
         let mut challenges_inv = challenges.clone();
-        ark_ff::batch_inversion(&mut challenges_inv);
+        batch_inversion(&mut challenges_inv);
 
         let P = slow_vartime_multiscalar_mul(
             challenges

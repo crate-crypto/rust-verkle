@@ -1,4 +1,3 @@
-use ark_ff::PrimeField;
 use banderwagon::{trait_defs::*, Element, Fr};
 pub trait TranscriptProtocol {
     /// Compute a `label`ed challenge variable.

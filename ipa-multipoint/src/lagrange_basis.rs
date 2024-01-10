@@ -1,5 +1,4 @@
-use ark_ff::{batch_inversion_and_mul, Field, Zero};
-use banderwagon::Fr;
+use banderwagon::{trait_defs::*, Fr};
 
 use std::{
     convert::TryFrom,
@@ -228,7 +227,6 @@ impl LagrangeBasis {
 
 #[cfg(test)]
 mod tests {
-    use ark_ff::{batch_inversion, One, Zero};
     use ark_poly::{univariate::DensePolynomial, DenseUVPolynomial};
 
     impl LagrangeBasis {

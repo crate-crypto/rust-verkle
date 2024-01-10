@@ -9,12 +9,9 @@ use crate::math_utils::powers_of;
 use crate::transcript::Transcript;
 use crate::transcript::TranscriptProtocol;
 
-use ark_ff::batch_inversion;
-use ark_ff::Zero;
-
 use std::collections::HashMap;
 
-use banderwagon::{Element, Fr};
+use banderwagon::{trait_defs::*, Element, Fr};
 pub struct MultiPoint;
 
 #[derive(Clone, Debug)]
