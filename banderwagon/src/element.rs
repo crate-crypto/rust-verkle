@@ -16,7 +16,12 @@ impl PartialEq for Element {
         let x2 = other.0.x;
         let y2 = other.0.y;
 
-        // TODO: check that this point (0,0) cannot be constructed/generated at least through this API
+        // One should not be able to generate this point, unless they have assigned `x` and `y`
+        // to be 0 directly and have bypassed the API.
+        //
+        // This is possible in languages such as C, we will leave this check here
+        // for those who are using this as a reference, or in the case that there is some way to
+        // create an Element and bypass the checks.
         if x1.is_zero() & y1.is_zero() {
             return false;
         }
