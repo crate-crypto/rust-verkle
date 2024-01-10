@@ -68,3 +68,20 @@ pub fn addr20_to_addr32(addr20: Address20) -> Address32 {
 
     Address32::from(bytes32)
 }
+
+#[test]
+fn smoke_test_hash64() {
+    // Hash of all zeroes
+    let all_zeroes = [0u8; 64];
+    let hash = hash64(all_zeroes);
+    let expected =
+        hex::decode("bf101a6e1c8e83c11bd203a582c7981b91097ec55cbd344ce09005c1f26d1922").unwrap();
+    assert_eq!(hash, H256::from_slice(&expected));
+
+    // Hash of all ones
+    let all_ones = [1u8; 64];
+    let hash = hash64(all_ones);
+    let expected =
+        hex::decode("54427497ffbee0d2511e14ddaf3497e9b5e8438ff17974d06918e0e8ebe8b61a").unwrap();
+    assert_eq!(hash, H256::from_slice(&expected));
+}
