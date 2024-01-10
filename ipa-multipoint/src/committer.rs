@@ -1,6 +1,5 @@
 use banderwagon::{Element, Fr};
 
-pub mod precompute;
 pub mod test;
 
 // This is the functionality that commits to the branch nodes and computes the delta optimisation
@@ -13,6 +12,7 @@ pub trait Committer {
     // compute value * G for a specific generator in the SRS
     fn scalar_mul(&self, value: Fr, lagrange_index: usize) -> Element;
 
+    // TODO: For large vectors, we could probably do this in parallel
     fn commit_sparse(&self, val_indices: Vec<(Fr, usize)>) -> Element {
         let mut result = Element::zero();
 
