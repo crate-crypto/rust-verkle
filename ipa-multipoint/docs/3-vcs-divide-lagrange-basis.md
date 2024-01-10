@@ -139,7 +139,7 @@ $$
    q_j = \frac{f_j}{x_j - x_m}
 $$
 
-## Optimisations
+## optimizations
 
 If we use the formulas as shown above, $q_m$ will take $d$ steps due to the sum, and $q_j$ will take $d-1$ steps. We describe a way to reduce this complexity in the code.
 
@@ -195,7 +195,7 @@ We want to compute $\frac{1}{0 - 255}$.
 
 ### 3. Precompute $\frac{A'(x_m)}{A'(x_i)}$
 
-> With the roots of unity, we did not need this optimisation as $\frac{A'(x_m)}{A'(x_i)}$ equaled $\frac{\omega^i}{\omega^m}$ which was trivial to fetch from the domain due to the roots of unity forming a domain.
+> With the roots of unity, we did not need this optimization as $\frac{A'(x_m)}{A'(x_i)}$ equaled $\frac{\omega^i}{\omega^m}$ which was trivial to fetch from the domain due to the roots of unity forming a domain.
 
 For our case, we will need to store precomputed values, if we want to efficiently compute $q_m$ in $O(d)$ steps, and to also avoid inversions.
 
@@ -203,7 +203,7 @@ The strategy is that, we precompute $A'(x_i)$ and $\frac{1}{A'(x_i)}$. Given tha
 
 **How would I lookup and store these values in practice?**
 
-Similar to the previous optimisation, we store $A'(x_i)$ in an array as such:
+Similar to the previous optimization, we store $A'(x_i)$ in an array as such:
 
 $[A'(0), A'(1), A'(2), A'(3)... A'(255),\frac{1}{A'(0)},\frac{1}{A'(1)},\frac{1}{A'(2)},...\frac{1}{A'(255)}]$
 
@@ -220,7 +220,7 @@ In general:
 - To fetch $A(x_i)$ we need to fetch the element at index $i$
 - To fetch $\frac{1}{A(x_i)}$ we need to fetch the element at index $i + 256$
 
-> Gotcha: You may produce an off by one error, by not realising that the second optimisation skips ahead 255 points for negative values, while the third optimisation skips ahead 256. This is because the second optimisation omits the value $\frac{1}{0}$.
+> Gotcha: You may produce an off by one error, by not realising that the second optimization skips ahead 255 points for negative values, while the third optimization skips ahead 256. This is because the second optimization omits the value $\frac{1}{0}$.
 
 ## Evaluate polynomial in evaluation form on a point outside of the domain
 

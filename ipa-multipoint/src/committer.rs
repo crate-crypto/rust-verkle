@@ -1,6 +1,6 @@
 use banderwagon::{Element, Fr};
 
-// This is the functionality that commits to the branch nodes and computes the delta optimisation
+// This is the functionality that commits to the branch nodes and computes the delta optimization
 // For consistency with the Pcs, ensure that this component uses the same CRS as the Pcs
 // This is being done in the config file automatically
 pub trait Committer {

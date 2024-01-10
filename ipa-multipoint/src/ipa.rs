@@ -299,7 +299,7 @@ impl IPAProof {
                 .chain(self.R_vec.iter())
                 .chain(iter::once(&a_comm))
                 .chain(iter::once(&crs.Q))
-                // XXX: note that we can do a Halo style optimisation here also
+                // XXX: note that we can do a Halo style optimization here also
                 // but instead of being (m log(d)) it will be O(mn) which is still good
                 // because the verifier will be doing m*n field operations instead of m size n multi-exponentiations
                 // This is done by interpreting g_i as coefficients in monomial basis

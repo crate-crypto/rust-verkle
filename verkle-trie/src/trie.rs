@@ -241,7 +241,7 @@ impl<Storage: ReadWriteHigherDb, PolyCommit: Committer> Trie<Storage, PolyCommit
                 };
 
                 // If the key is being updated to exactly the same value, we just return nothing
-                // This is an optimisation that allows one to avoid doing work,
+                // This is an optimization that allows one to avoid doing work,
                 // when the value being inserted has not been updated
                 if path_diff_old.is_none() {
                     // This means that they share all 32 bytes
@@ -503,7 +503,7 @@ pub(crate) struct StemUpdated {
 }
 
 impl<Storage: ReadWriteHigherDb, PolyCommit: Committer> Trie<Storage, PolyCommit> {
-    // Store the leaf, we return data on the old leaf, so that we can do the delta optimisation
+    // Store the leaf, we return data on the old leaf, so that we can do the delta optimization
     //
     // If a leaf was not updated, this function will return None
     // else Some will be returned with the old value

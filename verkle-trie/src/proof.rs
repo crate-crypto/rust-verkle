@@ -64,7 +64,7 @@ impl std::fmt::Display for VerificationHint {
 }
 
 impl VerificationHint {
-    // We need the number of keys because we do not serialise the length of
+    // We need the number of keys because we do not serialize the length of
     // the ext_status|| depth. This is equal to the number of keys in the proof, which
     // we assume the user knows.
     pub fn read<R: Read>(mut reader: R) -> Result<VerificationHint, HintError> {
@@ -171,7 +171,7 @@ pub struct UpdateHint {
 pub struct VerkleProof {
     verification_hint: VerificationHint,
     // Commitments sorted by their paths and then their indices
-    // The root is taken out when we serialise, so the verifier does not receive it
+    // The root is taken out when we serialize, so the verifier does not receive it
     comms_sorted: Vec<Element>,
     //
     proof: MultiPointProof,
@@ -215,11 +215,11 @@ impl VerkleProof {
         writer.write_all(&num_comms.to_le_bytes())?;
 
         for comm in &self.comms_sorted {
-            let comm_serialised = comm.to_bytes();
-            writer.write_all(&comm_serialised)?;
+            let comm_serialized = comm.to_bytes();
+            writer.write_all(&comm_serialized)?;
         }
 
-        // Serialise the Multipoint proof
+        // Serialize the Multipoint proof
         let proof_bytes = self.proof.to_bytes()?;
         writer.write_all(&proof_bytes)?;
 
@@ -344,7 +344,7 @@ mod test {
     }
 
     #[test]
-    fn simple_serialisation_consistency() {
+    fn simple_serialization_consistency() {
         let db = MemoryDb::new();
         let mut trie = Trie::new(DefaultConfig::new(db));
 
@@ -362,7 +362,7 @@ mod test {
 
         let mut bytes = Vec::new();
         proof.write(&mut bytes).unwrap();
-        let deserialised_proof = VerkleProof::read(&bytes[..]).unwrap();
-        assert_eq!(proof, deserialised_proof);
+        let deserialized_proof = VerkleProof::read(&bytes[..]).unwrap();
+        assert_eq!(proof, deserialized_proof);
     }
 }

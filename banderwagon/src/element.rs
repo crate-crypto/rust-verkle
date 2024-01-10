@@ -118,7 +118,7 @@ impl Element {
         let mut bytes = [0u8; 32];
         base_field
             .serialize_compressed(&mut bytes[..])
-            .expect("could not serialise point into a 32 byte array");
+            .expect("could not serialize point into a 32 byte array");
         Fr::from_le_bytes_mod_order(&bytes)
     }
 

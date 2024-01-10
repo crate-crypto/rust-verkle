@@ -212,14 +212,14 @@ The verifier now computes $\text{Verify}([g_3(X)], g_3(t), \sigma)$
 
 ## Opening $g_2(X)$
 
-This optimisation allows us to reduce the proof size by one element, by revisiting $g(X)$ and opening at $g_2(X)$. The gist is that if we open at $g_2(X)$ then we do not need to send any evaluations since the verifier can compute this themselves.  
+This optimization allows us to reduce the proof size by one element, by revisiting $g(X)$ and opening at $g_2(X)$. The gist is that if we open at $g_2(X)$ then we do not need to send any evaluations since the verifier can compute this themselves.  
 
 In particular, we opened the polynomial : $g_3(X) = g_1(X) + q \cdot g(X)$
 
 - First note that $g(X) = g_1(X) - g_2(X)$ which implies that $g_2(X) =g_1(X) - g(X)$
 - It is argued that if the verifier can open $g_2(X)$ at $t$ using $D = [g(X)]$, then this implies that $g(X)$ can be correctly opened at $t$ using $[g(X)]$.
 
-We now list out the full protocol using this optimisation.
+We now list out the full protocol using this optimization.
 
 ## Proof - Final
 

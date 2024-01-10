@@ -54,6 +54,6 @@ pub(crate) fn group_to_field(point: &Element) -> Fr {
     point.map_to_scalar_field()
 }
 
-// TODO: Possible optimisation. This means we never allocate for paths
+// TODO: Possible optimization. This means we never allocate for paths
 use smallvec::SmallVec;
 pub type SmallVec32 = SmallVec<[u8; 32]>;

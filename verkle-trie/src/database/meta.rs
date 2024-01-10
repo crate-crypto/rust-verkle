@@ -65,7 +65,7 @@ fn scalar_to_array(scalar: &Fr) -> Result<[u8; 32], SerializationError> {
 }
 
 impl FromBytes<Vec<u8>> for StemMeta {
-    // panic if we cannot deserialise, do not call this method if you are unsure if the data is
+    // panic if we cannot deserialize, do not call this method if you are unsure if the data is
     // not structured properly. We can guarantee this in verkle trie.
     fn from_bytes(bytes: Vec<u8>) -> Result<StemMeta, SerializationError> {
         let len = bytes.len();
