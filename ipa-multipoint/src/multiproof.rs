@@ -365,7 +365,7 @@ fn open_multiproof_lagrange_2_polys() {
 #[test]
 fn test_ipa_consistency() {
     use crate::math_utils::inner_product;
-    use ark_serialize::CanonicalSerialize;
+    use banderwagon::trait_defs::*;
     let n = 256;
     let crs = CRS::new(n, b"eth_verkle_oct_2021");
     let precomp = PrecomputedWeights::new(n);
@@ -433,9 +433,7 @@ fn test_ipa_consistency() {
 
 #[test]
 fn multiproof_consistency() {
-    use ark_std::One;
-
-    use ark_serialize::CanonicalSerialize;
+    use banderwagon::trait_defs::*;
     let n = 256;
     let crs = CRS::new(n, b"eth_verkle_oct_2021");
     let precomp = PrecomputedWeights::new(n);

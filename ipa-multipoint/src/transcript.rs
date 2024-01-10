@@ -1,5 +1,5 @@
 use ark_ff::PrimeField;
-use banderwagon::{Element, Fr};
+use banderwagon::{trait_defs::*, Element, Fr};
 pub trait TranscriptProtocol {
     /// Compute a `label`ed challenge variable.
     fn challenge_scalar(&mut self, label: &'static [u8]) -> Fr;
@@ -8,7 +8,6 @@ pub trait TranscriptProtocol {
     fn domain_sep(&mut self, label: &'static [u8]);
 }
 
-use ark_serialize::CanonicalSerialize;
 use sha2::{Digest, Sha256};
 pub struct Transcript {
     state: Sha256,

@@ -4,9 +4,8 @@ use crate::math_utils::inner_product;
 use crate::transcript::{Transcript, TranscriptProtocol};
 use ark_ff::Field;
 use ark_ff::One;
-use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 
-use banderwagon::{multi_scalar_mul, Element, Fr};
+use banderwagon::{multi_scalar_mul, trait_defs::*, Element, Fr};
 use itertools::Itertools;
 
 use crate::{IOError, IOErrorKind, IOResult};
@@ -377,6 +376,7 @@ impl IPAProof {
         exp_P == P
     }
 }
+
 fn to_bits(n: usize, bits_needed: usize) -> impl Iterator<Item = u8> {
     (0..bits_needed).map(move |i| ((n >> i) & 1) as u8).rev()
 }

@@ -24,13 +24,11 @@ impl CRS {
     }
     // Asserts that not of the points generated are the same
     fn assert_dedup(points: &[Element]) {
-        use std::collections::HashMap;
-        let mut map = HashMap::new();
+        use std::collections::HashSet;
+        let mut map = HashSet::new();
         for point in points {
-            assert!(
-                map.insert(point.to_bytes(), ()).is_none(),
-                "crs has duplicated points"
-            )
+            let value_is_new = map.insert(point.to_bytes());
+            assert!(value_is_new, "crs has duplicated points")
         }
     }
     pub fn commit_lagrange_poly(&self, polynomial: &LagrangeBasis) -> Element {
