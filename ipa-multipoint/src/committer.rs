@@ -1,7 +1,5 @@
 use banderwagon::{Element, Fr};
 
-pub mod test;
-
 // This is the functionality that commits to the branch nodes and computes the delta optimisation
 // For consistency with the Pcs, ensure that this component uses the same CRS as the Pcs
 // This is being done in the config file automatically
@@ -21,5 +19,24 @@ pub trait Committer {
         }
 
         result
+    }
+}
+
+use crate::crs::CRS;
+// A Basic Commit struct to be used in tests.
+// In production, we will use the Precomputed points
+#[derive(Debug, Clone)]
+pub struct TestCommitter(pub CRS);
+impl Committer for TestCommitter {
+    fn commit_lagrange(&self, evaluations: &[Fr; 256]) -> Element {
+        let mut res = Element::zero();
+        for (val, point) in evaluations.iter().zip(self.0.G.iter()) {
+            res += point * val;
+        }
+        res
+    }
+
+    fn scalar_mul(&self, value: Fr, lagrange_index: usize) -> Element {
+        self.0.G[lagrange_index] * value
     }
 }
