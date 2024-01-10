@@ -18,10 +18,6 @@ This is a proof of concept implementation of Verkle Tries. Any and all mistakes 
 ## Minimum Hardware Requirements
 - 32/64 bit architecture due to using `as u32` in some cases in the code. 
 
-### Memory Requirements
-
-- We require 100Mb of memory reserved in memory, before any proof is computed
-  
 ## About
 
 This implementation references the ethereum research and go-verkle implementations:
