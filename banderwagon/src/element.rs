@@ -54,6 +54,20 @@ impl Element {
         bytes
     }
 
+    pub fn to_bytes_uncompressed(&self) -> [u8; 64] {
+        let mut bytes = [0u8; 64];
+        self.0
+            .serialize_uncompressed(&mut bytes[..])
+            .expect("cannot serialize point as an uncompressed byte array");
+        bytes
+    }
+
+    pub fn from_bytes_unchecked_uncompressed(bytes: [u8; 64]) -> Self {
+        let point = EdwardsProjective::deserialize_uncompressed_unchecked(&bytes[..])
+            .expect("could not deserialize byte array into a point");
+        Self(point)
+    }
+
     pub fn from_bytes(bytes: &[u8]) -> Option<Element> {
         // Switch from big endian to little endian, as arkworks library uses little endian
         let mut bytes = bytes.to_vec();
@@ -175,6 +189,15 @@ mod tests {
             .serialize_compressed(&mut bytes[..])
             .unwrap();
         assert_eq!(hex::encode(bytes), expected);
+    }
+
+    #[test]
+    fn from_bytes_unchecked_uncompressed_roundtrip() {
+        let generator = Element::prime_subgroup_generator();
+        let bytes = generator.to_bytes_uncompressed();
+        let element = Element::from_bytes_unchecked_uncompressed(bytes);
+
+        assert_eq!(element, generator)
     }
 }
 
