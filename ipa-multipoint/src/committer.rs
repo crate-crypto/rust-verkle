@@ -30,7 +30,7 @@ pub struct DefaultCommitter {
 
 impl DefaultCommitter {
     pub fn new(crs: CRS) -> Self {
-        let precomp = MSMPrecompWnaf::new(&crs.G, 4);
+        let precomp = MSMPrecompWnaf::new(&crs.G, 12);
 
         Self { precomp }
     }
@@ -38,7 +38,7 @@ impl DefaultCommitter {
 
 impl Committer for DefaultCommitter {
     fn commit_lagrange(&self, evaluations: &[Fr; 256]) -> Element {
-        self.precomp.mul(evaluations)
+        self.precomp.mul_par(evaluations)
     }
 
     fn scalar_mul(&self, value: Fr, lagrange_index: usize) -> Element {
