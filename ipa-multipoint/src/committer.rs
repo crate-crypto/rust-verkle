@@ -38,7 +38,7 @@ impl DefaultCommitter {
 
 impl Committer for DefaultCommitter {
     fn commit_lagrange(&self, evaluations: &[Fr; 256]) -> Element {
-        self.precomp.mul_par(evaluations)
+        self.precomp.mul(evaluations)
     }
 
     fn scalar_mul(&self, value: Fr, lagrange_index: usize) -> Element {
