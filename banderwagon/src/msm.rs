@@ -34,7 +34,7 @@ impl MSMPrecompWnaf {
 
     pub fn mul(&self, scalars: &[Fr]) -> Element {
         let results: Vec<_> = scalars
-            .into_iter()
+            .iter()
             .zip(self.tables.iter())
             .map(|(scalar, table)| self.wnaf_context.mul_with_table(table, scalar).unwrap())
             .collect();
@@ -45,7 +45,7 @@ impl MSMPrecompWnaf {
     // TODO put this behind a config flag
     pub fn mul_par(&self, scalars: &[Fr]) -> Element {
         let results: Vec<_> = scalars
-            .into_par_iter()
+            .par_iter()
             .zip(self.tables.par_iter())
             .map(|(scalar, table)| self.wnaf_context.mul_with_table(table, scalar).unwrap())
             .collect();
