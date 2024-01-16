@@ -1,4 +1,4 @@
-use banderwagon::{Element, Fr};
+use banderwagon::{msm::MSMPrecompWnaf, Element, Fr};
 
 // This is the functionality that commits to the branch nodes and computes the delta optimization
 // For consistency with the Pcs, ensure that this component uses the same CRS as the Pcs
@@ -24,18 +24,25 @@ pub trait Committer {
 
 use crate::crs::CRS;
 
-#[derive(Debug, Clone)]
-pub struct DefaultCommitter(pub CRS);
+pub struct DefaultCommitter {
+    crs: CRS,
+    precomp: MSMPrecompWnaf,
+}
+
+impl DefaultCommitter {
+    pub fn new(crs: CRS) -> Self {
+        let precomp = MSMPrecompWnaf::new(&crs.G, 4);
+
+        Self { crs, precomp }
+    }
+}
+
 impl Committer for DefaultCommitter {
     fn commit_lagrange(&self, evaluations: &[Fr; 256]) -> Element {
-        let mut res = Element::zero();
-        for (val, point) in evaluations.iter().zip(self.0.G.iter()) {
-            res += point * val;
-        }
-        res
+        self.precomp.mul_par(evaluations)
     }
 
     fn scalar_mul(&self, value: Fr, lagrange_index: usize) -> Element {
-        self.0.G[lagrange_index] * value
+        self.precomp.mul_index(value, lagrange_index)
     }
 }
