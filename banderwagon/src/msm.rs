@@ -1,5 +1,6 @@
 use ark_ec::scalar_mul::wnaf::WnafContext;
 use ark_ed_on_bls12_381_bandersnatch::{EdwardsProjective, Fr};
+use ark_ff::Zero;
 use rayon::prelude::*;
 
 use crate::Element;
@@ -33,24 +34,26 @@ impl MSMPrecompWnaf {
     }
 
     pub fn mul(&self, scalars: &[Fr]) -> Element {
-        let results: Vec<_> = scalars
+        let result: EdwardsProjective = scalars
             .iter()
             .zip(self.tables.iter())
+            .filter(|(scalar, _)| !scalar.is_zero())
             .map(|(scalar, table)| self.wnaf_context.mul_with_table(table, scalar).unwrap())
-            .collect();
+            .sum();
 
-        Element(results.into_iter().sum())
+        Element(result)
     }
     // TODO: This requires more benchmarking and feedback to see if we should
     // TODO put this behind a config flag
     pub fn mul_par(&self, scalars: &[Fr]) -> Element {
-        let results: Vec<_> = scalars
+        let result: EdwardsProjective = scalars
             .par_iter()
             .zip(self.tables.par_iter())
+            .filter(|(scalar, _)| !scalar.is_zero())
             .map(|(scalar, table)| self.wnaf_context.mul_with_table(table, scalar).unwrap())
-            .collect();
+            .sum();
 
-        Element(results.into_par_iter().sum())
+        Element(result)
     }
 }
 
