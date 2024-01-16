@@ -14,7 +14,7 @@ pub struct Config<Storage, PolyCommit> {
 pub type DefaultConfig<Storage> = Config<Storage, DefaultCommitter>;
 impl<Storage> DefaultConfig<Storage> {
     pub fn new(db: Storage) -> Self {
-        let committer = DefaultCommitter(new_crs());
+        let committer = DefaultCommitter::new(new_crs());
         Config { db, committer }
     }
 }

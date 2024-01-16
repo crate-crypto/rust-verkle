@@ -611,7 +611,7 @@ mod test {
             values,
             vec![Some([0u8; 32]), None],
             meta.commitment,
-            DefaultCommitter(new_crs()),
+            DefaultCommitter::new(new_crs()),
         );
 
         let mut got_bytes = [0u8; 32];
@@ -660,7 +660,7 @@ mod test {
             values,
             updated_values,
             meta.commitment,
-            DefaultCommitter(new_crs()),
+            DefaultCommitter::new(new_crs()),
         );
 
         let mut got_bytes = [0u8; 32];
@@ -714,7 +714,7 @@ mod test {
             values,
             updated_values,
             meta.commitment,
-            DefaultCommitter(new_crs()),
+            DefaultCommitter::new(new_crs()),
         );
 
         let mut got_bytes = [0u8; 32];
