@@ -1,5 +1,7 @@
 use crate::{ipa::slow_vartime_multiscalar_mul, lagrange_basis::LagrangeBasis};
 use banderwagon::{try_reduce_to_element, Element};
+use std::fs::File;
+use banderwagon::CanonicalDeserialize;
 
 #[allow(non_snake_case)]
 #[derive(Debug, Clone)]
@@ -33,6 +35,12 @@ impl CRS {
     }
     pub fn commit_lagrange_poly(&self, polynomial: &LagrangeBasis) -> Element {
         slow_vartime_multiscalar_mul(polynomial.values().iter(), self.G.iter())
+    }
+
+    pub fn load_points_from_file(path: &str) -> Vec<Element> {
+        let mut file = File::open(path).unwrap();
+        let elements: Vec<Element> = CanonicalDeserialize::deserialize_compressed(&mut file).unwrap();
+        elements
     }
 }
 
@@ -99,4 +107,10 @@ fn crs_consistency() {
         "1fcaea10bf24f750200e06fa473c76ff0468007291fa548e2d99f09ba9256fdb",
         "unexpected point encountered"
     );
+}
+
+
+#[test]
+fn test_load_crs() {
+    let elements = CRS::load_points_from_file("./src/precomputed_points.bin");
 }
