@@ -1,6 +1,6 @@
 use ark_ec::{twisted_edwards::TECurveConfig, Group, ScalarMul, VariableBaseMSM};
 use ark_ed_on_bls12_381_bandersnatch::{BandersnatchConfig, EdwardsAffine, EdwardsProjective, Fq};
-use ark_ff::{Field, One, Zero};
+use ark_ff::{batch_inversion, Field, One, Zero};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 
 pub use ark_ed_on_bls12_381_bandersnatch::Fr;
@@ -136,6 +136,32 @@ impl Element {
         Fr::from_le_bytes_mod_order(&bytes)
     }
 
+    pub fn batch_map_to_scalar_field(elements: &[Element]) -> Vec<Fr> {
+        use ark_ff::PrimeField;
+
+        let mut x_div_y = Vec::with_capacity(elements.len());
+        for element in elements {
+            let y = element.0.y;
+            x_div_y.push(y);
+        }
+        batch_inversion(&mut x_div_y);
+
+        for i in 0..elements.len() {
+            x_div_y[i] *= elements[i].0.x;
+        }
+
+        let mut scalars = Vec::with_capacity(elements.len());
+        for element in x_div_y {
+            let mut bytes = [0u8; 32];
+            element
+                .serialize_compressed(&mut bytes[..])
+                .expect("could not serialize point into a 32 byte array");
+            scalars.push(Fr::from_le_bytes_mod_order(&bytes));
+        }
+
+        scalars
+    }
+
     pub fn zero() -> Element {
         Element(EdwardsProjective::zero())
     }
@@ -198,6 +224,25 @@ mod tests {
         let element = Element::from_bytes_unchecked_uncompressed(bytes);
 
         assert_eq!(element, generator)
+    }
+
+    #[test]
+    fn from_batch_map_to_scalar_field() {
+        let mut points = Vec::new();
+        for i in 0..10 {
+            points.push(Element::prime_subgroup_generator() * Fr::from(i));
+        }
+
+        let got = Element::batch_map_to_scalar_field(&points);
+
+        for i in 0..10 {
+            let expected_i = points[i].map_to_scalar_field();
+            assert_eq!(expected_i, got[i]);
+        }
+        for i in 0..10 {
+            let expected_i = points[i].map_to_scalar_field();
+            assert_eq!(expected_i, got[i]);
+        }
     }
 }
 
