@@ -18,7 +18,7 @@ pub enum Error {
 ///
 // TODO: We could probably make this use `map_to_field` instead of `.to_bytes`
 pub fn get_tree_key_hash(committer: &DefaultCommitter, input: [u8; 64]) -> [u8; 32] {
-    verkle_spec::hash64(&committer, input).to_fixed_bytes()
+    verkle_spec::hash64(committer, input).to_fixed_bytes()
 }
 /// Moving to rename this as it causes confusion. For now, I'll call this `get_tree_key_hash`
 pub fn pedersen_hash(committer: &DefaultCommitter, input: [u8; 64]) -> [u8; 32] {
@@ -44,12 +44,11 @@ fn _commit_to_scalars(committer: &DefaultCommitter, scalars: &[u8]) -> Result<El
     // big endian bytes
     let inputs: Vec<banderwagon::Fr> = scalars
         .chunks_exact(32)
-        .into_iter()
         // TODO: This is not correct, we should be able to assume that a modular reduction is not needed
         // TODO: it is kept here, so that we do not break the Java implementation in the case
         // TODO that there is a mismatch.
         // TODO: Also I think we should stick to one endianess over the entire library for simplicity
-        .map(|scalar_bytes| banderwagon::Fr::from_be_bytes_mod_order(scalar_bytes))
+        .map(banderwagon::Fr::from_be_bytes_mod_order)
         .collect();
 
     Ok(committer.commit_lagrange(&inputs))

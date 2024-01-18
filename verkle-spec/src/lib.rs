@@ -38,7 +38,7 @@ pub trait Hasher {
 // in the EIP. Since the EIP hashes 64 bytes (address32 + tree_index),
 // we just special case the method here to hash 64 bytes.
 pub fn hash64(committer: &DefaultCommitter, bytes64: [u8; 64]) -> H256 {
-    let inputs = crate::util::chunk64(bytes64).map(|input| verkle_trie::Fr::from(input));
+    let inputs = crate::util::chunk64(bytes64).map(verkle_trie::Fr::from);
     let result = committer.commit_lagrange(&inputs);
 
     // Reverse the endian of the byte array
