@@ -37,10 +37,13 @@ impl CRS {
         slow_vartime_multiscalar_mul(polynomial.values().iter(), self.G.iter())
     }
 
-    pub fn load_points_from_file(path: &str) -> Vec<Element> {
+    pub fn load_points_from_file(path: &str) -> CRS {
         let mut file = File::open(path).unwrap();
-        let elements: Vec<Element> = CanonicalDeserialize::deserialize_compressed(&mut file).unwrap();
-        elements
+        let G: Vec<Element> = CanonicalDeserialize::deserialize_compressed(&mut file).unwrap();
+        let Q = Element::prime_subgroup_generator();
+
+        let n: usize = 256;
+        CRS {n, G, Q}
     }
 }
 
@@ -112,5 +115,5 @@ fn crs_consistency() {
 
 #[test]
 fn test_load_crs() {
-    let elements = CRS::load_points_from_file("./src/precomputed_points.bin");
+    let CRS = CRS::load_points_from_file("./src/precomputed_points.bin");
 }
