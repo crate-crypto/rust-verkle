@@ -15,18 +15,18 @@ fn main() {
         println!("\twith {} elements... ", vec_len);
 
         let mut vecs = vec![[Fr::from(0u128); 256]; N];
-        for i in 0..vecs.len() {
+        for (i, vecs_i) in vecs.iter_mut().enumerate() {
             for j in 0..vec_len {
-                vecs[i][j] = Fr::from((i + j + 0x424242) as u128);
+                vecs_i[j] = Fr::from((i + j + 0x424242) as u128);
             }
-            for j in vec_len..vecs[i].len() {
-                vecs[i][j] = Fr::zero();
+            for j in vec_len..vecs_i.len() {
+                vecs_i[j] = Fr::zero();
             }
         }
 
         let start = Instant::now();
         for i in 0..N {
-            committer.commit_lagrange(&vecs[i][0..vec_len]);
+            std::hint::black_box(committer.commit_lagrange(&vecs[i][0..vec_len]));
         }
         let duration = start.elapsed();
         println!("takes {}µs", duration.as_micros() / (N as u128));

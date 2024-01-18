@@ -29,7 +29,7 @@ pub struct DefaultCommitter {
 
 impl DefaultCommitter {
     pub fn new(points: &[Element]) -> Self {
-        let precomp = MSMPrecompWnaf::new(&points, 12);
+        let precomp = MSMPrecompWnaf::new(points, 12);
 
         Self { precomp }
     }
