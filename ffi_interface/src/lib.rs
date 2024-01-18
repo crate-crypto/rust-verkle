@@ -2,10 +2,10 @@ use banderwagon::{trait_defs::*, Element};
 use ipa_multipoint::committer::{Committer, DefaultCommitter};
 
 /// A serialized uncompressed group element
-pub type Commitment = [u8; 64];
+pub type CommitmentBytes = [u8; 64];
 
 /// A serialized scalar field element
-pub type Scalar = [u8; 32];
+pub type ScalarBytes = [u8; 32];
 
 pub enum Error {
     LengthOfScalarsNotMultipleOf32 { len: usize },
@@ -60,7 +60,7 @@ fn _commit_to_scalars(committer: &DefaultCommitter, scalars: &[u8]) -> Result<El
 pub fn commit_to_scalars(
     committer: &DefaultCommitter,
     scalars: &[u8],
-) -> Result<Commitment, Error> {
+) -> Result<CommitmentBytes, Error> {
     let commitment = _commit_to_scalars(committer, scalars)?;
     Ok(commitment.to_bytes_uncompressed())
 }
@@ -75,12 +75,12 @@ pub fn commit_to_scalars(
 /// Returns the updated commitment
 pub fn update_commitment(
     committer: &DefaultCommitter,
-    old_commitment_bytes: Commitment,
+    old_commitment_bytes: CommitmentBytes,
     // There can only be at most 256 elements in a verkle branch
     commitment_index: u8,
-    old_scalar_bytes: Scalar,
-    new_scalar_bytes: Scalar,
-) -> Result<Commitment, ()> {
+    old_scalar_bytes: ScalarBytes,
+    new_scalar_bytes: ScalarBytes,
+) -> Result<CommitmentBytes, ()> {
     let old_commitment = Element::from_bytes_unchecked_uncompressed(old_commitment_bytes);
     // TODO: mod_order can be removed and we can error out on non-canonicity
     let old_scalar = banderwagon::Fr::from_be_bytes_mod_order(&old_scalar_bytes);
@@ -101,7 +101,7 @@ pub fn update_commitment(
 /// Note: This commitment can be used as the `commitment root`
 ///
 /// Returns a `Scalar` representing the hash of the commitment
-pub fn hash_commitment(commitment: Commitment) -> Scalar {
+pub fn hash_commitment(commitment: CommitmentBytes) -> ScalarBytes {
     let mut bytes = [0u8; 32];
 
     // TODO: We could introduce a method named `hash_commit_to_scalars`
@@ -109,7 +109,7 @@ pub fn hash_commitment(commitment: Commitment) -> Scalar {
     Element::from_bytes_unchecked_uncompressed(commitment)
         .map_to_scalar_field()
         .serialize_compressed(&mut bytes[..])
-        .expect("Failed to serialize commitment to bytes");
+        .expect("Failed to serialize scalar to bytes");
 
     bytes
 }
@@ -118,7 +118,7 @@ pub fn hash_commitment(commitment: Commitment) -> Scalar {
 /// This is more efficient than repeatedly calling `hash_commitment`
 ///
 /// Returns a vector of `Scalar`s representing the hash of each commitment
-pub fn hash_commitments(commitments: &[Commitment]) -> Vec<Scalar> {
+pub fn hash_commitments(commitments: &[CommitmentBytes]) -> Vec<ScalarBytes> {
     let elements = commitments
         .iter()
         .map(|commitment| Element::from_bytes_unchecked_uncompressed(*commitment))
