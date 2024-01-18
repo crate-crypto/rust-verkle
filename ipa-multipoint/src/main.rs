@@ -3,6 +3,7 @@ use ipa_multipoint::committer::{Committer, DefaultCommitter};
 use ipa_multipoint::crs::CRS;
 use std::time::Instant;
 
+#[allow(clippy::needless_range_loop)]
 fn main() {
     println!("Benchmarking Pedersen hashing...");
     const N: usize = 5000;

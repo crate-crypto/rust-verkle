@@ -63,10 +63,7 @@ impl CRS {
     }
 
     pub fn to_hex(&self) -> Vec<String> {
-        self.to_bytes()
-            .iter()
-            .map(|bytes| hex::encode(bytes))
-            .collect()
+        self.to_bytes().iter().map(hex::encode).collect()
     }
 
     // Asserts that not of the points generated are the same
@@ -160,4 +157,3 @@ fn load_from_bytes_to_bytes() {
 
     assert_eq!(bytes, bytes2, "bytes should be the same");
 }
-
