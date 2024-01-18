@@ -7,9 +7,11 @@ pub type CommitmentBytes = [u8; 64];
 /// A serialized scalar field element
 pub type ScalarBytes = [u8; 32];
 
+#[derive(Debug, Clone)]
 pub enum Error {
     LengthOfScalarsNotMultipleOf32 { len: usize },
     MoreThan256Scalars { len: usize },
+    FailedToDeserializeScalar { bytes: Vec<u8> },
 }
 
 /// Compute the key used in the `get_tree_key` method
@@ -20,6 +22,9 @@ pub enum Error {
 pub fn get_tree_key_hash(committer: &DefaultCommitter, input: [u8; 64]) -> [u8; 32] {
     verkle_spec::hash64(committer, input).to_fixed_bytes()
 }
+/// This is exactly the same as `get_tree_key_hash` method.
+/// Use get_tree_key_hash instead.
+///
 /// Moving to rename this as it causes confusion. For now, I'll call this `get_tree_key_hash`
 pub fn pedersen_hash(committer: &DefaultCommitter, input: [u8; 64]) -> [u8; 32] {
     get_tree_key_hash(committer, input)
@@ -42,14 +47,10 @@ fn _commit_to_scalars(committer: &DefaultCommitter, scalars: &[u8]) -> Result<El
 
     // We want to ensure interoperability with the Java-EVM for now, so we interpret the scalars as
     // big endian bytes
-    let inputs: Vec<banderwagon::Fr> = scalars
-        .chunks_exact(32)
-        // TODO: This is not correct, we should be able to assume that a modular reduction is not needed
-        // TODO: it is kept here, so that we do not break the Java implementation in the case
-        // TODO that there is a mismatch.
-        // TODO: Also I think we should stick to one endianess over the entire library for simplicity
-        .map(banderwagon::Fr::from_be_bytes_mod_order)
-        .collect();
+    let mut inputs = Vec::with_capacity(num_scalars);
+    for chunk in scalars.chunks_exact(32) {
+        inputs.push(fr_from_be_bytes(chunk)?);
+    }
 
     Ok(committer.commit_lagrange(&inputs))
 }
@@ -80,11 +81,10 @@ pub fn update_commitment(
     commitment_index: u8,
     old_scalar_bytes: ScalarBytes,
     new_scalar_bytes: ScalarBytes,
-) -> Result<CommitmentBytes, ()> {
+) -> Result<CommitmentBytes, Error> {
     let old_commitment = Element::from_bytes_unchecked_uncompressed(old_commitment_bytes);
-    // TODO: mod_order can be removed and we can error out on non-canonicity
-    let old_scalar = banderwagon::Fr::from_be_bytes_mod_order(&old_scalar_bytes);
-    let new_scalar = banderwagon::Fr::from_be_bytes_mod_order(&new_scalar_bytes);
+    let old_scalar = fr_from_be_bytes(&old_scalar_bytes)?;
+    let new_scalar = fr_from_be_bytes(&new_scalar_bytes)?;
 
     // w-v
     let delta = new_scalar - old_scalar;
@@ -102,16 +102,9 @@ pub fn update_commitment(
 ///
 /// Returns a `Scalar` representing the hash of the commitment
 pub fn hash_commitment(commitment: CommitmentBytes) -> ScalarBytes {
-    let mut bytes = [0u8; 32];
-
     // TODO: We could introduce a method named `hash_commit_to_scalars`
     // TODO: which would save this serialization roundtrip
-    Element::from_bytes_unchecked_uncompressed(commitment)
-        .map_to_scalar_field()
-        .serialize_compressed(&mut bytes[..])
-        .expect("Failed to serialize scalar to bytes");
-
-    bytes
+    fr_to_be_bytes(Element::from_bytes_unchecked_uncompressed(commitment).map_to_scalar_field())
 }
 /// Hashes a vector of commitments.
 ///
@@ -126,12 +119,78 @@ pub fn hash_commitments(commitments: &[CommitmentBytes]) -> Vec<ScalarBytes> {
 
     Element::batch_map_to_scalar_field(&elements)
         .into_iter()
-        .map(|scalars| {
-            let mut bytes = [0u8; 32];
-            scalars
-                .serialize_compressed(&mut bytes[..])
-                .expect("Failed to serialize scalar to bytes");
-            bytes
-        })
+        .map(fr_to_be_bytes)
         .collect()
+}
+
+// TODO: We use big endian bytes here to be interopable with the java implementation
+// TODO: we should stick to one endianness everywhere to avoid confusion
+fn fr_to_be_bytes(fr: banderwagon::Fr) -> [u8; 32] {
+    let mut bytes = [0u8; 32];
+    fr.serialize_compressed(&mut bytes[..])
+        .expect("Failed to serialize scalar to bytes");
+    // serialized compressed outputs bytes in LE order, so we reverse to get BE order
+    bytes.reverse();
+    bytes
+}
+fn fr_from_be_bytes(bytes: &[u8]) -> Result<banderwagon::Fr, Error> {
+    let mut bytes = bytes.to_vec();
+    bytes.reverse(); // deserialize expects the bytes to be in little endian order
+    banderwagon::Fr::deserialize_compressed(&bytes[..]).map_err(|_| {
+        Error::FailedToDeserializeScalar {
+            bytes: bytes.to_vec(),
+        }
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use ipa_multipoint::{
+        committer::{Committer, DefaultCommitter},
+        crs::CRS,
+    };
+
+    use crate::{fr_from_be_bytes, fr_to_be_bytes};
+    #[test]
+    fn commitment_update() {
+        let crs = CRS::default();
+        let committer = DefaultCommitter::new(&crs.G);
+
+        let a_0 = banderwagon::Fr::from(123u128);
+        let a_1 = banderwagon::Fr::from(123u128);
+        let a_2 = banderwagon::Fr::from(456u128);
+
+        // Compute C = a_0 * G_0 + a_1 * G_1
+        let commitment = committer.commit_lagrange(&[a_0, a_1]);
+
+        // Now we want to compute C = a_2 * G_0 + a_1 * G_1
+        let naive_update = committer.commit_lagrange(&[a_2, a_1]);
+
+        // We can do this by computing C = (a_2 - a_0) * G_0 + a_1 * G_1
+        let delta = a_2 - a_0;
+        let delta_commitment = committer.scalar_mul(delta, 0);
+        let delta_update = delta_commitment + commitment;
+
+        assert_eq!(naive_update, delta_update);
+
+        // Now lets do it using the update_commitment method
+        let updated_commitment = super::update_commitment(
+            &committer,
+            commitment.to_bytes_uncompressed(),
+            0,
+            fr_to_be_bytes(a_0),
+            fr_to_be_bytes(a_2),
+        )
+        .unwrap();
+
+        assert_eq!(updated_commitment, naive_update.to_bytes_uncompressed())
+    }
+
+    #[test]
+    fn from_be_to_be_bytes() {
+        let value = banderwagon::Fr::from(123456u128);
+        let bytes = fr_to_be_bytes(value);
+        let got_value = fr_from_be_bytes(&bytes).unwrap();
+        assert_eq!(got_value, value)
+    }
 }
