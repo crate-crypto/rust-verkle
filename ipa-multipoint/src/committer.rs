@@ -5,7 +5,7 @@ use banderwagon::{msm::MSMPrecompWnaf, Element, Fr};
 // This is being done in the config file automatically
 pub trait Committer {
     // Commit to a lagrange polynomial, evaluations.len() must equal the size of the SRS at the moment
-    fn commit_lagrange(&self, evaluations: &[Fr; 256]) -> Element;
+    fn commit_lagrange(&self, evaluations: &[Fr]) -> Element;
 
     // compute value * G for a specific generator in the SRS
     fn scalar_mul(&self, value: Fr, lagrange_index: usize) -> Element;
@@ -37,8 +37,14 @@ impl DefaultCommitter {
 }
 
 impl Committer for DefaultCommitter {
-    fn commit_lagrange(&self, evaluations: &[Fr; 256]) -> Element {
-        self.precomp.mul_par(evaluations)
+    fn commit_lagrange(&self, evaluations: &[Fr]) -> Element {
+        // Preliminary benchmarks indicate that the parallel version is faster
+        // for vectors of length 64 or more
+        if evaluations.len() >= 64 {
+            self.precomp.mul_par(evaluations)
+        } else {
+            self.precomp.mul(evaluations)
+        }
     }
 
     fn scalar_mul(&self, value: Fr, lagrange_index: usize) -> Element {
