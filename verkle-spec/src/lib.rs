@@ -39,7 +39,7 @@ pub fn hash64(bytes64: [u8; 64]) -> H256 {
 
     // TODO: We should either make this a global or have it be passed in
     // TODO: so that we don't create a new crs each time
-    let committer = DefaultCommitter::new(new_crs());
+    let committer = DefaultCommitter::new(&new_crs().G);
     let mut result = Element::zero();
 
     let inputs = crate::util::chunk64(bytes64);

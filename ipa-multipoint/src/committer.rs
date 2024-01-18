@@ -22,15 +22,14 @@ pub trait Committer {
     }
 }
 
-use crate::crs::CRS;
 #[derive(Clone, Debug)]
 pub struct DefaultCommitter {
     precomp: MSMPrecompWnaf,
 }
 
 impl DefaultCommitter {
-    pub fn new(crs: CRS) -> Self {
-        let precomp = MSMPrecompWnaf::new(&crs.G, 12);
+    pub fn new(points: &[Element]) -> Self {
+        let precomp = MSMPrecompWnaf::new(&points, 12);
 
         Self { precomp }
     }

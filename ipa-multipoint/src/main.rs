@@ -7,7 +7,9 @@ fn main() {
     println!("Benchmarking Pedersen hashing...");
     const N: usize = 5000;
 
-    let committer = DefaultCommitter::new(CRS::new(256, "eth_verkle_oct_2021".as_bytes()));
+    let crs = CRS::new(256, "eth_verkle_oct_2021".as_bytes());
+
+    let committer = DefaultCommitter::new(&crs.G);
     let mut vec_len = 1;
     while vec_len <= 256 {
         println!("\twith {} elements... ", vec_len);
