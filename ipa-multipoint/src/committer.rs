@@ -23,7 +23,7 @@ pub trait Committer {
 }
 
 use crate::crs::CRS;
-
+#[derive(Clone, Debug)]
 pub struct DefaultCommitter {
     precomp: MSMPrecompWnaf,
 }
