@@ -4,9 +4,9 @@ use ark_ff::Zero;
 use rayon::prelude::*;
 
 use crate::Element;
-
+#[derive(Clone, Debug)]
 pub struct MSMPrecompWnaf {
-    wnaf_context: WnafContext,
+    window_size: usize,
     tables: Vec<Vec<EdwardsProjective>>,
 }
 
@@ -21,24 +21,26 @@ impl MSMPrecompWnaf {
 
         MSMPrecompWnaf {
             tables,
-            wnaf_context,
+            window_size,
         }
     }
 
     pub fn mul_index(&self, scalar: Fr, index: usize) -> Element {
+        let wnaf_context = WnafContext::new(self.window_size);
         Element(
-            self.wnaf_context
+            wnaf_context
                 .mul_with_table(&self.tables[index], &scalar)
                 .unwrap(),
         )
     }
 
     pub fn mul(&self, scalars: &[Fr]) -> Element {
+        let wnaf_context = WnafContext::new(self.window_size);
         let result: EdwardsProjective = scalars
             .iter()
             .zip(self.tables.iter())
             .filter(|(scalar, _)| !scalar.is_zero())
-            .map(|(scalar, table)| self.wnaf_context.mul_with_table(table, scalar).unwrap())
+            .map(|(scalar, table)| wnaf_context.mul_with_table(table, scalar).unwrap())
             .sum();
 
         Element(result)
@@ -46,11 +48,12 @@ impl MSMPrecompWnaf {
     // TODO: This requires more benchmarking and feedback to see if we should
     // TODO put this behind a config flag
     pub fn mul_par(&self, scalars: &[Fr]) -> Element {
+        let wnaf_context = WnafContext::new(self.window_size);
         let result: EdwardsProjective = scalars
             .par_iter()
             .zip(self.tables.par_iter())
             .filter(|(scalar, _)| !scalar.is_zero())
-            .map(|(scalar, table)| self.wnaf_context.mul_with_table(table, scalar).unwrap())
+            .map(|(scalar, table)| wnaf_context.mul_with_table(table, scalar).unwrap())
             .sum();
 
         Element(result)
