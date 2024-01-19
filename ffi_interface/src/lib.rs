@@ -110,7 +110,8 @@ pub fn update_commitment(
 /// Returns a `Scalar` representing the hash of the commitment
 pub fn hash_commitment(commitment: CommitmentBytes) -> ScalarBytes {
     // TODO: We could introduce a method named `hash_commit_to_scalars`
-    // TODO: which would save this serialization roundtrip
+    // TODO: which would save this serialization roundtrip. We should profile/check that
+    // TODO: this is actually a bottleneck for the average workflow before doing this.
     fr_to_be_bytes(Element::from_bytes_unchecked_uncompressed(commitment).map_to_scalar_field())
 }
 /// Hashes a vector of commitments.
