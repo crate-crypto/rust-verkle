@@ -1,3 +1,10 @@
+// This is just a simple interop file that we will delete later. Its only use is to
+// ensure that the ffi_interface crate has not changed any behaviour from the
+// java jni crate.
+//
+// Once the java jni crate uses the below implementation, we will remove this file.
+pub mod interop;
+
 use banderwagon::{trait_defs::*, Element};
 use ipa_multipoint::committer::{Committer, DefaultCommitter};
 
@@ -121,6 +128,12 @@ pub fn hash_commitments(commitments: &[CommitmentBytes]) -> Vec<ScalarBytes> {
         .into_iter()
         .map(fr_to_be_bytes)
         .collect()
+}
+
+/// This is kept so that commitRoot in the java implementation can be swapped out
+/// Note: I believe we should not need to expose this method.
+pub fn deprecated_serialize_commitment(commitment: CommitmentBytes) -> [u8; 32] {
+    Element::from_bytes_unchecked_uncompressed(commitment).to_bytes()
 }
 
 // TODO: We use big endian bytes here to be interopable with the java implementation
