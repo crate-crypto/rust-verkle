@@ -193,9 +193,9 @@ pub fn create_proof(input: Vec<u8>) -> Vec<u8> {
             let chunked_f_i_x_data = f_i_x.chunks(32);
 
             let mut collect_lagrange_basis: Vec<Fr> = Vec::new();
-            for (_j, chunk_f_i_x) in chunked_f_i_x_data.enumerate() {
+            for (_, chunk_f_i_x) in chunked_f_i_x_data.enumerate() {
                 if chunk_f_i_x.len() >= 32 {
-                    let data_f_i_x = chunk_f_i_x.clone();
+                    let data_f_i_x = chunk_f_i_x;
                     let fr_data_f_i_x = Fr::from_be_bytes_mod_order(data_f_i_x);
                     collect_lagrange_basis.push(fr_data_f_i_x);
                 }
