@@ -5,13 +5,13 @@
 // Once the java jni crate uses the below implementation, we will remove this file.
 pub mod interop;
 
+use banderwagon::Fr;
 use banderwagon::{trait_defs::*, Element};
 use ipa_multipoint::committer::{Committer, DefaultCommitter};
 use ipa_multipoint::crs::CRS;
-use ipa_multipoint::multiproof::{ProverQuery, MultiPoint};
-use ipa_multipoint::lagrange_basis::{PrecomputedWeights, LagrangeBasis};
+use ipa_multipoint::lagrange_basis::{LagrangeBasis, PrecomputedWeights};
+use ipa_multipoint::multiproof::{MultiPoint, ProverQuery};
 use ipa_multipoint::transcript::Transcript;
-use banderwagon::Fr;
 
 /// A serialized uncompressed group element
 pub type CommitmentBytes = [u8; 64];
@@ -174,14 +174,13 @@ fn fr_from_be_bytes(bytes: &[u8]) -> Result<banderwagon::Fr, Error> {
 pub fn create_proof(input: Vec<u8>) -> Vec<u8> {
     // Define the chunk size (8257 bytes)
     // C_i, f_i(X), z_i, y_i
-    // 32, 8192, 1, 32 
+    // 32, 8192, 1, 32
     // = 8257
     let chunk_size = 8257;
     // Create an iterator over the input Vec<u8>
     let chunked_data = input.chunks(chunk_size);
 
     let mut prover_queries: Vec<ProverQuery> = Vec::new();
-
 
     for (_i, chunk) in chunked_data.enumerate() {
         if chunk.len() >= chunk_size {
@@ -204,7 +203,6 @@ pub fn create_proof(input: Vec<u8>) -> Vec<u8> {
 
             let lagrange_basis = LagrangeBasis::new(collect_lagrange_basis);
 
-
             let z_i: usize = chunk[8224] as usize;
 
             let y_i = Fr::from_be_bytes_mod_order(&chunk[8225..8257]);
@@ -221,20 +219,13 @@ pub fn create_proof(input: Vec<u8>) -> Vec<u8> {
     // TODO: This should be stored as static data somewhere.
     let precomp = PrecomputedWeights::new(256);
 
-
     let crs = CRS::default();
     // TODO: This should be stored as static data somewhere.
     let mut transcript = Transcript::new(b"verkle");
 
-    let proof = MultiPoint::open(
-        crs.clone(),
-        &precomp,
-        &mut transcript,
-        prover_queries,
-    );
+    let proof = MultiPoint::open(crs.clone(), &precomp, &mut transcript, prover_queries);
     proof.to_bytes().unwrap()
 }
-
 
 #[cfg(test)]
 mod tests {
