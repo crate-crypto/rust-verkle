@@ -182,9 +182,9 @@ pub fn create_proof(input: Vec<u8>) -> Vec<u8> {
 
     let mut prover_queries: Vec<ProverQuery> = Vec::new();
 
-    for (_i, chunk) in chunked_data.enumerate() {
+    for chunk in chunked_data.into_iter() {
         if chunk.len() >= chunk_size {
-            let data = chunk.clone();
+            let data = chunk;
             let commitment = Element::from_bytes(&data[0..32]).unwrap();
 
             // Create f_x from the next 8192 bytes
@@ -193,7 +193,7 @@ pub fn create_proof(input: Vec<u8>) -> Vec<u8> {
             let chunked_f_i_x_data = f_i_x.chunks(32);
 
             let mut collect_lagrange_basis: Vec<Fr> = Vec::new();
-            for (_, chunk_f_i_x) in chunked_f_i_x_data.enumerate() {
+            for chunk_f_i_x in chunked_f_i_x_data.into_iter() {
                 if chunk_f_i_x.len() >= 32 {
                     let data_f_i_x = chunk_f_i_x;
                     let fr_data_f_i_x = Fr::from_be_bytes_mod_order(data_f_i_x);
