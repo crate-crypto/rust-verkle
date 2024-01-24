@@ -216,7 +216,7 @@ pub fn create_proof(input: Vec<u8>) -> Vec<u8> {
             prover_queries.push(prover_query);
         }
     }
-    // TODO: This should be stored as static data somewhere.
+    // TODO: This should be passed in as a pointer
     let precomp = PrecomputedWeights::new(256);
 
     let crs = CRS::default();
