@@ -220,7 +220,6 @@ pub fn create_proof(input: Vec<u8>) -> Vec<u8> {
     let precomp = PrecomputedWeights::new(256);
 
     let crs = CRS::default();
-    // TODO: This should be stored as static data somewhere.
     let mut transcript = Transcript::new(b"verkle");
 
     let proof = MultiPoint::open(crs.clone(), &precomp, &mut transcript, prover_queries);
