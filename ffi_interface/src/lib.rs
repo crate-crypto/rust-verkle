@@ -221,7 +221,7 @@ pub fn create_proof(input: Vec<u8>) -> Vec<u8> {
 
     let crs = CRS::default();
     let mut transcript = Transcript::new(b"verkle");
-
+    // TODO: This should not need to clone the CRS, but instead take a reference
     let proof = MultiPoint::open(crs.clone(), &precomp, &mut transcript, prover_queries);
     proof.to_bytes().unwrap()
 }
