@@ -142,7 +142,7 @@ impl BasicPRNG {
         let mut hasher = sha2::Sha256::new();
         hasher.update(&self.counter.to_le_bytes()[..]);
         hasher.update(&self.seed[..]);
-        let res: [u8; 32] = hasher.finalize().try_into().unwrap();
+        let res: [u8; 32] = hasher.finalize().into();
 
         self.counter += 1;
 

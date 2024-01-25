@@ -248,6 +248,8 @@ mod tests {
 
 #[cfg(test)]
 mod test {
+    
+
     use super::*;
     // Two torsion point, *not*  point at infinity {0,-1,0,1}
     fn two_torsion() -> EdwardsProjective {
@@ -264,6 +266,7 @@ mod test {
         [p1, p2]
     }
 
+    #[warn(clippy::needless_range_loop)]
     #[test]
     fn fixed_test_vectors() {
         let expected_bit_string = [
@@ -287,9 +290,9 @@ mod test {
 
         let mut points = vec![];
         let mut point = Element::prime_subgroup_generator();
-        for i in 0..16 {
-            let byts = hex::encode(&point.to_bytes());
-            assert_eq!(byts, expected_bit_string[i], "index {} does not match", i);
+        for i in expected_bit_string.into_iter() {
+            let byts = hex::encode(point.to_bytes());
+            assert_eq!(byts, i, "index {} does not match", i);
 
             points.push(point);
             point = Element(point.0.double())
@@ -330,7 +333,7 @@ mod test {
         let element1 = Element(res);
         let bytes1 = element1.to_bytes();
 
-        if let Some(_) = Element::from_bytes(&bytes1) {
+        if Element::from_bytes(&bytes1).is_some() {
             panic!("point contains a point at infinity and should not have passed deserialization")
         }
     }

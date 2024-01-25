@@ -150,11 +150,10 @@ mod test {
     #[test]
     fn interop_commit() {
         let scalars: Vec<_> = (0..256)
-            .map(|i| {
+            .flat_map(|i| {
                 let val = Fr::from((i + 1) as u128);
                 fr_to_be_bytes(-val)
             })
-            .flatten()
             .collect();
 
         let expected_hash =
@@ -171,11 +170,10 @@ mod test {
     #[test]
     fn interop_commit_root() {
         let scalars: Vec<_> = (0..256)
-            .map(|i| {
+            .flat_map(|i| {
                 let val = Fr::from((i + 1) as u128);
                 fr_to_be_bytes(-val)
             })
-            .flatten()
             .collect();
 
         let expected_hash =

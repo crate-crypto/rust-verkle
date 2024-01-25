@@ -5,7 +5,7 @@
 // Once the java jni crate uses the below implementation, we will remove this file.
 pub mod interop;
 
-use std::io::Read;
+
 
 use banderwagon::Fr;
 use banderwagon::{trait_defs::*, Element};
@@ -109,7 +109,7 @@ pub fn update_commitment(
 
     // If commitment is empty, then we are creating a new commitment.
     if old_commitment_bytes == [0u8; 64] {
-        return Ok(delta_commitment.to_bytes_uncompressed());
+        Ok(delta_commitment.to_bytes_uncompressed())
     } else {
         let old_commitment = Element::from_bytes_unchecked_uncompressed(old_commitment_bytes);
         // vG + (w-v)G
@@ -136,11 +136,11 @@ pub fn update_commitment_sparse(
     for index in
         commitment_index.iter()
     {
-        let old_scalar = fr_from_le_bytes(&old_scalar_bytes[*index as usize]).unwrap();
-        let new_scalar = fr_from_le_bytes(&new_scalar_bytes[*index as usize]).unwrap();
+        let old_scalar = fr_from_le_bytes(&old_scalar_bytes[*index]).unwrap();
+        let new_scalar = fr_from_le_bytes(&new_scalar_bytes[*index]).unwrap();
 
 
-        let tuple = (new_scalar-old_scalar, commitment_index[*index as usize].clone());
+        let tuple = (new_scalar-old_scalar, commitment_index[*index]);
 
         delta_values.push(tuple);
     }
@@ -207,14 +207,17 @@ fn fr_from_be_bytes(bytes: &[u8]) -> Result<banderwagon::Fr, Error> {
 
 // Little endian since java implementation will move to LE
 // Will be used when we move to LE on java side.
+#[allow(dead_code)]
 fn fr_to_le_bytes(fr: banderwagon::Fr) -> [u8; 32] {
     let mut bytes = [0u8; 32];
     fr.serialize_compressed(&mut bytes[..])
         .expect("Failed to serialize scalar to bytes");
     bytes
 }
+
+
 fn fr_from_le_bytes(bytes: &[u8]) -> Result<banderwagon::Fr, Error> {
-    let mut bytes = bytes.to_vec();
+    let bytes = bytes.to_vec();
     banderwagon::Fr::deserialize_compressed(&bytes[..]).map_err(|_| {
         Error::FailedToDeserializeScalar {
             bytes: bytes.to_vec(),
@@ -295,6 +298,7 @@ pub fn create_proof(precomputed_weights: &mut PrecomputedWeights, transcript: &m
 /// Returns true of false.
 /// Proof is verified or not.
 /// TODO: Test this function.
+#[allow(dead_code)]
 fn exposed_verify_call(precomputed_weights: &mut PrecomputedWeights, transcript: &mut Transcript, input: Vec<u8>) -> bool {
 
     // Proof bytes are 576 bytes
@@ -302,7 +306,7 @@ fn exposed_verify_call(precomputed_weights: &mut PrecomputedWeights, transcript:
     // Next 544 bytes are part of IPA proof.
     let proof_bytes = &input[0..576];
 
-    let proof = MultiPointProof::from_bytes(&proof_bytes, 256).unwrap();
+    let proof = MultiPointProof::from_bytes(proof_bytes, 256).unwrap();
 
     let verifier_queries = &input[576..];
 
@@ -338,8 +342,8 @@ fn exposed_verify_call(precomputed_weights: &mut PrecomputedWeights, transcript:
 
     let crs = CRS::default();
 
-    let result = proof.check(&crs, precomputed_weights, &verifier_queries, transcript);
-    result
+    
+    proof.check(&crs, precomputed_weights, &verifier_queries, transcript)
 }
 
 
@@ -395,19 +399,14 @@ mod tests {
         let a_0 = banderwagon::Fr::from(123u128);
         let a_1 = banderwagon::Fr::from(123u128);
         let a_2 = banderwagon::Fr::from(456u128);
-        let a_3 = banderwagon::Fr::from(457u128);
+        let _a_3 = banderwagon::Fr::from(457u128);
 
         // Compute C = a_0 * G_0
-        let mut commitment = committer.scalar_mul(a_0, 0);
+        let commitment = committer.scalar_mul(a_0, 0);
 
         let naive_update = commitment + committer.scalar_mul(a_1, 1) + committer.scalar_mul(a_2, 2);
 
-        let mut val_indices: Vec<(Fr, usize)> = Vec::new();
-
-
-
-        val_indices.push((a_1.clone(), 1));
-        val_indices.push((a_2.clone(), 2));
+        let val_indices: Vec<(Fr, usize)> = vec![(a_1, 1), (a_2, 2)];
 
 
         let new_commitment = commitment + committer.commit_sparse(val_indices);
