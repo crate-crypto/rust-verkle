@@ -5,12 +5,14 @@
 // Once the java jni crate uses the below implementation, we will remove this file.
 pub mod interop;
 
+use std::io::Read;
+
 use banderwagon::Fr;
 use banderwagon::{trait_defs::*, Element};
 use ipa_multipoint::committer::{Committer, DefaultCommitter};
 use ipa_multipoint::crs::CRS;
 use ipa_multipoint::lagrange_basis::{LagrangeBasis, PrecomputedWeights};
-use ipa_multipoint::multiproof::{MultiPoint, ProverQuery};
+use ipa_multipoint::multiproof::{MultiPoint, ProverQuery, VerifierQuery, MultiPointProof};
 use ipa_multipoint::transcript::Transcript;
 
 /// A serialized uncompressed group element
@@ -59,6 +61,7 @@ fn _commit_to_scalars(committer: &DefaultCommitter, scalars: &[u8]) -> Result<El
 
     // We want to ensure interoperability with the Java-EVM for now, so we interpret the scalars as
     // big endian bytes
+    // TODO: change this to LE once we move to LE on Java side.
     let mut inputs = Vec::with_capacity(num_scalars);
     for chunk in scalars.chunks_exact(32) {
         inputs.push(fr_from_be_bytes(chunk)?);
@@ -162,6 +165,23 @@ fn fr_from_be_bytes(bytes: &[u8]) -> Result<banderwagon::Fr, Error> {
     })
 }
 
+// Little endian since java implementation will move to LE
+// Will be used when we move to LE on java side.
+fn fr_to_le_bytes(fr: banderwagon::Fr) -> [u8; 32] {
+    let mut bytes = [0u8; 32];
+    fr.serialize_compressed(&mut bytes[..])
+        .expect("Failed to serialize scalar to bytes");
+    bytes
+}
+fn fr_from_le_bytes(bytes: &[u8]) -> Result<banderwagon::Fr, Error> {
+    let mut bytes = bytes.to_vec();
+    banderwagon::Fr::deserialize_compressed(&bytes[..]).map_err(|_| {
+        Error::FailedToDeserializeScalar {
+            bytes: bytes.to_vec(),
+        }
+    })
+}
+
 /// Receives a tuple (C_i, f_i(X), z_i, y_i)
 /// Where C_i is a commitment to f_i(X) serialized as 32 bytes
 /// f_i(X) is the polynomial serialized as 8192 bytes since we have 256 Fr elements each serialized as 32 bytes
@@ -172,11 +192,11 @@ fn fr_from_be_bytes(bytes: &[u8]) -> Result<banderwagon::Fr, Error> {
 /// This function assumes that the domain is always 256 values and commitment is 32bytes.
 /// TODO: change commitment to 64bytes since we are moving to uncompressed commitment.
 pub fn create_proof(input: Vec<u8>) -> Vec<u8> {
-    // Define the chunk size (8257 bytes)
+    // Define the chunk size (8289 bytes)
     // C_i, f_i(X), z_i, y_i
-    // 32, 8192, 1, 32
-    // = 8257
-    let chunk_size = 8257;
+    // 64, 8192, 1, 32
+    // = 8289
+    let chunk_size = 8289;
     // Create an iterator over the input Vec<u8>
     let chunked_data = input.chunks(chunk_size);
 
@@ -184,11 +204,12 @@ pub fn create_proof(input: Vec<u8>) -> Vec<u8> {
 
     for chunk in chunked_data.into_iter() {
         if chunk.len() >= chunk_size {
-            let data = chunk;
-            let commitment = Element::from_bytes(&data[0..32]).unwrap();
-
+            // Create c_i from the first 64 bytes
+            let mut chunk_exact_size: [u8; 64] = [0u8; 64];
+            chunk_exact_size.copy_from_slice(&chunk[0..64]);
+            let c_i = Element::from_bytes_unchecked_uncompressed(chunk_exact_size);
             // Create f_x from the next 8192 bytes
-            let f_i_x: Vec<u8> = chunk[32..8224].to_vec();
+            let f_i_x: Vec<u8> = chunk[64..8256].to_vec();
 
             let chunked_f_i_x_data = f_i_x.chunks(32);
 
@@ -196,19 +217,23 @@ pub fn create_proof(input: Vec<u8>) -> Vec<u8> {
             for chunk_f_i_x in chunked_f_i_x_data.into_iter() {
                 if chunk_f_i_x.len() >= 32 {
                     let data_f_i_x = chunk_f_i_x;
-                    let fr_data_f_i_x = Fr::from_be_bytes_mod_order(data_f_i_x);
+                    // Expect Fr to come as little endian bytes
+                    let fr_data_f_i_x = Fr::from_le_bytes_mod_order(data_f_i_x);
                     collect_lagrange_basis.push(fr_data_f_i_x);
                 }
             }
 
             let lagrange_basis = LagrangeBasis::new(collect_lagrange_basis);
 
-            let z_i: usize = chunk[8224] as usize;
+            // Get the index from the chunk.
+            let z_i: usize = chunk[8256] as usize;
 
-            let y_i = Fr::from_be_bytes_mod_order(&chunk[8225..8257]);
+            // Expect value(Fr) to come as little endian bytes.
+            let y_i = Fr::from_le_bytes_mod_order(&chunk[8257..8289]);
 
+            // Create a prover query from the current chunk.
             let prover_query = ProverQuery {
-                commitment,
+                commitment: c_i,
                 poly: lagrange_basis,
                 point: z_i,
                 result: y_i,
@@ -221,10 +246,66 @@ pub fn create_proof(input: Vec<u8>) -> Vec<u8> {
 
     let crs = CRS::default();
     let mut transcript = Transcript::new(b"verkle");
-    // TODO: This should not need to clone the CRS, but instead take a reference
-    let proof = MultiPoint::open(crs.clone(), &precomp, &mut transcript, prover_queries);
+
+    let proof = MultiPoint::open(crs, &precomp, &mut transcript, prover_queries);
     proof.to_bytes().unwrap()
 }
+
+/// Receives a tuple (C_i, z_i, y_i)
+/// Where C_i is a commitment to f_i(X) serialized as 64 bytes (uncompressed commitment)
+/// z_i is index of the point in the polynomial: 1 byte (number from 1 to 256)
+/// y_i is the evaluation of the polynomial at z_i i.e value we are opening: 32 bytes or Fr (scalar field element)
+/// Returns true of false.
+/// Proof is verified or not.
+fn exposed_verify_call(input: Vec<u8>) -> bool {
+    // Define the chunk size 64+1+32 = 97 bytes for C_i, z_i, y_i
+    let chunk_size = 97;
+    // Create an iterator over the input Vec<u8>
+    let chunked_data = input.chunks(chunk_size);
+
+
+    let mut verifier_queries: Vec<VerifierQuery> = Vec::new();
+
+    for chunk in chunked_data.into_iter() {
+
+        // We are expecting uncompressed 64 byte commitment (c_i)
+        let mut chunk_exact_size: [u8; 64] = [0u8; 64];
+        chunk_exact_size.copy_from_slice(&chunk[0..64]);
+        let c_i = Element::from_bytes_unchecked_uncompressed(chunk_exact_size);
+
+        // We are expecting 1 byte for the index (z_i)
+        let z_i: Fr = Fr::from(chunk[32] as u128);
+
+        // We are expecting 32 bytes for Fr value (y_i) little endian
+        let y_i = Fr::from_le_bytes_mod_order(&chunk[33..65]);
+
+        let verifier_query = VerifierQuery {
+            commitment: c_i,
+            point: z_i,
+            result: y_i,
+        };
+
+        verifier_queries.push(verifier_query);
+    }
+
+    // TODO: This should be passed in as a pointer
+    let precomp = PrecomputedWeights::new(256);
+
+    let crs = CRS::default();
+
+    // TODO: This should be passed in as a pointer
+    let mut transcript = Transcript::new(b"verkle");
+
+
+    //TODO: process proof bytes
+    let proof_bytes = [0u8; 256];
+
+    let proof = MultiPointProof::from_bytes(&proof_bytes, 256).unwrap();
+
+    let result = proof.check(&crs, &precomp, &verifier_queries,&mut transcript);
+    result
+}
+
 
 #[cfg(test)]
 mod tests {
