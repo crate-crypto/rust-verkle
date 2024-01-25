@@ -124,9 +124,9 @@ pub fn update_commitment_sparse(
     committer: &DefaultCommitter,
     old_commitment_bytes: CommitmentBytes,
     // There can only be at most 256 elements in a verkle branch
-    commitment_index: Vec<usize>,
-    old_scalar_bytes: Vec<ScalarBytes>,
-    new_scalar_bytes: Vec<ScalarBytes>,
+    commitment_index_vec: Vec<usize>,
+    old_scalar_bytes_vec: Vec<ScalarBytes>,
+    new_scalar_bytes_vec: Vec<ScalarBytes>,
 ) -> Result<CommitmentBytes, Error> {
     let old_commitment = Element::from_bytes_unchecked_uncompressed(old_commitment_bytes);
 
@@ -134,13 +134,13 @@ pub fn update_commitment_sparse(
 
     // For each index in commitment_index, we compute the delta value.
     for index in
-        commitment_index.iter()
+        0..commitment_index_vec.len()
     {
-        let old_scalar = fr_from_le_bytes(&old_scalar_bytes[*index]).unwrap();
-        let new_scalar = fr_from_le_bytes(&new_scalar_bytes[*index]).unwrap();
+        let old_scalar = fr_from_le_bytes(&old_scalar_bytes_vec[index]).unwrap();
+        let new_scalar = fr_from_le_bytes(&new_scalar_bytes_vec[index]).unwrap();
 
 
-        let tuple = (new_scalar-old_scalar, commitment_index[*index]);
+        let tuple = (new_scalar-old_scalar, commitment_index_vec[index]);
 
         delta_values.push(tuple);
     }
@@ -349,13 +349,15 @@ fn exposed_verify_call(precomputed_weights: &mut PrecomputedWeights, transcript:
 
 #[cfg(test)]
 mod tests {
+    use std::vec;
+
     use ipa_multipoint::{
         committer::{Committer, DefaultCommitter},
         crs::CRS,
     };
     use banderwagon::Fr;
 
-    use crate::{fr_from_be_bytes, fr_to_be_bytes};
+    use crate::{fr_from_be_bytes, fr_to_be_bytes, fr_to_le_bytes};
     #[test]
     fn commitment_update() {
         let crs = CRS::default();
@@ -383,8 +385,8 @@ mod tests {
             &committer,
             commitment.to_bytes_uncompressed(),
             0,
-            fr_to_be_bytes(a_0),
-            fr_to_be_bytes(a_2),
+            fr_to_le_bytes(a_0),
+            fr_to_le_bytes(a_2),
         )
         .unwrap();
 
@@ -398,8 +400,12 @@ mod tests {
 
         let a_0 = banderwagon::Fr::from(123u128);
         let a_1 = banderwagon::Fr::from(123u128);
-        let a_2 = banderwagon::Fr::from(456u128);
+        let a_2 = banderwagon::Fr::from(246u128);
         let _a_3 = banderwagon::Fr::from(457u128);
+
+        let _a_4 = banderwagon::Fr::from(0u128);
+
+        let a_zero = banderwagon::Fr::from(0u128);
 
         // Compute C = a_0 * G_0
         let commitment = committer.scalar_mul(a_0, 0);
@@ -413,7 +419,24 @@ mod tests {
 
         assert_eq!(naive_update, new_commitment);
 
-        // TODO
+
+        let commitment_index_vec = vec![1, 2];
+
+        let old_scalar_bytes_vec = vec![fr_to_le_bytes(a_zero), fr_to_le_bytes(a_zero)];
+        let new_scalar_bytes_vec = vec![fr_to_le_bytes(a_1), fr_to_le_bytes(a_2)];
+
+        // Now lets do it using the update_commitment_sparse method
+        let updated_commitment = super::update_commitment_sparse(
+            &committer,
+            commitment.to_bytes_uncompressed(),
+            commitment_index_vec,
+            old_scalar_bytes_vec,
+            new_scalar_bytes_vec,
+        )
+        .unwrap();
+
+
+        assert_eq!(updated_commitment, naive_update.to_bytes_uncompressed());
     }
 
     #[test]
