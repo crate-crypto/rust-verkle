@@ -58,7 +58,7 @@ pub fn Java_org_hyperledger_besu_nativelib_ipamultipoint_LibIpaMultipoint_commit
         )
     }
 
-    // Each 32-be-bytes are interpreted as field elements.
+    // Each 32-le-bytes are interpreted as field elements.
     let mut scalars: Vec<banderwagon::Fr> = Vec::with_capacity(n_scalars);
     for b in inp.chunks(32) {
         scalars.push(Fr::from_le_bytes_mod_order(b));
@@ -74,7 +74,6 @@ pub fn Java_org_hyperledger_besu_nativelib_ipamultipoint_LibIpaMultipoint_commit
     scalar
         .serialize_compressed(&mut scalar_bytes[..])
         .expect("could not serialise Fr into a 32 byte array");
-    scalar_bytes.reverse();
 
     scalar_bytes.to_vec()
 }
@@ -123,7 +122,7 @@ pub(crate) fn group_to_field(point: &Element) -> Fr {
 mod test {
     use super::Java_org_hyperledger_besu_nativelib_ipamultipoint_LibIpaMultipoint_pedersenHash;
     use crate::{
-        commit_to_scalars, deprecated_serialize_commitment, fr_to_be_bytes, hash_commitment,
+        commit_to_scalars, deprecated_serialize_commitment, fr_to_le_bytes, hash_commitment,
         interop::{
             Java_org_hyperledger_besu_nativelib_ipamultipoint_LibIpaMultipoint_commit,
             Java_org_hyperledger_besu_nativelib_ipamultipoint_LibIpaMultipoint_commitRoot,
@@ -152,7 +151,7 @@ mod test {
         let scalars: Vec<_> = (0..256)
             .flat_map(|i| {
                 let val = Fr::from((i + 1) as u128);
-                fr_to_be_bytes(-val)
+                fr_to_le_bytes(-val)
             })
             .collect();
 
@@ -172,7 +171,7 @@ mod test {
         let scalars: Vec<_> = (0..256)
             .flat_map(|i| {
                 let val = Fr::from((i + 1) as u128);
-                fr_to_be_bytes(-val)
+                fr_to_le_bytes(-val)
             })
             .collect();
 

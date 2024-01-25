@@ -58,11 +58,10 @@ fn _commit_to_scalars(committer: &DefaultCommitter, scalars: &[u8]) -> Result<El
     }
 
     // We want to ensure interoperability with the Java-EVM for now, so we interpret the scalars as
-    // big endian bytes
-    // TODO: change this to LE once we move to LE on Java side.
+    // little endian bytes
     let mut inputs = Vec::with_capacity(num_scalars);
     for chunk in scalars.chunks_exact(32) {
-        inputs.push(fr_from_be_bytes(chunk)?);
+        inputs.push(fr_from_le_bytes(chunk)?);
     }
 
     Ok(committer.commit_lagrange(&inputs))
@@ -150,7 +149,7 @@ pub fn hash_commitment(commitment: CommitmentBytes) -> ScalarBytes {
     // TODO: We could introduce a method named `hash_commit_to_scalars`
     // TODO: which would save this serialization roundtrip. We should profile/check that
     // TODO: this is actually a bottleneck for the average workflow before doing this.
-    fr_to_be_bytes(Element::from_bytes_unchecked_uncompressed(commitment).map_to_scalar_field())
+    fr_to_le_bytes(Element::from_bytes_unchecked_uncompressed(commitment).map_to_scalar_field())
 }
 /// Hashes a vector of commitments.
 ///
@@ -165,18 +164,19 @@ pub fn hash_commitments(commitments: &[CommitmentBytes]) -> Vec<ScalarBytes> {
 
     Element::batch_map_to_scalar_field(&elements)
         .into_iter()
-        .map(fr_to_be_bytes)
+        .map(fr_to_le_bytes)
         .collect()
 }
 
 /// This is kept so that commitRoot in the java implementation can be swapped out
 /// Note: I believe we should not need to expose this method.
-pub fn deprecated_serialize_commitment(commitment: CommitmentBytes) -> [u8; 32] {
-    Element::from_bytes_unchecked_uncompressed(commitment).to_bytes()
+pub fn deprecated_serialize_commitment(commitment: CommitmentBytes) -> [u8; 64] {
+    Element::from_bytes_unchecked_uncompressed(commitment).to_bytes_uncompressed()
 }
 
 // TODO: We use big endian bytes here to be interopable with the java implementation
 // TODO: we should stick to one endianness everywhere to avoid confusion
+#[allow(dead_code)]
 fn fr_to_be_bytes(fr: banderwagon::Fr) -> [u8; 32] {
     let mut bytes = [0u8; 32];
     fr.serialize_compressed(&mut bytes[..])
@@ -185,6 +185,7 @@ fn fr_to_be_bytes(fr: banderwagon::Fr) -> [u8; 32] {
     bytes.reverse();
     bytes
 }
+#[allow(dead_code)]
 fn fr_from_be_bytes(bytes: &[u8]) -> Result<banderwagon::Fr, Error> {
     let mut bytes = bytes.to_vec();
     bytes.reverse(); // deserialize expects the bytes to be in little endian order
@@ -349,7 +350,7 @@ mod tests {
         crs::CRS,
     };
 
-    use crate::{fr_from_be_bytes, fr_to_be_bytes, fr_to_le_bytes};
+    use crate::{fr_from_le_bytes, fr_to_le_bytes};
     #[test]
     fn commitment_update() {
         let crs = CRS::default();
@@ -429,10 +430,10 @@ mod tests {
     }
 
     #[test]
-    fn from_be_to_be_bytes() {
+    fn from_le_to_le_bytes() {
         let value = banderwagon::Fr::from(123456u128);
-        let bytes = fr_to_be_bytes(value);
-        let got_value = fr_from_be_bytes(&bytes).unwrap();
+        let bytes = fr_to_le_bytes(value);
+        let got_value = fr_from_le_bytes(&bytes).unwrap();
         assert_eq!(got_value, value)
     }
 }
