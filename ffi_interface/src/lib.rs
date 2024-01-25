@@ -97,9 +97,8 @@ pub fn update_commitment(
     old_scalar_bytes: ScalarBytes,
     new_scalar_bytes: ScalarBytes,
 ) -> Result<CommitmentBytes, Error> {
-    let old_commitment = Element::from_bytes_unchecked_uncompressed(old_commitment_bytes);
-    let old_scalar = fr_from_be_bytes(&old_scalar_bytes)?;
-    let new_scalar = fr_from_be_bytes(&new_scalar_bytes)?;
+    let old_scalar = fr_from_le_bytes(&old_scalar_bytes)?;
+    let new_scalar = fr_from_le_bytes(&new_scalar_bytes)?;
 
     // w-v
     let delta = new_scalar - old_scalar;
@@ -107,8 +106,16 @@ pub fn update_commitment(
     // (w-v)G
     let delta_commitment = committer.scalar_mul(delta, commitment_index as usize);
 
-    // vG + (w-v)G
-    Ok((delta_commitment + old_commitment).to_bytes_uncompressed())
+
+    // If commitment is empty, then we are creating a new commitment.
+    if old_commitment_bytes == [0u8; 64] {
+        return Ok(delta_commitment.to_bytes_uncompressed());
+    } else {
+        let old_commitment = Element::from_bytes_unchecked_uncompressed(old_commitment_bytes);
+        // vG + (w-v)G
+        Ok((delta_commitment + old_commitment).to_bytes_uncompressed())
+    }
+
 }
 
 
@@ -125,10 +132,10 @@ pub fn update_commitment_sparse(
 
     let mut delta_values: Vec<(Fr, usize)> = Vec::new();
 
+    // For each index in commitment_index, we compute the delta value.
     for index in
         commitment_index.iter()
     {
-
         let old_scalar = fr_from_le_bytes(&old_scalar_bytes[*index as usize]).unwrap();
         let new_scalar = fr_from_le_bytes(&new_scalar_bytes[*index as usize]).unwrap();
 
@@ -216,15 +223,15 @@ fn fr_from_le_bytes(bytes: &[u8]) -> Result<banderwagon::Fr, Error> {
 }
 
 /// Receives a tuple (C_i, f_i(X), z_i, y_i)
-/// Where C_i is a commitment to f_i(X) serialized as 32 bytes
+/// Where C_i is a commitment to f_i(X) serialized as 64 bytes
 /// f_i(X) is the polynomial serialized as 8192 bytes since we have 256 Fr elements each serialized as 32 bytes
 /// z_i is index of the point in the polynomial: 1 byte (number from 1 to 256)
 /// y_i is the evaluation of the polynomial at z_i i.e value we are opening: 32 bytes
 /// Returns a proof serialized as bytes
 ///
-/// This function assumes that the domain is always 256 values and commitment is 32bytes.
-/// TODO: change commitment to 64bytes since we are moving to uncompressed commitment.
-pub fn create_proof(input: Vec<u8>) -> Vec<u8> {
+/// This function assumes that the domain is always 256 values and commitment is 64bytes.
+/// TODO: Test this function.
+pub fn create_proof(precomputed_weights: &mut PrecomputedWeights, transcript: &mut Transcript, input: Vec<u8>) -> Vec<u8> {
     // Define the chunk size (8289 bytes)
     // C_i, f_i(X), z_i, y_i
     // 64, 8192, 1, 32
@@ -274,27 +281,35 @@ pub fn create_proof(input: Vec<u8>) -> Vec<u8> {
             prover_queries.push(prover_query);
         }
     }
-    // TODO: This should be passed in as a pointer
-    let precomp = PrecomputedWeights::new(256);
 
     let crs = CRS::default();
-    let mut transcript = Transcript::new(b"verkle");
 
-    let proof = MultiPoint::open(crs, &precomp, &mut transcript, prover_queries);
+    let proof = MultiPoint::open(crs, precomputed_weights, transcript, prover_queries);
     proof.to_bytes().unwrap()
 }
 
-/// Receives a tuple (C_i, z_i, y_i)
+/// Receives a proof and a tuple (C_i, z_i, y_i)
 /// Where C_i is a commitment to f_i(X) serialized as 64 bytes (uncompressed commitment)
 /// z_i is index of the point in the polynomial: 1 byte (number from 1 to 256)
 /// y_i is the evaluation of the polynomial at z_i i.e value we are opening: 32 bytes or Fr (scalar field element)
 /// Returns true of false.
 /// Proof is verified or not.
-fn exposed_verify_call(input: Vec<u8>) -> bool {
+/// TODO: Test this function.
+fn exposed_verify_call(precomputed_weights: &mut PrecomputedWeights, transcript: &mut Transcript, input: Vec<u8>) -> bool {
+
+    // Proof bytes are 576 bytes
+    // First 32 bytes is the g_x_comm_bytes
+    // Next 544 bytes are part of IPA proof.
+    let proof_bytes = &input[0..576];
+
+    let proof = MultiPointProof::from_bytes(&proof_bytes, 256).unwrap();
+
+    let verifier_queries = &input[576..];
+
     // Define the chunk size 64+1+32 = 97 bytes for C_i, z_i, y_i
     let chunk_size = 97;
     // Create an iterator over the input Vec<u8>
-    let chunked_data = input.chunks(chunk_size);
+    let chunked_data = verifier_queries.chunks(chunk_size);
 
 
     let mut verifier_queries: Vec<VerifierQuery> = Vec::new();
@@ -321,21 +336,9 @@ fn exposed_verify_call(input: Vec<u8>) -> bool {
         verifier_queries.push(verifier_query);
     }
 
-    // TODO: This should be passed in as a pointer
-    let precomp = PrecomputedWeights::new(256);
-
     let crs = CRS::default();
 
-    // TODO: This should be passed in as a pointer
-    let mut transcript = Transcript::new(b"verkle");
-
-
-    //TODO: process proof bytes
-    let proof_bytes = [0u8; 256];
-
-    let proof = MultiPointProof::from_bytes(&proof_bytes, 256).unwrap();
-
-    let result = proof.check(&crs, &precomp, &verifier_queries,&mut transcript);
+    let result = proof.check(&crs, precomputed_weights, &verifier_queries, transcript);
     result
 }
 
@@ -346,6 +349,7 @@ mod tests {
         committer::{Committer, DefaultCommitter},
         crs::CRS,
     };
+    use banderwagon::Fr;
 
     use crate::{fr_from_be_bytes, fr_to_be_bytes};
     #[test]
@@ -381,6 +385,36 @@ mod tests {
         .unwrap();
 
         assert_eq!(updated_commitment, naive_update.to_bytes_uncompressed())
+    }
+
+    #[test]
+    fn commitment_exists_sparse_update() {
+        let crs = CRS::default();
+        let committer = DefaultCommitter::new(&crs.G);
+
+        let a_0 = banderwagon::Fr::from(123u128);
+        let a_1 = banderwagon::Fr::from(123u128);
+        let a_2 = banderwagon::Fr::from(456u128);
+        let a_3 = banderwagon::Fr::from(457u128);
+
+        // Compute C = a_0 * G_0
+        let mut commitment = committer.scalar_mul(a_0, 0);
+
+        let naive_update = commitment + committer.scalar_mul(a_1, 1) + committer.scalar_mul(a_2, 2);
+
+        let mut val_indices: Vec<(Fr, usize)> = Vec::new();
+
+
+
+        val_indices.push((a_1.clone(), 1));
+        val_indices.push((a_2.clone(), 2));
+
+
+        let new_commitment = commitment + committer.commit_sparse(val_indices);
+
+        assert_eq!(naive_update, new_commitment);
+
+        // TODO
     }
 
     #[test]
