@@ -111,6 +111,39 @@ pub fn update_commitment(
     Ok((delta_commitment + old_commitment).to_bytes_uncompressed())
 }
 
+
+/// Update commitment for sparse vector.
+pub fn update_commitment_sparse(
+    committer: &DefaultCommitter,
+    old_commitment_bytes: CommitmentBytes,
+    // There can only be at most 256 elements in a verkle branch
+    commitment_index: Vec<usize>,
+    old_scalar_bytes: Vec<ScalarBytes>,
+    new_scalar_bytes: Vec<ScalarBytes>,
+) -> Result<CommitmentBytes, Error> {
+    let old_commitment = Element::from_bytes_unchecked_uncompressed(old_commitment_bytes);
+
+    let mut delta_values: Vec<(Fr, usize)> = Vec::new();
+
+    for index in
+        commitment_index.iter()
+    {
+
+        let old_scalar = fr_from_le_bytes(&old_scalar_bytes[*index as usize]).unwrap();
+        let new_scalar = fr_from_le_bytes(&new_scalar_bytes[*index as usize]).unwrap();
+
+
+        let tuple = (new_scalar-old_scalar, commitment_index[*index as usize].clone());
+
+        delta_values.push(tuple);
+    }
+
+    let delta_commitment = committer.commit_sparse(delta_values);
+    Ok((delta_commitment + old_commitment).to_bytes_uncompressed())
+}
+
+
+
 /// Hashes a commitment
 ///
 /// Note: This commitment can be used as the `commitment root`

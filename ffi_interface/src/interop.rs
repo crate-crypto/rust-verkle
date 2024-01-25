@@ -61,7 +61,7 @@ pub fn Java_org_hyperledger_besu_nativelib_ipamultipoint_LibIpaMultipoint_commit
     // Each 32-be-bytes are interpreted as field elements.
     let mut scalars: Vec<banderwagon::Fr> = Vec::with_capacity(n_scalars);
     for b in inp.chunks(32) {
-        scalars.push(Fr::from_be_bytes_mod_order(b));
+        scalars.push(Fr::from_le_bytes_mod_order(b));
     }
 
     // Committing all values at once.
@@ -97,18 +97,18 @@ pub fn Java_org_hyperledger_besu_nativelib_ipamultipoint_LibIpaMultipoint_commit
         )
     }
 
-    // Each 32-be-bytes are interpreted as field elements.
+    // Each 32-le-bytes are interpreted as field elements.
     let mut scalars: Vec<Fr> = Vec::with_capacity(n_scalars);
     for b in inp.chunks(32) {
-        scalars.push(Fr::from_be_bytes_mod_order(b));
+        scalars.push(Fr::from_le_bytes_mod_order(b));
     }
 
     // Committing all values at once.
     let bases = CRS::default();
     let commit = multi_scalar_mul(&bases.G, &scalars);
 
-    // Serializing using first affine coordinate
-    let commit_bytes = commit.to_bytes();
+    // Uncompressed serialization
+    let commit_bytes = commit.to_bytes_uncompressed();
 
     commit_bytes.to_vec()
 }
