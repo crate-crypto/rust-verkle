@@ -248,7 +248,6 @@ mod tests {
 
 #[cfg(test)]
 mod test {
-    
 
     use super::*;
     // Two torsion point, *not*  point at infinity {0,-1,0,1}

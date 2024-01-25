@@ -5,14 +5,12 @@
 // Once the java jni crate uses the below implementation, we will remove this file.
 pub mod interop;
 
-
-
 use banderwagon::Fr;
 use banderwagon::{trait_defs::*, Element};
 use ipa_multipoint::committer::{Committer, DefaultCommitter};
 use ipa_multipoint::crs::CRS;
 use ipa_multipoint::lagrange_basis::{LagrangeBasis, PrecomputedWeights};
-use ipa_multipoint::multiproof::{MultiPoint, ProverQuery, VerifierQuery, MultiPointProof};
+use ipa_multipoint::multiproof::{MultiPoint, MultiPointProof, ProverQuery, VerifierQuery};
 use ipa_multipoint::transcript::Transcript;
 
 /// A serialized uncompressed group element
@@ -106,7 +104,6 @@ pub fn update_commitment(
     // (w-v)G
     let delta_commitment = committer.scalar_mul(delta, commitment_index as usize);
 
-
     // If commitment is empty, then we are creating a new commitment.
     if old_commitment_bytes == [0u8; 64] {
         Ok(delta_commitment.to_bytes_uncompressed())
@@ -115,9 +112,7 @@ pub fn update_commitment(
         // vG + (w-v)G
         Ok((delta_commitment + old_commitment).to_bytes_uncompressed())
     }
-
 }
-
 
 /// Update commitment for sparse vector.
 pub fn update_commitment_sparse(
@@ -133,14 +128,11 @@ pub fn update_commitment_sparse(
     let mut delta_values: Vec<(Fr, usize)> = Vec::new();
 
     // For each index in commitment_index, we compute the delta value.
-    for index in
-        0..commitment_index_vec.len()
-    {
+    for index in 0..commitment_index_vec.len() {
         let old_scalar = fr_from_le_bytes(&old_scalar_bytes_vec[index]).unwrap();
         let new_scalar = fr_from_le_bytes(&new_scalar_bytes_vec[index]).unwrap();
 
-
-        let tuple = (new_scalar-old_scalar, commitment_index_vec[index]);
+        let tuple = (new_scalar - old_scalar, commitment_index_vec[index]);
 
         delta_values.push(tuple);
     }
@@ -148,8 +140,6 @@ pub fn update_commitment_sparse(
     let delta_commitment = committer.commit_sparse(delta_values);
     Ok((delta_commitment + old_commitment).to_bytes_uncompressed())
 }
-
-
 
 /// Hashes a commitment
 ///
@@ -215,7 +205,6 @@ fn fr_to_le_bytes(fr: banderwagon::Fr) -> [u8; 32] {
     bytes
 }
 
-
 fn fr_from_le_bytes(bytes: &[u8]) -> Result<banderwagon::Fr, Error> {
     let bytes = bytes.to_vec();
     banderwagon::Fr::deserialize_compressed(&bytes[..]).map_err(|_| {
@@ -234,7 +223,11 @@ fn fr_from_le_bytes(bytes: &[u8]) -> Result<banderwagon::Fr, Error> {
 ///
 /// This function assumes that the domain is always 256 values and commitment is 64bytes.
 /// TODO: Test this function.
-pub fn create_proof(precomputed_weights: &mut PrecomputedWeights, transcript: &mut Transcript, input: Vec<u8>) -> Vec<u8> {
+pub fn create_proof(
+    precomputed_weights: &mut PrecomputedWeights,
+    transcript: &mut Transcript,
+    input: Vec<u8>,
+) -> Vec<u8> {
     // Define the chunk size (8289 bytes)
     // C_i, f_i(X), z_i, y_i
     // 64, 8192, 1, 32
@@ -299,8 +292,11 @@ pub fn create_proof(precomputed_weights: &mut PrecomputedWeights, transcript: &m
 /// Proof is verified or not.
 /// TODO: Test this function.
 #[allow(dead_code)]
-fn exposed_verify_call(precomputed_weights: &mut PrecomputedWeights, transcript: &mut Transcript, input: Vec<u8>) -> bool {
-
+fn exposed_verify_call(
+    precomputed_weights: &mut PrecomputedWeights,
+    transcript: &mut Transcript,
+    input: Vec<u8>,
+) -> bool {
     // Proof bytes are 576 bytes
     // First 32 bytes is the g_x_comm_bytes
     // Next 544 bytes are part of IPA proof.
@@ -315,11 +311,9 @@ fn exposed_verify_call(precomputed_weights: &mut PrecomputedWeights, transcript:
     // Create an iterator over the input Vec<u8>
     let chunked_data = verifier_queries.chunks(chunk_size);
 
-
     let mut verifier_queries: Vec<VerifierQuery> = Vec::new();
 
     for chunk in chunked_data.into_iter() {
-
         // We are expecting uncompressed 64 byte commitment (c_i)
         let mut chunk_exact_size: [u8; 64] = [0u8; 64];
         chunk_exact_size.copy_from_slice(&chunk[0..64]);
@@ -342,20 +336,18 @@ fn exposed_verify_call(precomputed_weights: &mut PrecomputedWeights, transcript:
 
     let crs = CRS::default();
 
-    
     proof.check(&crs, precomputed_weights, &verifier_queries, transcript)
 }
-
 
 #[cfg(test)]
 mod tests {
     use std::vec;
 
+    use banderwagon::Fr;
     use ipa_multipoint::{
         committer::{Committer, DefaultCommitter},
         crs::CRS,
     };
-    use banderwagon::Fr;
 
     use crate::{fr_from_be_bytes, fr_to_be_bytes, fr_to_le_bytes};
     #[test]
@@ -414,11 +406,9 @@ mod tests {
 
         let val_indices: Vec<(Fr, usize)> = vec![(a_1, 1), (a_2, 2)];
 
-
         let new_commitment = commitment + committer.commit_sparse(val_indices);
 
         assert_eq!(naive_update, new_commitment);
-
 
         let commitment_index_vec = vec![1, 2];
 
@@ -434,7 +424,6 @@ mod tests {
             new_scalar_bytes_vec,
         )
         .unwrap();
-
 
         assert_eq!(updated_commitment, naive_update.to_bytes_uncompressed());
     }
