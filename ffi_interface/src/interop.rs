@@ -104,7 +104,7 @@ pub fn Java_org_hyperledger_besu_nativelib_ipamultipoint_LibIpaMultipoint_commit
 
     // Committing all values at once.
     let bases = CRS::default();
-    let commit = multi_scalar_mul(&bases.G, &scalars);
+    let commit = multi_scalar_mul(&bases.G[0..scalars.len()], &scalars);
 
     // Uncompressed serialization
     let commit_bytes = commit.to_bytes_uncompressed();
@@ -122,12 +122,12 @@ pub(crate) fn group_to_field(point: &Element) -> Fr {
 mod test {
     use super::Java_org_hyperledger_besu_nativelib_ipamultipoint_LibIpaMultipoint_pedersenHash;
     use crate::{
-        commit_to_scalars, deprecated_serialize_commitment, fr_to_le_bytes, hash_commitment,
+        commit_to_scalars, deprecated_serialize_commitment, fr_to_le_bytes, get_tree_key_hash,
+        hash_commitment,
         interop::{
             Java_org_hyperledger_besu_nativelib_ipamultipoint_LibIpaMultipoint_commit,
             Java_org_hyperledger_besu_nativelib_ipamultipoint_LibIpaMultipoint_commitRoot,
         },
-        pedersen_hash,
     };
     use banderwagon::Fr;
     use ipa_multipoint::{committer::DefaultCommitter, crs::CRS};
@@ -141,47 +141,76 @@ mod test {
         let crs = CRS::default();
         let committer = DefaultCommitter::new(&crs.G);
 
-        let got_hash = pedersen_hash(&committer, ones);
+        let address = [u8::MAX; 32];
+        let tree_index = [u8::MAX; 32];
+
+        let got_hash = get_tree_key_hash(&committer, address, tree_index);
 
         assert_eq!(got_hash.to_vec(), expected_hash);
     }
 
     #[test]
     fn interop_commit() {
-        let scalars: Vec<_> = (0..256)
-            .flat_map(|i| {
+        let scalars_le: Vec<_> = (0..256)
+            .map(|i| {
                 let val = Fr::from((i + 1) as u128);
                 fr_to_le_bytes(-val)
             })
             .collect();
 
-        let expected_hash =
-            Java_org_hyperledger_besu_nativelib_ipamultipoint_LibIpaMultipoint_commit(&scalars);
+        let scalars_be: Vec<_> = (0..256)
+            .map(|i| {
+                let val = Fr::from((i + 1) as u128);
+                let mut arr = fr_to_le_bytes(-val);
+                arr.reverse();
+                arr
+            })
+            .flatten()
+            .collect();
+
+        // The previous implementation will return the hash in big endian format
+        // The new implementation will return the hash in little endian format
+        // however.
+        let expected_hash_be =
+            Java_org_hyperledger_besu_nativelib_ipamultipoint_LibIpaMultipoint_commit(&scalars_be);
+        let expected_hash_le: Vec<_> = expected_hash_be.iter().rev().cloned().collect();
 
         let crs = CRS::default();
         let committer = DefaultCommitter::new(&crs.G);
 
-        let got_commitment = commit_to_scalars(&committer, &scalars).unwrap();
+        let got_commitment = commit_to_scalars(&committer, &scalars_le).unwrap();
         let got_hash = hash_commitment(got_commitment);
-        assert_eq!(got_hash.to_vec(), expected_hash)
+        assert_eq!(got_hash.to_vec(), expected_hash_le)
     }
 
     #[test]
     fn interop_commit_root() {
-        let scalars: Vec<_> = (0..256)
-            .flat_map(|i| {
+        let scalars_le: Vec<_> = (0..256)
+            .map(|i| {
                 let val = Fr::from((i + 1) as u128);
                 fr_to_le_bytes(-val)
+            })
+            .flatten()
+            .collect();
+
+        let scalars_be: Vec<_> = (0..256)
+            .map(|i| {
+                let val = Fr::from((i + 1) as u128);
+                let mut arr = fr_to_le_bytes(-val);
+                arr.reverse();
+                arr
             })
             .collect();
 
         let expected_hash =
-            Java_org_hyperledger_besu_nativelib_ipamultipoint_LibIpaMultipoint_commitRoot(&scalars);
+            Java_org_hyperledger_besu_nativelib_ipamultipoint_LibIpaMultipoint_commitRoot(
+                &scalars_be,
+            );
 
         let crs = CRS::default();
         let committer = DefaultCommitter::new(&crs.G);
 
-        let got_commitment = commit_to_scalars(&committer, &scalars).unwrap();
+        let got_commitment = commit_to_scalars(&committer, &scalars_le).unwrap();
         let got_hash = deprecated_serialize_commitment(got_commitment);
         assert_eq!(got_hash.to_vec(), expected_hash)
     }
