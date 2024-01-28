@@ -26,20 +26,45 @@ pub enum Error {
     FailedToDeserializeScalar { bytes: Vec<u8> },
 }
 
-/// Compute the key used in the `get_tree_key` method
+/// Compute the key prefix used in the `get_tree_key` method
 ///
-/// Returns a 32 byte slice representing the `key` to be used in `get_tree_key`
+/// Returns a 32 byte slice representing the first 31 bytes of the `key` to be used in `get_tree_key`
 ///
 // TODO: We could probably make this use `map_to_field` instead of `.to_bytes`
-pub fn get_tree_key_hash(committer: &DefaultCommitter, input: [u8; 64]) -> [u8; 32] {
+pub fn get_tree_key_hash(
+    committer: &DefaultCommitter,
+    address: [u8; 32],
+    tree_index_le: [u8; 32],
+) -> [u8; 32] {
+    let mut input = [0u8; 64];
+    input[..32].copy_from_slice(&address);
+    input[32..].copy_from_slice(&tree_index_le);
+
     verkle_spec::hash64(committer, input).to_fixed_bytes()
 }
+pub fn get_tree_key(
+    committer: &DefaultCommitter,
+    address: [u8; 32],
+    tree_index_le: [u8; 32],
+    sub_index: u8,
+) -> [u8; 32] {
+    let mut hash = get_tree_key_hash(committer, address, tree_index_le);
+
+    hash[31] = sub_index;
+
+    hash
+}
+
 /// This is exactly the same as `get_tree_key_hash` method.
 /// Use get_tree_key_hash instead.
 ///
 /// Moving to rename this as it causes confusion. For now, I'll call this `get_tree_key_hash`
-pub fn pedersen_hash(committer: &DefaultCommitter, input: [u8; 64]) -> [u8; 32] {
-    get_tree_key_hash(committer, input)
+pub fn pedersen_hash(
+    committer: &DefaultCommitter,
+    address: [u8; 32],
+    tree_index_le: [u8; 32],
+) -> [u8; 32] {
+    get_tree_key_hash(committer, address, tree_index_le)
 }
 
 fn _commit_to_scalars(committer: &DefaultCommitter, scalars: &[u8]) -> Result<Element, Error> {
@@ -155,7 +180,7 @@ fn fr_to_be_bytes(fr: banderwagon::Fr) -> [u8; 32] {
 fn fr_from_be_bytes(bytes: &[u8]) -> Result<banderwagon::Fr, Error> {
     let mut bytes = bytes.to_vec();
     bytes.reverse(); // deserialize expects the bytes to be in little endian order
-    banderwagon::Fr::deserialize_compressed(&bytes[..]).map_err(|_| {
+    banderwagon::Fr::deserialize_uncompressed(&bytes[..]).map_err(|_| {
         Error::FailedToDeserializeScalar {
             bytes: bytes.to_vec(),
         }
@@ -275,5 +300,52 @@ mod tests {
         let bytes = fr_to_be_bytes(value);
         let got_value = fr_from_be_bytes(&bytes).unwrap();
         assert_eq!(got_value, value)
+    }
+}
+
+#[cfg(test)]
+mod pedersen_hash_tests {
+    use ipa_multipoint::{committer::DefaultCommitter, crs::CRS};
+
+    use crate::{get_tree_key, get_tree_key_hash};
+
+    #[test]
+    fn smoke_test_address_zero() {
+        let crs = CRS::default();
+        let committer = DefaultCommitter::new(&crs.G);
+
+        let address = [0u8; 32];
+        let tree_index = [0u8; 32];
+
+        let expected = "bf101a6e1c8e83c11bd203a582c7981b91097ec55cbd344ce09005c1f26d1922";
+        let got_hash_bytes = get_tree_key_hash(&committer, address, tree_index);
+        let got_hash_hex = hex::encode(got_hash_bytes);
+        assert_eq!(expected, got_hash_hex)
+    }
+
+    #[test]
+    fn smoke_test_input() {
+        let crs = CRS::default();
+        let committer = DefaultCommitter::new(&crs.G);
+        let input = [
+            1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24,
+            25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46,
+            47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64,
+        ];
+
+        // First 32 bytes is the address
+        let mut address = [0u8; 32];
+        address.copy_from_slice(&input[..32]);
+
+        // Next 32 bytes is the tree index -- But interpreted as a little endian number
+        let mut tree_index = [0u8; 32];
+        tree_index.copy_from_slice(&input[32..64]);
+        tree_index.reverse();
+
+        let got_hash_bytes = get_tree_key(&committer, address, tree_index, 0);
+
+        let expected_hash = "76a014d14e338c57342cda5187775c6b75e7f0ef292e81b176c7a5a700273700";
+        let got_hash_hex = hex::encode(got_hash_bytes);
+        assert_eq!(expected_hash, got_hash_hex);
     }
 }
