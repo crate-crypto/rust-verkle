@@ -174,11 +174,8 @@ fn fr_to_le_bytes(fr: banderwagon::Fr) -> [u8; 32] {
     bytes
 }
 fn fr_from_le_bytes(bytes: &[u8]) -> Result<banderwagon::Fr, Error> {
-    let bytes = bytes.to_vec();
-    banderwagon::Fr::deserialize_uncompressed(&bytes[..]).map_err(|_| {
-        Error::FailedToDeserializeScalar {
-            bytes: bytes.to_vec(),
-        }
+    banderwagon::Fr::deserialize_uncompressed(bytes).map_err(|_| Error::FailedToDeserializeScalar {
+        bytes: bytes.to_vec(),
     })
 }
 
