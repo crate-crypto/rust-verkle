@@ -105,7 +105,7 @@ pub fn Java_org_hyperledger_besu_nativelib_ipamultipoint_LibIpaMultipoint_commit
 
     // Committing all values at once.
     let bases = CRS::default();
-    let commit = multi_scalar_mul(&bases.G, &scalars);
+    let commit = multi_scalar_mul(&bases.G[0..scalars.len()], &scalars);
 
     // Serializing using first affine coordinate
     let commit_bytes = commit.to_bytes();
@@ -123,12 +123,12 @@ pub(crate) fn group_to_field(point: &Element) -> Fr {
 mod test {
     use super::Java_org_hyperledger_besu_nativelib_ipamultipoint_LibIpaMultipoint_pedersenHash;
     use crate::{
-        commit_to_scalars, deprecated_serialize_commitment, fr_to_be_bytes, hash_commitment,
+        commit_to_scalars, deprecated_serialize_commitment, fr_to_be_bytes, get_tree_key_hash,
+        hash_commitment,
         interop::{
             Java_org_hyperledger_besu_nativelib_ipamultipoint_LibIpaMultipoint_commit,
             Java_org_hyperledger_besu_nativelib_ipamultipoint_LibIpaMultipoint_commitRoot,
         },
-        pedersen_hash,
     };
     use banderwagon::Fr;
     use ipa_multipoint::{committer::DefaultCommitter, crs::CRS};
@@ -142,7 +142,10 @@ mod test {
         let crs = CRS::default();
         let committer = DefaultCommitter::new(&crs.G);
 
-        let got_hash = pedersen_hash(&committer, ones);
+        let address = [u8::MAX; 32];
+        let tree_index = [u8::MAX; 32];
+
+        let got_hash = get_tree_key_hash(&committer, address, tree_index);
 
         assert_eq!(got_hash.to_vec(), expected_hash);
     }

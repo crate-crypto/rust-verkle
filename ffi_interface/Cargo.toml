@@ -9,3 +9,4 @@ edition = "2021"
 banderwagon = { path = "../banderwagon" }
 ipa-multipoint = { path = "../ipa-multipoint" }
 verkle-spec = { path = "../verkle-spec" }
+hex = "*"
