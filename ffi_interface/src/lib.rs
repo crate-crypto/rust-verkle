@@ -40,6 +40,15 @@ pub fn get_tree_key_hash(
     input[..32].copy_from_slice(&address);
     input[32..].copy_from_slice(&tree_index_le);
 
+    get_tree_key_hash_flat_input(committer, input)
+}
+/// Same method as `get_tree_key_hash` but takes a 64 byte input instead of two 32 byte inputs
+///
+/// This is kept for backwards compatibility and because we have not yet checked if its better
+/// for Java to pass in two 32 bytes or one 64 byte input.
+///
+/// The former probably requires two allocations, while the latter is less type safe.
+pub fn get_tree_key_hash_flat_input(committer: &DefaultCommitter, input: [u8; 64]) -> [u8; 32] {
     verkle_spec::hash64(committer, input).to_fixed_bytes()
 }
 pub fn get_tree_key(
