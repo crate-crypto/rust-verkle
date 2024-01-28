@@ -95,7 +95,7 @@ fn _commit_to_scalars(committer: &DefaultCommitter, scalars: &[u8]) -> Result<El
     // big endian bytes
     let mut inputs = Vec::with_capacity(num_scalars);
     for chunk in scalars.chunks_exact(32) {
-        inputs.push(fr_from_be_bytes(chunk)?);
+        inputs.push(fr_from_le_bytes(chunk)?);
     }
 
     Ok(committer.commit_lagrange(&inputs))
@@ -129,8 +129,8 @@ pub fn update_commitment(
     new_scalar_bytes: ScalarBytes,
 ) -> Result<CommitmentBytes, Error> {
     let old_commitment = Element::from_bytes_unchecked_uncompressed(old_commitment_bytes);
-    let old_scalar = fr_from_be_bytes(&old_scalar_bytes)?;
-    let new_scalar = fr_from_be_bytes(&new_scalar_bytes)?;
+    let old_scalar = fr_from_le_bytes(&old_scalar_bytes)?;
+    let new_scalar = fr_from_le_bytes(&new_scalar_bytes)?;
 
     // w-v
     let delta = new_scalar - old_scalar;
@@ -151,7 +151,7 @@ pub fn hash_commitment(commitment: CommitmentBytes) -> ScalarBytes {
     // TODO: We could introduce a method named `hash_commit_to_scalars`
     // TODO: which would save this serialization roundtrip. We should profile/check that
     // TODO: this is actually a bottleneck for the average workflow before doing this.
-    fr_to_be_bytes(Element::from_bytes_unchecked_uncompressed(commitment).map_to_scalar_field())
+    fr_to_le_bytes(Element::from_bytes_unchecked_uncompressed(commitment).map_to_scalar_field())
 }
 /// Hashes a vector of commitments.
 ///
@@ -166,7 +166,7 @@ pub fn hash_commitments(commitments: &[CommitmentBytes]) -> Vec<ScalarBytes> {
 
     Element::batch_map_to_scalar_field(&elements)
         .into_iter()
-        .map(fr_to_be_bytes)
+        .map(fr_to_le_bytes)
         .collect()
 }
 
@@ -176,23 +176,15 @@ pub fn deprecated_serialize_commitment(commitment: CommitmentBytes) -> [u8; 32] 
     Element::from_bytes_unchecked_uncompressed(commitment).to_bytes()
 }
 
-// TODO: We use big endian bytes here to be interopable with the java implementation
-// TODO: we should stick to one endianness everywhere to avoid confusion
-fn fr_to_be_bytes(fr: banderwagon::Fr) -> [u8; 32] {
+fn fr_to_le_bytes(fr: banderwagon::Fr) -> [u8; 32] {
     let mut bytes = [0u8; 32];
     fr.serialize_compressed(&mut bytes[..])
         .expect("Failed to serialize scalar to bytes");
-    // serialized compressed outputs bytes in LE order, so we reverse to get BE order
-    bytes.reverse();
     bytes
 }
-fn fr_from_be_bytes(bytes: &[u8]) -> Result<banderwagon::Fr, Error> {
-    let mut bytes = bytes.to_vec();
-    bytes.reverse(); // deserialize expects the bytes to be in little endian order
-    banderwagon::Fr::deserialize_uncompressed(&bytes[..]).map_err(|_| {
-        Error::FailedToDeserializeScalar {
-            bytes: bytes.to_vec(),
-        }
+fn fr_from_le_bytes(bytes: &[u8]) -> Result<banderwagon::Fr, Error> {
+    banderwagon::Fr::deserialize_uncompressed(bytes).map_err(|_| Error::FailedToDeserializeScalar {
+        bytes: bytes.to_vec(),
     })
 }
 
@@ -267,7 +259,7 @@ mod tests {
         crs::CRS,
     };
 
-    use crate::{fr_from_be_bytes, fr_to_be_bytes};
+    use crate::{fr_from_le_bytes, fr_to_le_bytes};
     #[test]
     fn commitment_update() {
         let crs = CRS::default();
@@ -295,8 +287,8 @@ mod tests {
             &committer,
             commitment.to_bytes_uncompressed(),
             0,
-            fr_to_be_bytes(a_0),
-            fr_to_be_bytes(a_2),
+            fr_to_le_bytes(a_0),
+            fr_to_le_bytes(a_2),
         )
         .unwrap();
 
@@ -306,8 +298,8 @@ mod tests {
     #[test]
     fn from_be_to_be_bytes() {
         let value = banderwagon::Fr::from(123456u128);
-        let bytes = fr_to_be_bytes(value);
-        let got_value = fr_from_be_bytes(&bytes).unwrap();
+        let bytes = fr_to_le_bytes(value);
+        let got_value = fr_from_le_bytes(&bytes).unwrap();
         assert_eq!(got_value, value)
     }
 }
