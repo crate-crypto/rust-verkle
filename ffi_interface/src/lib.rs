@@ -177,6 +177,38 @@ pub fn update_commitment(
     Ok((delta_commitment + old_commitment).to_bytes_uncompressed())
 }
 
+/// Update commitment for sparse vector.
+pub fn update_commitment_sparse(
+    committer: &DefaultCommitter,
+    old_commitment_bytes: CommitmentBytes,
+    // There can only be at most 256 elements in a verkle branch
+    commitment_index_vec: Vec<usize>,
+    old_scalar_bytes_vec: Vec<ScalarBytes>,
+    new_scalar_bytes_vec: Vec<ScalarBytes>,
+) -> Result<CommitmentBytes, Error> {
+    let old_commitment = Element::from_bytes_unchecked_uncompressed(old_commitment_bytes);
+
+    let mut delta_values: Vec<(Fr, usize)> = Vec::new();
+
+    // For each index in commitment_index, we compute the delta value.
+    for index in 0..commitment_index_vec.len() {
+        let old_scalar = fr_from_le_bytes(&old_scalar_bytes_vec[index]).unwrap();
+        let new_scalar = fr_from_le_bytes(&new_scalar_bytes_vec[index]).unwrap();
+
+        let tuple = (new_scalar - old_scalar, commitment_index_vec[index]);
+
+        delta_values.push(tuple);
+    }
+
+    let delta_commitment = committer.commit_sparse(delta_values);
+
+    // If commitment is empty, then we are creating a new commitment.
+    if old_commitment_bytes == [0u8; 64] {
+        return Ok(delta_commitment.to_bytes_uncompressed());
+    }
+    Ok((delta_commitment + old_commitment).to_bytes_uncompressed())
+}
+
 /// Hashes a commitment
 ///
 /// Note: This commitment can be used as the `commitment root`
@@ -293,6 +325,7 @@ mod tests {
         committer::{Committer, DefaultCommitter},
         crs::CRS,
     };
+    use banderwagon::Fr;
 
     use crate::{fr_from_le_bytes, fr_to_le_bytes};
     #[test]
@@ -329,6 +362,48 @@ mod tests {
 
         assert_eq!(updated_commitment, naive_update.to_bytes_uncompressed())
     }
+
+    #[test]
+    fn commitment_exists_sparse_update() {
+        let crs = CRS::default();
+        let committer = DefaultCommitter::new(&crs.G);
+
+        let a_0 = banderwagon::Fr::from(123u128);
+        let a_1 = banderwagon::Fr::from(123u128);
+        let a_2 = banderwagon::Fr::from(246u128);
+
+        let a_zero = banderwagon::Fr::from(0u128);
+
+        // Compute C = a_0 * G_0
+        let commitment = committer.scalar_mul(a_0, 0);
+
+        let naive_update = commitment + committer.scalar_mul(a_1, 1) + committer.scalar_mul(a_2, 2);
+
+        let val_indices: Vec<(Fr, usize)> = vec![(a_1, 1), (a_2, 2)];
+
+        let new_commitment = commitment + committer.commit_sparse(val_indices);
+
+        assert_eq!(naive_update, new_commitment);
+
+        let commitment_index_vec = vec![1, 2];
+
+        let old_scalar_bytes_vec = vec![fr_to_le_bytes(a_zero), fr_to_le_bytes(a_zero)];
+        let new_scalar_bytes_vec = vec![fr_to_le_bytes(a_1), fr_to_le_bytes(a_2)];
+
+        // Now lets do it using the update_commitment_sparse method
+        let updated_commitment = super::update_commitment_sparse(
+            &committer,
+            commitment.to_bytes_uncompressed(),
+            commitment_index_vec,
+            old_scalar_bytes_vec,
+            new_scalar_bytes_vec,
+        )
+        .unwrap();
+
+        assert_eq!(updated_commitment, naive_update.to_bytes_uncompressed());
+    }
+
+
 
     #[test]
     fn from_be_to_be_bytes() {
