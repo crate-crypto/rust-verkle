@@ -321,11 +321,11 @@ pub fn create_proof(input: Vec<u8>) -> Vec<u8> {
 
 #[cfg(test)]
 mod tests {
+    use banderwagon::Fr;
     use ipa_multipoint::{
         committer::{Committer, DefaultCommitter},
         crs::CRS,
     };
-    use banderwagon::Fr;
 
     use crate::{fr_from_le_bytes, fr_to_le_bytes};
     #[test]
@@ -402,8 +402,6 @@ mod tests {
 
         assert_eq!(updated_commitment, naive_update.to_bytes_uncompressed());
     }
-
-
 
     #[test]
     fn from_be_to_be_bytes() {
