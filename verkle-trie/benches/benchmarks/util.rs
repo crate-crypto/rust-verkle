@@ -23,7 +23,7 @@ pub fn generate_set_of_keys(n: u32) -> impl Iterator<Item = [u8; 32]> {
         hasher.update(&arr[..]);
         hasher.update(b"seed");
 
-        let res: [u8; 32] = hasher.finalize().try_into().unwrap();
+        let res: [u8; 32] = hasher.finalize().into();
         res
     })
 }
@@ -33,7 +33,7 @@ pub fn generate_diff_set_of_keys(n: u32) -> impl Iterator<Item = [u8; 32]> {
         let mut hasher = Sha256::new();
         hasher.update(i.to_be_bytes());
 
-        let res: [u8; 32] = hasher.finalize().try_into().unwrap();
+        let res: [u8; 32] = hasher.finalize().into();
         res
     })
 }

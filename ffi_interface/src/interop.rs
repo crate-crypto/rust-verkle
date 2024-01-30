@@ -153,21 +153,19 @@ mod test {
     #[test]
     fn interop_commit() {
         let scalars_le: Vec<_> = (0..256)
-            .map(|i| {
+            .flat_map(|i| {
                 let val = Fr::from((i + 1) as u128);
                 fr_to_le_bytes(-val)
             })
-            .flatten()
             .collect();
 
         let scalars_be: Vec<_> = (0..256)
-            .map(|i| {
+            .flat_map(|i| {
                 let val = Fr::from((i + 1) as u128);
                 let mut arr = fr_to_le_bytes(-val);
                 arr.reverse();
                 arr
             })
-            .flatten()
             .collect();
 
         // The previous implementation will return the hash in big endian format
@@ -188,21 +186,19 @@ mod test {
     #[test]
     fn interop_commit_root() {
         let scalars_le: Vec<_> = (0..256)
-            .map(|i| {
+            .flat_map(|i| {
                 let val = Fr::from((i + 1) as u128);
                 fr_to_le_bytes(-val)
             })
-            .flatten()
             .collect();
 
         let scalars_be: Vec<_> = (0..256)
-            .map(|i| {
+            .flat_map(|i| {
                 let val = Fr::from((i + 1) as u128);
                 let mut arr = fr_to_le_bytes(-val);
                 arr.reverse();
                 arr
             })
-            .flatten()
             .collect();
 
         let expected_hash =

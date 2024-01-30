@@ -287,8 +287,8 @@ mod test {
 
         let mut points = vec![];
         let mut point = Element::prime_subgroup_generator();
-        for i in 0..16 {
-            let byts = hex::encode(&point.to_bytes());
+        for (i, _) in expected_bit_string.into_iter().enumerate() {
+            let byts = hex::encode(point.to_bytes());
             assert_eq!(byts, expected_bit_string[i], "index {} does not match", i);
 
             points.push(point);
@@ -330,7 +330,7 @@ mod test {
         let element1 = Element(res);
         let bytes1 = element1.to_bytes();
 
-        if let Some(_) = Element::from_bytes(&bytes1) {
+        if Element::from_bytes(&bytes1).is_some() {
             panic!("point contains a point at infinity and should not have passed deserialization")
         }
     }
