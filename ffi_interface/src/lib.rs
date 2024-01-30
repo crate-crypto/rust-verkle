@@ -202,10 +202,6 @@ pub fn update_commitment_sparse(
 
     let delta_commitment = committer.commit_sparse(delta_values);
 
-    // If commitment is empty, then we are creating a new commitment.
-    if old_commitment_bytes == [0u8; 64] {
-        return Ok(delta_commitment.to_bytes_uncompressed());
-    }
     Ok((delta_commitment + old_commitment).to_bytes_uncompressed())
 }
 
