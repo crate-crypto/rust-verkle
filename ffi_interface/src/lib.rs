@@ -568,16 +568,13 @@ mod pedersen_hash_tests {
 
 #[cfg(test)]
 mod prover_verifier_test {
-    
 
     use super::Context;
     use crate::exposed_verify_call;
     use crate::fr_to_le_bytes;
-    
+
     use ipa_multipoint::{
-        committer::{Committer},
-        lagrange_basis::LagrangeBasis,
-        multiproof::ProverQuery,
+        committer::Committer, lagrange_basis::LagrangeBasis, multiproof::ProverQuery,
     };
 
     #[test]
@@ -599,9 +596,7 @@ mod prover_verifier_test {
 
         let context = Context::new();
 
-        let commitment = context
-            .committer
-            .commit_lagrange(all_vals.as_slice());
+        let commitment = context.committer.commit_lagrange(all_vals.as_slice());
 
         let _prover_query = ProverQuery {
             commitment,
@@ -642,8 +637,8 @@ mod prover_verifier_test {
         verifier_call_bytes.extend_from_slice(&proof_bytes);
         verifier_call_bytes.extend_from_slice(&create_verifier_bytes);
 
-        let test = exposed_verify_call(verifier_call_bytes);
+        let verified = exposed_verify_call(verifier_call_bytes);
 
-        assert!(test);
+        assert!(verified);
     }
 }
