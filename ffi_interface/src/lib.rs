@@ -601,7 +601,7 @@ mod prover_verifier_test {
         let _prover_query = ProverQuery {
             commitment,
             poly,
-            point: 0,
+            point: 2,
             result: a_0,
         };
 
@@ -614,9 +614,9 @@ mod prover_verifier_test {
             poly_bytes.extend_from_slice(&bytes);
         }
 
-        let point_bytes = [0u8; 1];
+        let point_bytes = [2u8; 1];
 
-        let result_bytes = fr_to_le_bytes(a_0);
+        let result_bytes = fr_to_le_bytes(a_2);
 
         let mut create_prover_bytes: Vec<u8> = Vec::new();
 
