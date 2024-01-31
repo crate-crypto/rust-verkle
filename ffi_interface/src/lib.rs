@@ -314,7 +314,7 @@ pub fn create_proof_alt(input: Vec<u8>) -> Vec<u8> {
     let mut prover_queries: Vec<ProverQuery> = Vec::with_capacity(num_proofs);
 
     for proof_bytes in proofs_bytes {
-        let prover_query = deserialize_proof_query(&proof_bytes);
+        let prover_query = deserialize_proof_query(proof_bytes);
         prover_queries.push(prover_query);
     }
 
