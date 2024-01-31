@@ -10,7 +10,7 @@ use banderwagon::{trait_defs::*, Element};
 use ipa_multipoint::committer::{Committer, DefaultCommitter};
 use ipa_multipoint::crs::CRS;
 use ipa_multipoint::lagrange_basis::{LagrangeBasis, PrecomputedWeights};
-use ipa_multipoint::multiproof::{MultiPoint, ProverQuery, MultiPointProof, VerifierQuery};
+use ipa_multipoint::multiproof::{MultiPoint, MultiPointProof, ProverQuery, VerifierQuery};
 use ipa_multipoint::transcript::Transcript;
 
 /// Context holds all of the necessary components needed for cryptographic operations
@@ -285,7 +285,7 @@ pub fn create_proof(input: Vec<u8>) -> Vec<u8> {
     let mut prover_queries: Vec<ProverQuery> = Vec::with_capacity(num_openings);
 
     for proof_bytes in proofs_bytes {
-        let prover_query = deserialize_proof_query(&proof_bytes);
+        let prover_query = deserialize_proof_query(proof_bytes);
         prover_queries.push(prover_query);
     }
 
@@ -310,9 +310,7 @@ pub fn create_proof(input: Vec<u8>) -> Vec<u8> {
 /// Proof is verified or not.
 /// TODO: Test this function.
 #[allow(dead_code)]
-fn exposed_verify_call(
-    input: Vec<u8>
-) -> bool {
+fn exposed_verify_call(input: Vec<u8>) -> bool {
     // Proof bytes are 576 bytes
     // First 32 bytes is the g_x_comm_bytes
     // Next 544 bytes are part of IPA proof. Domain size is always 256. Explanation is in IPAProof::from_bytes().
@@ -327,9 +325,11 @@ fn exposed_verify_call(
 
     if verifier_queries_bytes.len() % CHUNK_SIZE != 0 {
         // TODO: change this to an error
-        panic!("Verifier queries bytes length must be a multiple of {}", CHUNK_SIZE);
+        panic!(
+            "Verifier queries bytes length must be a multiple of {}",
+            CHUNK_SIZE
+        );
     }
-
 
     let num_openings = verifier_queries_bytes.len() / CHUNK_SIZE;
 
@@ -340,7 +340,7 @@ fn exposed_verify_call(
     let mut verifier_queries: Vec<VerifierQuery> = Vec::with_capacity(num_openings);
 
     for verifier_query_bytes in chunked_verifier_queries {
-        let verifier_query = deserialize_verifier_query(&verifier_query_bytes);
+        let verifier_query = deserialize_verifier_query(verifier_query_bytes);
         verifier_queries.push(verifier_query);
     }
 
@@ -348,10 +348,13 @@ fn exposed_verify_call(
 
     let mut transcript = Transcript::new(b"verkle");
 
-    proof.check(&context.crs, &context.precomputed_weights, &verifier_queries, &mut transcript)
+    proof.check(
+        &context.crs,
+        &context.precomputed_weights,
+        &verifier_queries,
+        &mut transcript,
+    )
 }
-
-
 
 #[must_use]
 fn deserialize_proof_query(bytes: &[u8]) -> ProverQuery {
@@ -402,7 +405,6 @@ fn deserialize_verifier_query(bytes: &[u8]) -> VerifierQuery {
         result: y_i,
     }
 }
-
 
 #[must_use]
 fn take_group_element(bytes: &[u8]) -> (Element, &[u8]) {
