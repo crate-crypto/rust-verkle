@@ -565,3 +565,85 @@ mod pedersen_hash_tests {
         assert_eq!(expected_hash, got_hash_hex);
     }
 }
+
+#[cfg(test)]
+mod prover_verifier_test {
+    
+
+    use super::Context;
+    use crate::exposed_verify_call;
+    use crate::fr_to_le_bytes;
+    
+    use ipa_multipoint::{
+        committer::{Committer},
+        lagrange_basis::LagrangeBasis,
+        multiproof::ProverQuery,
+    };
+
+    #[test]
+    fn test_one_opening_create_proof_verify_proof() {
+        let a_0 = banderwagon::Fr::from(123u128);
+        let a_1 = banderwagon::Fr::from(123u128);
+        let a_2 = banderwagon::Fr::from(456u128);
+        let a_3 = banderwagon::Fr::from(789u128);
+
+        let mut _poly: LagrangeBasis;
+        let mut all_vals = Vec::new();
+        for _i in 0..64 {
+            all_vals.push(a_0);
+            all_vals.push(a_1);
+            all_vals.push(a_2);
+            all_vals.push(a_3);
+        }
+        let poly = LagrangeBasis::new(all_vals.clone());
+
+        let context = Context::new();
+
+        let commitment = context
+            .committer
+            .commit_lagrange(all_vals.as_slice());
+
+        let _prover_query = ProverQuery {
+            commitment,
+            poly,
+            point: 0,
+            result: a_0,
+        };
+
+        let commitment_bytes = commitment.to_bytes();
+
+        let mut poly_bytes: Vec<u8> = Vec::new();
+
+        for val in all_vals.clone() {
+            let bytes = fr_to_le_bytes(val);
+            poly_bytes.extend_from_slice(&bytes);
+        }
+
+        let point_bytes = [0u8; 1];
+
+        let result_bytes = fr_to_le_bytes(a_0);
+
+        let mut create_prover_bytes: Vec<u8> = Vec::new();
+
+        create_prover_bytes.extend_from_slice(&commitment_bytes);
+        create_prover_bytes.extend_from_slice(&poly_bytes);
+        create_prover_bytes.extend_from_slice(&point_bytes);
+        create_prover_bytes.extend_from_slice(&result_bytes);
+
+        let proof_bytes = super::create_proof(create_prover_bytes);
+
+        let mut create_verifier_bytes: Vec<u8> = Vec::new();
+        create_verifier_bytes.extend_from_slice(&commitment_bytes);
+        create_verifier_bytes.extend_from_slice(&point_bytes);
+        create_verifier_bytes.extend_from_slice(&result_bytes);
+
+        let mut verifier_call_bytes: Vec<u8> = Vec::new();
+
+        verifier_call_bytes.extend_from_slice(&proof_bytes);
+        verifier_call_bytes.extend_from_slice(&create_verifier_bytes);
+
+        let test = exposed_verify_call(verifier_call_bytes);
+
+        assert!(test);
+    }
+}
