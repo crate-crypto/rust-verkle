@@ -10,7 +10,7 @@ use banderwagon::{trait_defs::*, Element};
 use ipa_multipoint::committer::{Committer, DefaultCommitter};
 use ipa_multipoint::crs::CRS;
 use ipa_multipoint::lagrange_basis::{LagrangeBasis, PrecomputedWeights};
-use ipa_multipoint::multiproof::{MultiPoint, ProverQuery};
+use ipa_multipoint::multiproof::{MultiPoint, ProverQuery, MultiPointProof, VerifierQuery};
 use ipa_multipoint::transcript::Transcript;
 
 /// Context holds all of the necessary components needed for cryptographic operations
@@ -359,6 +359,53 @@ pub fn create_proof_alt(input: Vec<u8>) -> Vec<u8> {
     proof.to_bytes().expect("cannot serialize proof")
 }
 
+/// Receives a proof and a tuple (C_i, z_i, y_i)
+/// Where C_i is a commitment to f_i(X) serialized as 64 bytes (uncompressed commitment)
+/// z_i is index of the point in the polynomial: 1 byte (number from 1 to 256)
+/// y_i is the evaluation of the polynomial at z_i i.e value we are opening: 32 bytes or Fr (scalar field element)
+/// Returns true of false.
+/// Proof is verified or not.
+/// TODO: Test this function.
+#[allow(dead_code)]
+fn exposed_verify_call(
+    precomputed_weights: &mut PrecomputedWeights,
+    transcript: &mut Transcript,
+    input: Vec<u8>,
+) -> bool {
+    // Proof bytes are 576 bytes
+    // First 32 bytes is the g_x_comm_bytes
+    // Next 544 bytes are part of IPA proof.
+    let proof_bytes = &input[0..576];
+
+    let proof = MultiPointProof::from_bytes(proof_bytes, 256).unwrap();
+
+    let verifier_queries_bytes = &input[576..];
+
+    // Define the chunk size 64+1+32 = 97 bytes for C_i, z_i, y_i
+    const CHUNK_SIZE: usize = 97;
+
+    let num_openings = verifier_queries_bytes.len() / CHUNK_SIZE;
+
+    // Create an iterator over the input Vec<u8>
+    let chunked_verifier_queries = verifier_queries_bytes.chunks(CHUNK_SIZE);
+
+    // let mut verifier_queries: Vec<VerifierQuery> = Vec::new();
+
+    // - Deserialize verifier queries
+    let mut verifier_queries: Vec<VerifierQuery> = Vec::with_capacity(num_openings);
+
+    for verifier_query_bytes in chunked_verifier_queries {
+        let verifier_query = deserialize_verifier_query(&verifier_query_bytes);
+        verifier_queries.push(verifier_query);
+    }
+
+    let context = Context::new();
+
+    proof.check(&context.crs, &context.precomputed_weights, &verifier_queries, transcript)
+}
+
+
+
 #[must_use]
 fn deserialize_proof_query(bytes: &[u8]) -> ProverQuery {
     // Commitment
@@ -388,6 +435,27 @@ fn deserialize_proof_query(bytes: &[u8]) -> ProverQuery {
         result: y_i,
     }
 }
+
+#[must_use]
+fn deserialize_verifier_query(bytes: &[u8]) -> VerifierQuery {
+    // Commitment
+    let (commitment, bytes) = take_group_element(bytes);
+
+    // The input point is a single byte
+    let (z_i, bytes) = take_byte(bytes);
+
+    // The evaluation is a single scalar
+    let (y_i, bytes) = take_scalar(bytes);
+
+    assert!(bytes.is_empty(), "we should have consumed all the bytes");
+
+    VerifierQuery {
+        commitment,
+        point: Fr::from(z_i as u128),
+        result: y_i,
+    }
+}
+
 
 #[must_use]
 fn take_group_element(bytes: &[u8]) -> (Element, &[u8]) {
