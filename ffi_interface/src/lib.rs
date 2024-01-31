@@ -259,64 +259,7 @@ fn fr_from_le_bytes(bytes: &[u8]) -> Result<banderwagon::Fr, Error> {
 /// Returns a proof serialized as bytes
 ///
 /// This function assumes that the domain is always 256 values and commitment is 32bytes.
-/// TODO: change commitment to 64bytes since we are moving to uncompressed commitment.
 pub fn create_proof(input: Vec<u8>) -> Vec<u8> {
-    // Define the chunk size (8257 bytes)
-    // C_i, f_i(X), z_i, y_i
-    // 32, 8192, 1, 32
-    // = 8257
-    let chunk_size = 8257;
-    // Create an iterator over the input Vec<u8>
-    let chunked_data = input.chunks(chunk_size);
-
-    let mut prover_queries: Vec<ProverQuery> = Vec::new();
-
-    for chunk in chunked_data.into_iter() {
-        if chunk.len() >= chunk_size {
-            let data = chunk;
-            let commitment = Element::from_bytes(&data[0..32]).unwrap();
-
-            // Create f_x from the next 8192 bytes
-            let f_i_x: Vec<u8> = chunk[32..8224].to_vec();
-
-            let chunked_f_i_x_data = f_i_x.chunks(32);
-
-            let mut collect_lagrange_basis: Vec<Fr> = Vec::new();
-            for chunk_f_i_x in chunked_f_i_x_data.into_iter() {
-                if chunk_f_i_x.len() >= 32 {
-                    let data_f_i_x = chunk_f_i_x;
-                    let fr_data_f_i_x = Fr::from_be_bytes_mod_order(data_f_i_x);
-                    collect_lagrange_basis.push(fr_data_f_i_x);
-                }
-            }
-
-            let lagrange_basis = LagrangeBasis::new(collect_lagrange_basis);
-
-            let z_i: usize = chunk[8224] as usize;
-
-            let y_i = Fr::from_be_bytes_mod_order(&chunk[8225..8257]);
-
-            let prover_query = ProverQuery {
-                commitment,
-                poly: lagrange_basis,
-                point: z_i,
-                result: y_i,
-            };
-            prover_queries.push(prover_query);
-        }
-    }
-    // TODO: This should be passed in as a pointer
-    let precomp = PrecomputedWeights::new(256);
-
-    let crs = CRS::default();
-    let mut transcript = Transcript::new(b"verkle");
-    // TODO: This should not need to clone the CRS, but instead take a reference
-    let proof = MultiPoint::open(crs.clone(), &precomp, &mut transcript, prover_queries);
-    proof.to_bytes().unwrap()
-}
-
-// This is an alternative implementation of create_proof
-pub fn create_proof_alt(input: Vec<u8>) -> Vec<u8> {
     // - Checks for the serialized proof queries
     ///
     // Define the chunk size (8257 bytes)
@@ -329,7 +272,7 @@ pub fn create_proof_alt(input: Vec<u8>) -> Vec<u8> {
         // TODO: change this to an error
         panic!("Input length must be a multiple of {}", CHUNK_SIZE);
     }
-    let num_proofs = input.len() / CHUNK_SIZE;
+    let num_openings = input.len() / CHUNK_SIZE;
 
     let proofs_bytes = input.chunks_exact(CHUNK_SIZE);
     assert!(
@@ -339,7 +282,7 @@ pub fn create_proof_alt(input: Vec<u8>) -> Vec<u8> {
 
     // - Deserialize proof queries
     //
-    let mut prover_queries: Vec<ProverQuery> = Vec::with_capacity(num_proofs);
+    let mut prover_queries: Vec<ProverQuery> = Vec::with_capacity(num_openings);
 
     for proof_bytes in proofs_bytes {
         let prover_query = deserialize_proof_query(&proof_bytes);
@@ -368,28 +311,30 @@ pub fn create_proof_alt(input: Vec<u8>) -> Vec<u8> {
 /// TODO: Test this function.
 #[allow(dead_code)]
 fn exposed_verify_call(
-    precomputed_weights: &mut PrecomputedWeights,
-    transcript: &mut Transcript,
-    input: Vec<u8>,
+    input: Vec<u8>
 ) -> bool {
     // Proof bytes are 576 bytes
     // First 32 bytes is the g_x_comm_bytes
-    // Next 544 bytes are part of IPA proof.
+    // Next 544 bytes are part of IPA proof. Domain size is always 256. Explanation is in IPAProof::from_bytes().
     let proof_bytes = &input[0..576];
 
     let proof = MultiPointProof::from_bytes(proof_bytes, 256).unwrap();
 
     let verifier_queries_bytes = &input[576..];
 
-    // Define the chunk size 64+1+32 = 97 bytes for C_i, z_i, y_i
-    const CHUNK_SIZE: usize = 97;
+    // Define the chunk size 32+1+32 = 65 bytes for C_i, z_i, y_i
+    const CHUNK_SIZE: usize = 65;
+
+    if verifier_queries_bytes.len() % CHUNK_SIZE != 0 {
+        // TODO: change this to an error
+        panic!("Verifier queries bytes length must be a multiple of {}", CHUNK_SIZE);
+    }
+
 
     let num_openings = verifier_queries_bytes.len() / CHUNK_SIZE;
 
     // Create an iterator over the input Vec<u8>
     let chunked_verifier_queries = verifier_queries_bytes.chunks(CHUNK_SIZE);
-
-    // let mut verifier_queries: Vec<VerifierQuery> = Vec::new();
 
     // - Deserialize verifier queries
     let mut verifier_queries: Vec<VerifierQuery> = Vec::with_capacity(num_openings);
@@ -401,7 +346,9 @@ fn exposed_verify_call(
 
     let context = Context::new();
 
-    proof.check(&context.crs, &context.precomputed_weights, &verifier_queries, transcript)
+    let mut transcript = Transcript::new(b"verkle");
+
+    proof.check(&context.crs, &context.precomputed_weights, &verifier_queries, &mut transcript)
 }
 
 
