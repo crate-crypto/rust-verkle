@@ -426,50 +426,6 @@ fn take_scalar(bytes: &[u8]) -> (Fr, &[u8]) {
     (y_i, &bytes[32..])
 }
 
-// This is an alternative implementation of create_proof
-pub fn create_proof_alt(input: Vec<u8>) -> Vec<u8> {
-    // - Checks for the serialized proof queries
-    ///
-    // Define the chunk size (8257 bytes)
-    // C_i, f_i(X), z_i, y_i
-    // 32, 8192, 1, 32
-    // = 8257
-    const CHUNK_SIZE: usize = 8257; // TODO: get this from ipa-multipoint
-
-    if input.len() % CHUNK_SIZE != 0 {
-        // TODO: change this to an error
-        panic!("Input length must be a multiple of {}", CHUNK_SIZE);
-    }
-    let num_proofs = input.len() / CHUNK_SIZE;
-
-    let proofs_bytes = input.chunks_exact(CHUNK_SIZE);
-    assert!(
-        proofs_bytes.remainder().is_empty(),
-        "There should be no left over bytes when chunking the proof"
-    );
-
-    // - Deserialize proof queries
-    //
-    let mut prover_queries: Vec<ProverQuery> = Vec::with_capacity(num_proofs);
-
-    for proof_bytes in proofs_bytes {
-        let prover_query = deserialize_proof_query(proof_bytes);
-        prover_queries.push(prover_query);
-    }
-
-    // - Create proofs
-    //
-    // TODO: This should be passed in as a pointer
-    let precomp = PrecomputedWeights::new(256);
-
-    let crs = CRS::default();
-    let mut transcript = Transcript::new(b"verkle");
-    // TODO: This should not need to clone the CRS, but instead take a reference
-
-    let proof = MultiPoint::open(crs.clone(), &precomp, &mut transcript, prover_queries);
-    proof.to_bytes().expect("cannot serialize proof")
-}
-
 #[cfg(test)]
 mod tests {
     use banderwagon::Fr;
