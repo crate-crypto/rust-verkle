@@ -470,55 +470,6 @@ pub fn create_proof_alt(input: Vec<u8>) -> Vec<u8> {
     proof.to_bytes().expect("cannot serialize proof")
 }
 
-#[must_use]
-fn deserialize_proof_query(bytes: &[u8]) -> ProverQuery {
-    // Commitment
-    let (commitment, mut bytes) = take_group_element(bytes);
-
-    // f_x is a polynomial of degree 255, so we have 256 Fr elements
-    const NUMBER_OF_EVALUATIONS: usize = 256;
-    let mut collect_lagrange_basis: Vec<Fr> = Vec::with_capacity(NUMBER_OF_EVALUATIONS);
-    for _ in 0..NUMBER_OF_EVALUATIONS {
-        let (scalar, offsetted_bytes) = take_scalar(bytes);
-        collect_lagrange_basis.push(scalar);
-        bytes = offsetted_bytes;
-    }
-
-    // The input point is a single byte
-    let (z_i, bytes) = take_byte(bytes);
-
-    // The evaluation is a single scalar
-    let (y_i, bytes) = take_scalar(bytes);
-
-    assert!(bytes.is_empty(), "we should have consumed all the bytes");
-
-    ProverQuery {
-        commitment,
-        poly: LagrangeBasis::new(collect_lagrange_basis),
-        point: z_i,
-        result: y_i,
-    }
-}
-
-#[must_use]
-fn take_group_element(bytes: &[u8]) -> (Element, &[u8]) {
-    let element = Element::from_bytes(&bytes[0..32]).expect("could not deserialize element");
-    // Increment the slice by 32 bytes
-    (element, &bytes[32..])
-}
-
-#[must_use]
-fn take_byte(bytes: &[u8]) -> (usize, &[u8]) {
-    let z_i = bytes[0] as usize;
-    // Increment the slice by 32 bytes
-    (z_i, &bytes[1..])
-}
-#[must_use]
-fn take_scalar(bytes: &[u8]) -> (Fr, &[u8]) {
-    let y_i = fr_from_le_bytes(&bytes[0..32]).expect("could not deserialize y_i");
-    // Increment the slice by 32 bytes
-    (y_i, &bytes[32..])
-}
 
 #[cfg(test)]
 mod tests {
