@@ -470,7 +470,6 @@ pub fn create_proof_alt(input: Vec<u8>) -> Vec<u8> {
     proof.to_bytes().expect("cannot serialize proof")
 }
 
-
 #[cfg(test)]
 mod tests {
     use banderwagon::Fr;
