@@ -641,4 +641,61 @@ mod prover_verifier_test {
 
         assert!(verified);
     }
+
+    #[test]
+    fn test_multiple_openings_create_proof_verify_proof() {
+        let a_0 = banderwagon::Fr::from(123u128);
+        let a_1 = banderwagon::Fr::from(123u128);
+        let a_2 = banderwagon::Fr::from(456u128);
+        let a_3 = banderwagon::Fr::from(789u128);
+        let context = Context::new();
+
+        let mut create_prover_bytes: Vec<u8> = Vec::new();
+
+        let mut create_verifier_bytes: Vec<u8> = Vec::new();
+        for _iterate in 0..100 {
+            let mut _poly: LagrangeBasis;
+            let mut all_vals = Vec::new();
+            for _i in 0..64 {
+                all_vals.push(a_0);
+                all_vals.push(a_1);
+                all_vals.push(a_2);
+                all_vals.push(a_3);
+            }
+            let commitment = context.committer.commit_lagrange(all_vals.as_slice());
+            let commitment_bytes = commitment.to_bytes();
+
+            let mut poly_bytes: Vec<u8> = Vec::new();
+    
+            for val in all_vals.clone() {
+                let bytes = fr_to_le_bytes(val);
+                poly_bytes.extend_from_slice(&bytes);
+            }
+    
+            let point_bytes = [2u8; 1];
+    
+            let result_bytes = fr_to_le_bytes(a_2);
+    
+    
+            create_prover_bytes.extend_from_slice(&commitment_bytes);
+            create_prover_bytes.extend_from_slice(&poly_bytes);
+            create_prover_bytes.extend_from_slice(&point_bytes);
+            create_prover_bytes.extend_from_slice(&result_bytes);
+
+
+            create_verifier_bytes.extend_from_slice(&commitment_bytes);
+            create_verifier_bytes.extend_from_slice(&point_bytes);
+            create_verifier_bytes.extend_from_slice(&result_bytes);
+        }
+        let proof_bytes = super::create_proof(create_prover_bytes);
+
+        let mut verifier_call_bytes: Vec<u8> = Vec::new();
+
+        verifier_call_bytes.extend_from_slice(&proof_bytes);
+        verifier_call_bytes.extend_from_slice(&create_verifier_bytes);
+
+        let verified = exposed_verify_call(verifier_call_bytes);
+
+        assert!(verified);
+    }
 }
