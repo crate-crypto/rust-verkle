@@ -666,22 +666,20 @@ mod prover_verifier_test {
             let commitment_bytes = commitment.to_bytes();
 
             let mut poly_bytes: Vec<u8> = Vec::new();
-    
+
             for val in all_vals.clone() {
                 let bytes = fr_to_le_bytes(val);
                 poly_bytes.extend_from_slice(&bytes);
             }
-    
+
             let point_bytes = [2u8; 1];
-    
+
             let result_bytes = fr_to_le_bytes(a_2);
-    
-    
+
             create_prover_bytes.extend_from_slice(&commitment_bytes);
             create_prover_bytes.extend_from_slice(&poly_bytes);
             create_prover_bytes.extend_from_slice(&point_bytes);
             create_prover_bytes.extend_from_slice(&result_bytes);
-
 
             create_verifier_bytes.extend_from_slice(&commitment_bytes);
             create_verifier_bytes.extend_from_slice(&point_bytes);
