@@ -10,7 +10,7 @@ use banderwagon::{trait_defs::*, Element};
 use ipa_multipoint::committer::{Committer, DefaultCommitter};
 use ipa_multipoint::crs::CRS;
 use ipa_multipoint::lagrange_basis::{LagrangeBasis, PrecomputedWeights};
-use ipa_multipoint::multiproof::{MultiPoint, ProverQuery};
+use ipa_multipoint::multiproof::{MultiPoint, MultiPointProof, ProverQuery, VerifierQuery};
 use ipa_multipoint::transcript::Transcript;
 
 /// Context holds all of the necessary components needed for cryptographic operations
@@ -259,64 +259,7 @@ fn fr_from_le_bytes(bytes: &[u8]) -> Result<banderwagon::Fr, Error> {
 /// Returns a proof serialized as bytes
 ///
 /// This function assumes that the domain is always 256 values and commitment is 32bytes.
-/// TODO: change commitment to 64bytes since we are moving to uncompressed commitment.
 pub fn create_proof(input: Vec<u8>) -> Vec<u8> {
-    // Define the chunk size (8257 bytes)
-    // C_i, f_i(X), z_i, y_i
-    // 32, 8192, 1, 32
-    // = 8257
-    let chunk_size = 8257;
-    // Create an iterator over the input Vec<u8>
-    let chunked_data = input.chunks(chunk_size);
-
-    let mut prover_queries: Vec<ProverQuery> = Vec::new();
-
-    for chunk in chunked_data.into_iter() {
-        if chunk.len() >= chunk_size {
-            let data = chunk;
-            let commitment = Element::from_bytes(&data[0..32]).unwrap();
-
-            // Create f_x from the next 8192 bytes
-            let f_i_x: Vec<u8> = chunk[32..8224].to_vec();
-
-            let chunked_f_i_x_data = f_i_x.chunks(32);
-
-            let mut collect_lagrange_basis: Vec<Fr> = Vec::new();
-            for chunk_f_i_x in chunked_f_i_x_data.into_iter() {
-                if chunk_f_i_x.len() >= 32 {
-                    let data_f_i_x = chunk_f_i_x;
-                    let fr_data_f_i_x = Fr::from_be_bytes_mod_order(data_f_i_x);
-                    collect_lagrange_basis.push(fr_data_f_i_x);
-                }
-            }
-
-            let lagrange_basis = LagrangeBasis::new(collect_lagrange_basis);
-
-            let z_i: usize = chunk[8224] as usize;
-
-            let y_i = Fr::from_be_bytes_mod_order(&chunk[8225..8257]);
-
-            let prover_query = ProverQuery {
-                commitment,
-                poly: lagrange_basis,
-                point: z_i,
-                result: y_i,
-            };
-            prover_queries.push(prover_query);
-        }
-    }
-    // TODO: This should be passed in as a pointer
-    let precomp = PrecomputedWeights::new(256);
-
-    let crs = CRS::default();
-    let mut transcript = Transcript::new(b"verkle");
-    // TODO: This should not need to clone the CRS, but instead take a reference
-    let proof = MultiPoint::open(crs.clone(), &precomp, &mut transcript, prover_queries);
-    proof.to_bytes().unwrap()
-}
-
-// This is an alternative implementation of create_proof
-pub fn create_proof_alt(input: Vec<u8>) -> Vec<u8> {
     // - Checks for the serialized proof queries
     ///
     // Define the chunk size (8257 bytes)
@@ -329,7 +272,7 @@ pub fn create_proof_alt(input: Vec<u8>) -> Vec<u8> {
         // TODO: change this to an error
         panic!("Input length must be a multiple of {}", CHUNK_SIZE);
     }
-    let num_proofs = input.len() / CHUNK_SIZE;
+    let num_openings = input.len() / CHUNK_SIZE;
 
     let proofs_bytes = input.chunks_exact(CHUNK_SIZE);
     assert!(
@@ -339,7 +282,7 @@ pub fn create_proof_alt(input: Vec<u8>) -> Vec<u8> {
 
     // - Deserialize proof queries
     //
-    let mut prover_queries: Vec<ProverQuery> = Vec::with_capacity(num_proofs);
+    let mut prover_queries: Vec<ProverQuery> = Vec::with_capacity(num_openings);
 
     for proof_bytes in proofs_bytes {
         let prover_query = deserialize_proof_query(proof_bytes);
@@ -357,6 +300,60 @@ pub fn create_proof_alt(input: Vec<u8>) -> Vec<u8> {
 
     let proof = MultiPoint::open(crs.clone(), &precomp, &mut transcript, prover_queries);
     proof.to_bytes().expect("cannot serialize proof")
+}
+
+/// Receives a proof and a tuple (C_i, z_i, y_i)
+/// Where C_i is a commitment to f_i(X) serialized as 64 bytes (uncompressed commitment)
+/// z_i is index of the point in the polynomial: 1 byte (number from 1 to 256)
+/// y_i is the evaluation of the polynomial at z_i i.e value we are opening: 32 bytes or Fr (scalar field element)
+/// Returns true of false.
+/// Proof is verified or not.
+/// TODO: Test this function.
+#[allow(dead_code)]
+fn exposed_verify_call(input: Vec<u8>) -> bool {
+    // Proof bytes are 576 bytes
+    // First 32 bytes is the g_x_comm_bytes
+    // Next 544 bytes are part of IPA proof. Domain size is always 256. Explanation is in IPAProof::from_bytes().
+    let proof_bytes = &input[0..576];
+
+    let proof = MultiPointProof::from_bytes(proof_bytes, 256).unwrap();
+
+    let verifier_queries_bytes = &input[576..];
+
+    // Define the chunk size 32+1+32 = 65 bytes for C_i, z_i, y_i
+    const CHUNK_SIZE: usize = 65;
+
+    if verifier_queries_bytes.len() % CHUNK_SIZE != 0 {
+        // TODO: change this to an error
+        panic!(
+            "Verifier queries bytes length must be a multiple of {}",
+            CHUNK_SIZE
+        );
+    }
+
+    let num_openings = verifier_queries_bytes.len() / CHUNK_SIZE;
+
+    // Create an iterator over the input Vec<u8>
+    let chunked_verifier_queries = verifier_queries_bytes.chunks(CHUNK_SIZE);
+
+    // - Deserialize verifier queries
+    let mut verifier_queries: Vec<VerifierQuery> = Vec::with_capacity(num_openings);
+
+    for verifier_query_bytes in chunked_verifier_queries {
+        let verifier_query = deserialize_verifier_query(verifier_query_bytes);
+        verifier_queries.push(verifier_query);
+    }
+
+    let context = Context::new();
+
+    let mut transcript = Transcript::new(b"verkle");
+
+    proof.check(
+        &context.crs,
+        &context.precomputed_weights,
+        &verifier_queries,
+        &mut transcript,
+    )
 }
 
 #[must_use]
@@ -385,6 +382,26 @@ fn deserialize_proof_query(bytes: &[u8]) -> ProverQuery {
         commitment,
         poly: LagrangeBasis::new(collect_lagrange_basis),
         point: z_i,
+        result: y_i,
+    }
+}
+
+#[must_use]
+fn deserialize_verifier_query(bytes: &[u8]) -> VerifierQuery {
+    // Commitment
+    let (commitment, bytes) = take_group_element(bytes);
+
+    // The input point is a single byte
+    let (z_i, bytes) = take_byte(bytes);
+
+    // The evaluation is a single scalar
+    let (y_i, bytes) = take_scalar(bytes);
+
+    assert!(bytes.is_empty(), "we should have consumed all the bytes");
+
+    VerifierQuery {
+        commitment,
+        point: Fr::from(z_i as u128),
         result: y_i,
     }
 }
@@ -546,5 +563,127 @@ mod pedersen_hash_tests {
         let expected_hash = "76a014d14e338c57342cda5187775c6b75e7f0ef292e81b176c7a5a700273700";
         let got_hash_hex = hex::encode(got_hash_bytes);
         assert_eq!(expected_hash, got_hash_hex);
+    }
+}
+
+#[cfg(test)]
+mod prover_verifier_test {
+
+    use super::Context;
+    use crate::exposed_verify_call;
+    use crate::fr_to_le_bytes;
+
+    use ipa_multipoint::{committer::Committer, lagrange_basis::LagrangeBasis};
+
+    #[test]
+    fn test_one_opening_create_proof_verify_proof() {
+        let a_0 = banderwagon::Fr::from(123u128);
+        let a_1 = banderwagon::Fr::from(123u128);
+        let a_2 = banderwagon::Fr::from(456u128);
+        let a_3 = banderwagon::Fr::from(789u128);
+
+        let mut _poly: LagrangeBasis;
+        let mut all_vals = Vec::new();
+        for _i in 0..64 {
+            all_vals.push(a_0);
+            all_vals.push(a_1);
+            all_vals.push(a_2);
+            all_vals.push(a_3);
+        }
+
+        let context = Context::new();
+
+        let commitment = context.committer.commit_lagrange(all_vals.as_slice());
+
+        let commitment_bytes = commitment.to_bytes();
+
+        let mut poly_bytes: Vec<u8> = Vec::new();
+
+        for val in all_vals.clone() {
+            let bytes = fr_to_le_bytes(val);
+            poly_bytes.extend_from_slice(&bytes);
+        }
+
+        let point_bytes = [2u8; 1];
+
+        let result_bytes = fr_to_le_bytes(a_2);
+
+        let mut create_prover_bytes: Vec<u8> = Vec::new();
+
+        create_prover_bytes.extend_from_slice(&commitment_bytes);
+        create_prover_bytes.extend_from_slice(&poly_bytes);
+        create_prover_bytes.extend_from_slice(&point_bytes);
+        create_prover_bytes.extend_from_slice(&result_bytes);
+
+        let proof_bytes = super::create_proof(create_prover_bytes);
+
+        let mut create_verifier_bytes: Vec<u8> = Vec::new();
+        create_verifier_bytes.extend_from_slice(&commitment_bytes);
+        create_verifier_bytes.extend_from_slice(&point_bytes);
+        create_verifier_bytes.extend_from_slice(&result_bytes);
+
+        let mut verifier_call_bytes: Vec<u8> = Vec::new();
+
+        verifier_call_bytes.extend_from_slice(&proof_bytes);
+        verifier_call_bytes.extend_from_slice(&create_verifier_bytes);
+
+        let verified = exposed_verify_call(verifier_call_bytes);
+
+        assert!(verified);
+    }
+
+    #[test]
+    fn test_multiple_openings_create_proof_verify_proof() {
+        let a_0 = banderwagon::Fr::from(123u128);
+        let a_1 = banderwagon::Fr::from(123u128);
+        let a_2 = banderwagon::Fr::from(456u128);
+        let a_3 = banderwagon::Fr::from(789u128);
+        let context = Context::new();
+
+        let mut create_prover_bytes: Vec<u8> = Vec::new();
+
+        let mut create_verifier_bytes: Vec<u8> = Vec::new();
+        for _iterate in 0..100 {
+            let mut _poly: LagrangeBasis;
+            let mut all_vals = Vec::new();
+            for _i in 0..64 {
+                all_vals.push(a_0);
+                all_vals.push(a_1);
+                all_vals.push(a_2);
+                all_vals.push(a_3);
+            }
+            let commitment = context.committer.commit_lagrange(all_vals.as_slice());
+            let commitment_bytes = commitment.to_bytes();
+
+            let mut poly_bytes: Vec<u8> = Vec::new();
+
+            for val in all_vals.clone() {
+                let bytes = fr_to_le_bytes(val);
+                poly_bytes.extend_from_slice(&bytes);
+            }
+
+            let point_bytes = [2u8; 1];
+
+            let result_bytes = fr_to_le_bytes(a_2);
+
+            create_prover_bytes.extend_from_slice(&commitment_bytes);
+            create_prover_bytes.extend_from_slice(&poly_bytes);
+            create_prover_bytes.extend_from_slice(&point_bytes);
+            create_prover_bytes.extend_from_slice(&result_bytes);
+
+            create_verifier_bytes.extend_from_slice(&commitment_bytes);
+            create_verifier_bytes.extend_from_slice(&point_bytes);
+            create_verifier_bytes.extend_from_slice(&result_bytes);
+        }
+        let proof_bytes = super::create_proof(create_prover_bytes);
+
+        let mut verifier_call_bytes: Vec<u8> = Vec::new();
+
+        verifier_call_bytes.extend_from_slice(&proof_bytes);
+        verifier_call_bytes.extend_from_slice(&create_verifier_bytes);
+
+        let verified = exposed_verify_call(verifier_call_bytes);
+
+        assert!(verified);
     }
 }
