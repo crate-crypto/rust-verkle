@@ -592,18 +592,10 @@ mod prover_verifier_test {
             all_vals.push(a_2);
             all_vals.push(a_3);
         }
-        let poly = LagrangeBasis::new(all_vals.clone());
 
         let context = Context::new();
 
         let commitment = context.committer.commit_lagrange(all_vals.as_slice());
-
-        let _prover_query = ProverQuery {
-            commitment,
-            poly,
-            point: 2,
-            result: a_0,
-        };
 
         let commitment_bytes = commitment.to_bytes();
 
