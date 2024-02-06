@@ -183,6 +183,50 @@ pub fn update_commitment(
     Ok((delta_commitment + old_commitment).to_bytes_uncompressed())
 }
 
+/// This is used for deserializing the input for `update_commitment_sparse`.
+pub fn deserialize_update_commitment_sparse(
+    input: Vec<u8>,
+) -> (
+    CommitmentBytes,
+    Vec<usize>,
+    Vec<ScalarBytes>,
+    Vec<ScalarBytes>,
+) {
+    // First 64 bytes is the commitment
+    let commitment_bytes = CommitmentBytes::try_from(&input[0..64]).unwrap();
+
+    // Chunkify leftover with 65 bytes (32, 32, 1)
+    const CHUNK_SIZE: usize = 65;
+
+    if input.len() % CHUNK_SIZE != 0 {
+        // TODO: change this to an error
+        panic!("Input length must be a multiple of {}  + 64 bytes at the beginning for the commitment.", CHUNK_SIZE);
+    }
+
+    let update_commitment_bytes = input.chunks_exact(CHUNK_SIZE);
+    assert!(
+        update_commitment_bytes.remainder().is_empty(),
+        "There should be no left over bytes when chunking the input"
+    );
+
+    let mut indexes: Vec<usize> = Vec::new();
+    let mut old_scalars: Vec<ScalarBytes> = Vec::new();
+    let mut new_scalars: Vec<ScalarBytes> = Vec::new();
+
+    for update_commitment_bytes in update_commitment_bytes {
+        // First 32 bytes is the old scalar
+        let old_scalar = ScalarBytes::try_from(&update_commitment_bytes[0..32]).unwrap();
+        old_scalars.push(old_scalar);
+        // Next 32 bytes is the new scalar
+        let new_scalar = ScalarBytes::try_from(&update_commitment_bytes[32..64]).unwrap();
+        new_scalars.push(new_scalar);
+        // Last byte is the index
+        let index = *update_commitment_bytes.get(65).unwrap() as usize;
+        indexes.push(index);
+    }
+    (commitment_bytes, indexes, old_scalars, new_scalars)
+}
+
 /// Update commitment for sparse vector.
 pub fn update_commitment_sparse(
     committer: &DefaultCommitter,
