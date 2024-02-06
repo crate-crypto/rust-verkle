@@ -54,6 +54,12 @@ pub type CommitmentBytes = [u8; 64];
 /// A serialized scalar field element
 pub type ScalarBytes = [u8; 32];
 
+/// This is the identity element of the group
+pub const ZERO_POINT: CommitmentBytes = [
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+];
+
 #[derive(Debug, Clone)]
 pub enum Error {
     LengthOfScalarsNotMultipleOf32 { len: usize },
@@ -517,6 +523,13 @@ mod tests {
         let got_value = fr_from_le_bytes(&bytes).unwrap();
         assert_eq!(got_value, value)
     }
+}
+
+#[test]
+fn check_identity_constant() {
+    let identity = Element::zero();
+    let identity_bytes = identity.to_bytes_uncompressed();
+    assert_eq!(identity_bytes, ZERO_POINT);
 }
 
 #[cfg(test)]
