@@ -5,7 +5,8 @@ members = [
     "verkle-trie",
     "verkle-spec",
     "ipa-multipoint",
-    "banderwagon", "ffi_interface",
+    "banderwagon",
+    "verkle-ffi",
 ]
 resolver = "2"
 

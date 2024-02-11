@@ -1,5 +1,5 @@
 [package]
-name = "ffi_interface"
+name = "verkle-ffi"
 version = "0.1.0"
 edition = "2021"
 
