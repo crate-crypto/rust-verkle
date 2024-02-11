@@ -627,10 +627,64 @@ mod pedersen_hash_tests {
 mod prover_verifier_test {
 
     use super::Context;
+    use crate::commit_to_scalars;
+    use crate::deprecated_serialize_commitment;
     use crate::exposed_verify_call;
     use crate::fr_to_le_bytes;
+    use crate::hash_commitment;
 
     use ipa_multipoint::{committer::Committer, lagrange_basis::LagrangeBasis};
+
+    #[test]
+    fn smoke_test_commit_to_scalars() {
+        let scalar: [u8; 32] = [
+            1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24,
+            25, 26, 27, 28, 29, 30, 31, 0,
+        ];
+
+        let context = Context::new();
+
+        let scalars: Vec<u8> = [scalar, scalar].into_iter().flatten().collect();
+
+        let commitment = commit_to_scalars(&context.committer, &scalars).unwrap();
+        let expected = "6fb3421d850da8e8b8d1b9c1cc30876ef23d9df72c8792e6d569a9861089f02abdf89e2c671fe0bff820e815f6f20453fdbc83ec5415e3ade8c745179e31d25c";
+
+        assert_eq!(expected, hex::encode(commitment))
+    }
+
+    #[test]
+    fn smoke_test_hash_commitment() {
+        let context = Context::new();
+
+        // Create a commitment that we can hash
+        let scalar: [u8; 32] = [
+            1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24,
+            25, 26, 27, 28, 29, 30, 31, 0,
+        ];
+        let commitment = commit_to_scalars(&context.committer, &scalar).unwrap();
+        let commitment_hash = hash_commitment(commitment);
+
+        let expected = "31e94bef2c0160ed1f3dd9caacbed356939c2e440c4ddb336d832dcab6384e19";
+
+        assert_eq!(expected, hex::encode(commitment_hash))
+    }
+
+    #[test]
+    fn smoke_test_serialize_commitment() {
+        let context = Context::new();
+
+        // Create a commitment that we can hash
+        let scalar: [u8; 32] = [
+            1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24,
+            25, 26, 27, 28, 29, 30, 31, 0,
+        ];
+        let commitment = commit_to_scalars(&context.committer, &scalar).unwrap();
+        let commitment_hash = deprecated_serialize_commitment(commitment);
+
+        let expected = "6d40cf3d3097cb19b0ff686a068d53fb1250cc98bbd33766cf2cce00acb8b0a6";
+
+        assert_eq!(expected, hex::encode(commitment_hash))
+    }
 
     #[test]
     fn test_one_opening_create_proof_verify_proof() {
