@@ -586,12 +586,24 @@ mod tests {
             0, 0, 0,
         ];
 
+        let index2 = 8u8;
+        let old_scalar2 = [
+            2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0,
+        ];
+        let new_scalar2 = [
+            17, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0,
+        ];
+
         let mut concatenated: Vec<u8> = Vec::from(ZERO_POINT);
         concatenated.extend_from_slice(&old_scalar);
         concatenated.extend_from_slice(&new_scalar);
         concatenated.push(index);
 
-        assert_eq!(concatenated.len(), 129);
+        concatenated.extend_from_slice(&old_scalar2);
+        concatenated.extend_from_slice(&new_scalar2);
+        concatenated.push(index2);
 
         let (_old_commitment, commitment_index_vec, old_scalar_bytes_vec, new_scalar_bytes_vec) =
             deserialize_update_commitment_sparse(concatenated);
@@ -608,7 +620,7 @@ mod tests {
         )
         .unwrap();
 
-        let val_indices: Vec<(Fr, usize)> = vec![(Fr::from(17u8), 7)];
+        let val_indices: Vec<(Fr, usize)> = vec![(Fr::from(17u8), 7), (Fr::from(15u8), 8)];
 
         let test_comm = committer.commit_sparse(val_indices);
 
