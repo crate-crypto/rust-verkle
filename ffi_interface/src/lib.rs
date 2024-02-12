@@ -198,12 +198,14 @@ pub fn deserialize_update_commitment_sparse(
     // Chunkify leftover with 65 bytes (32, 32, 1)
     const CHUNK_SIZE: usize = 65;
 
-    if input.len() % CHUNK_SIZE != 0 {
+    let input_without_commitment_bytes = &input[64..];
+
+    if input_without_commitment_bytes.len() % CHUNK_SIZE != 0 {
         // TODO: change this to an error
         panic!("Input length must be a multiple of {}  + 64 bytes at the beginning for the commitment.", CHUNK_SIZE);
     }
 
-    let update_commitment_bytes = input.chunks_exact(CHUNK_SIZE);
+    let update_commitment_bytes = input_without_commitment_bytes.chunks_exact(CHUNK_SIZE);
     assert!(
         update_commitment_bytes.remainder().is_empty(),
         "There should be no left over bytes when chunking the input"
@@ -221,8 +223,9 @@ pub fn deserialize_update_commitment_sparse(
         let new_scalar = ScalarBytes::try_from(&update_commitment_bytes[32..64]).unwrap();
         new_scalars.push(new_scalar);
         // Last byte is the index
-        let index = *update_commitment_bytes.get(65).unwrap() as usize;
-        indexes.push(index);
+        // This works properly with only with this syntax
+        let index: &usize = &update_commitment_bytes[64].into();
+        indexes.push(*index);
     }
     (commitment_bytes, indexes, old_scalars, new_scalars)
 }
@@ -246,7 +249,6 @@ pub fn update_commitment_sparse(
         let new_scalar = fr_from_le_bytes(&new_scalar_bytes_vec[index]).unwrap();
 
         let tuple = (new_scalar - old_scalar, commitment_index_vec[index]);
-
         delta_values.push(tuple);
     }
 
@@ -478,6 +480,9 @@ fn take_scalar(bytes: &[u8]) -> (Fr, &[u8]) {
 
 #[cfg(test)]
 mod tests {
+    use crate::deserialize_update_commitment_sparse;
+    use crate::update_commitment_sparse;
+    use crate::ZERO_POINT;
     use banderwagon::Fr;
     use ipa_multipoint::{
         committer::{Committer, DefaultCommitter},
@@ -566,6 +571,60 @@ mod tests {
         let bytes = fr_to_le_bytes(value);
         let got_value = fr_from_le_bytes(&bytes).unwrap();
         assert_eq!(got_value, value)
+    }
+    #[test]
+    fn test_byte_array_input_update_commitment_sparse() {
+        let old_commitment_bytes = ZERO_POINT;
+
+        let index = 7u8;
+        let old_scalar = [
+            2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0,
+        ];
+        let new_scalar = [
+            19, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0,
+        ];
+
+        let index2 = 8u8;
+        let old_scalar2 = [
+            2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0,
+        ];
+        let new_scalar2 = [
+            17, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0,
+        ];
+
+        let mut concatenated: Vec<u8> = Vec::from(ZERO_POINT);
+        concatenated.extend_from_slice(&old_scalar);
+        concatenated.extend_from_slice(&new_scalar);
+        concatenated.push(index);
+
+        concatenated.extend_from_slice(&old_scalar2);
+        concatenated.extend_from_slice(&new_scalar2);
+        concatenated.push(index2);
+
+        let (_old_commitment, commitment_index_vec, old_scalar_bytes_vec, new_scalar_bytes_vec) =
+            deserialize_update_commitment_sparse(concatenated);
+
+        let crs = CRS::default();
+        let committer = DefaultCommitter::new(&crs.G);
+
+        let new_commitment = update_commitment_sparse(
+            &committer,
+            old_commitment_bytes,
+            commitment_index_vec,
+            old_scalar_bytes_vec,
+            new_scalar_bytes_vec,
+        )
+        .unwrap();
+
+        let val_indices: Vec<(Fr, usize)> = vec![(Fr::from(17u8), 7), (Fr::from(15u8), 8)];
+
+        let test_comm = committer.commit_sparse(val_indices);
+
+        assert_eq!(test_comm.to_bytes_uncompressed(), new_commitment);
     }
 }
 
