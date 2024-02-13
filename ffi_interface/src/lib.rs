@@ -360,9 +360,9 @@ pub fn create_proof(input: Vec<u8>) -> Vec<u8> {
 /// y_i is the evaluation of the polynomial at z_i i.e value we are opening: 32 bytes or Fr (scalar field element)
 /// Returns true of false.
 /// Proof is verified or not.
-/// TODO: Test this function.
+/// TODO: Add more tests.
 #[allow(dead_code)]
-fn exposed_verify_call(input: Vec<u8>) -> bool {
+pub fn verify_proof(input: Vec<u8>) -> bool {
     // Proof bytes are 576 bytes
     // First 32 bytes is the g_x_comm_bytes
     // Next 544 bytes are part of IPA proof. Domain size is always 256. Explanation is in IPAProof::from_bytes().
@@ -686,8 +686,8 @@ mod pedersen_hash_tests {
 mod prover_verifier_test {
 
     use super::Context;
-    use crate::exposed_verify_call;
     use crate::fr_to_le_bytes;
+    use crate::verify_proof;
 
     use ipa_multipoint::{committer::Committer, lagrange_basis::LagrangeBasis};
 
@@ -743,7 +743,7 @@ mod prover_verifier_test {
         verifier_call_bytes.extend_from_slice(&proof_bytes);
         verifier_call_bytes.extend_from_slice(&create_verifier_bytes);
 
-        let verified = exposed_verify_call(verifier_call_bytes);
+        let verified = verify_proof(verifier_call_bytes);
 
         assert!(verified);
     }
@@ -798,7 +798,7 @@ mod prover_verifier_test {
         verifier_call_bytes.extend_from_slice(&proof_bytes);
         verifier_call_bytes.extend_from_slice(&create_verifier_bytes);
 
-        let verified = exposed_verify_call(verifier_call_bytes);
+        let verified = verify_proof(verifier_call_bytes);
 
         assert!(verified);
     }
