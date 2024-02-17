@@ -69,6 +69,7 @@ pub enum Error {
         expected_multiple: u64,
         actual_size: u64,
     },
+    ProofVerificationFailed,
 }
 
 /// Compute the key prefix used in the `get_tree_key` method
@@ -316,7 +317,7 @@ fn fr_from_le_bytes(bytes: &[u8]) -> Result<banderwagon::Fr, Error> {
 /// Returns a proof serialized as bytes
 ///
 /// This function assumes that the domain is always 256 values and commitment is 32bytes.
-pub fn create_proof(context: &Context, input: Vec<u8>) -> Vec<u8> {
+pub fn create_proof(context: &Context, input: Vec<u8>) -> Result<Vec<u8>, Error> {
     // - Checks for the serialized proof queries
     ///
     // Define the chunk size (8257 bytes)
@@ -326,8 +327,11 @@ pub fn create_proof(context: &Context, input: Vec<u8>) -> Vec<u8> {
     const CHUNK_SIZE: usize = 8257; // TODO: get this from ipa-multipoint
 
     if input.len() % CHUNK_SIZE != 0 {
-        // TODO: change this to an error
-        panic!("Input length must be a multiple of {}", CHUNK_SIZE);
+        return Err(Error::LengthIsNotAnExpectedMultiple {
+            item_descriptor: "Input length for proof",
+            expected_multiple: CHUNK_SIZE as u64,
+            actual_size: input.len() as u64,
+        });
     }
     let num_openings = input.len() / CHUNK_SIZE;
 
@@ -358,7 +362,7 @@ pub fn create_proof(context: &Context, input: Vec<u8>) -> Vec<u8> {
         &mut transcript,
         prover_queries,
     );
-    proof.to_bytes().expect("cannot serialize proof")
+    Ok(proof.to_bytes().expect("cannot serialize proof"))
 }
 
 /// Receives a proof and a tuple (C_i, z_i, y_i)
@@ -369,7 +373,7 @@ pub fn create_proof(context: &Context, input: Vec<u8>) -> Vec<u8> {
 /// Proof is verified or not.
 /// TODO: Add more tests.
 #[allow(dead_code)]
-pub fn verify_proof(input: Vec<u8>) -> bool {
+pub fn verify_proof(input: Vec<u8>) -> Result<(), Error> {
     // Proof bytes are 576 bytes
     // First 32 bytes is the g_x_comm_bytes
     // Next 544 bytes are part of IPA proof. Domain size is always 256. Explanation is in IPAProof::from_bytes().
@@ -383,11 +387,11 @@ pub fn verify_proof(input: Vec<u8>) -> bool {
     const CHUNK_SIZE: usize = 65;
 
     if verifier_queries_bytes.len() % CHUNK_SIZE != 0 {
-        // TODO: change this to an error
-        panic!(
-            "Verifier queries bytes length must be a multiple of {}",
-            CHUNK_SIZE
-        );
+        return Err(Error::LengthIsNotAnExpectedMultiple {
+            item_descriptor: "Verifier queries",
+            expected_multiple: CHUNK_SIZE as u64,
+            actual_size: verifier_queries_bytes.len() as u64,
+        });
     }
 
     let num_openings = verifier_queries_bytes.len() / CHUNK_SIZE;
@@ -407,12 +411,16 @@ pub fn verify_proof(input: Vec<u8>) -> bool {
 
     let mut transcript = Transcript::new(b"verkle");
 
-    proof.check(
+    if proof.check(
         &context.crs,
         &context.precomputed_weights,
         &verifier_queries,
         &mut transcript,
-    )
+    ) {
+        Ok(())
+    } else {
+        Err(Error::ProofVerificationFailed)
+    }
 }
 
 #[must_use]
@@ -732,7 +740,7 @@ mod prover_verifier_test {
         create_prover_bytes.extend_from_slice(&point_bytes);
         create_prover_bytes.extend_from_slice(&result_bytes);
 
-        let proof_bytes = super::create_proof(&context, create_prover_bytes);
+        let proof_bytes = super::create_proof(&context, create_prover_bytes).unwrap();
 
         let mut create_verifier_bytes: Vec<u8> = Vec::new();
         create_verifier_bytes.extend_from_slice(&commitment_bytes);
@@ -744,7 +752,7 @@ mod prover_verifier_test {
         verifier_call_bytes.extend_from_slice(&proof_bytes);
         verifier_call_bytes.extend_from_slice(&create_verifier_bytes);
 
-        let verified = verify_proof(verifier_call_bytes);
+        let verified = verify_proof(verifier_call_bytes).is_ok();
 
         assert!(verified);
     }
@@ -792,14 +800,14 @@ mod prover_verifier_test {
             create_verifier_bytes.extend_from_slice(&point_bytes);
             create_verifier_bytes.extend_from_slice(&result_bytes);
         }
-        let proof_bytes = super::create_proof(&context, create_prover_bytes);
+        let proof_bytes = super::create_proof(&context, create_prover_bytes).unwrap();
 
         let mut verifier_call_bytes: Vec<u8> = Vec::new();
 
         verifier_call_bytes.extend_from_slice(&proof_bytes);
         verifier_call_bytes.extend_from_slice(&create_verifier_bytes);
 
-        let verified = verify_proof(verifier_call_bytes);
+        let verified = verify_proof(verifier_call_bytes).is_ok();
 
         assert!(verified);
     }
