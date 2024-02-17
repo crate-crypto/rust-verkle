@@ -55,9 +55,20 @@ pub const ZERO_POINT: CommitmentBytes = [
 
 #[derive(Debug, Clone)]
 pub enum Error {
-    LengthOfScalarsNotMultipleOf32 { len: usize },
-    MoreThan256Scalars { len: usize },
-    FailedToDeserializeScalar { bytes: Vec<u8> },
+    LengthOfScalarsNotMultipleOf32 {
+        len: usize,
+    },
+    MoreThan256Scalars {
+        len: usize,
+    },
+    FailedToDeserializeScalar {
+        bytes: Vec<u8>,
+    },
+    LengthIsNotAnExpectedMultiple {
+        item_descriptor: &'static str,
+        expected_multiple: u64,
+        actual_size: u64,
+    },
 }
 
 /// Compute the key prefix used in the `get_tree_key` method
@@ -171,15 +182,18 @@ pub fn update_commitment(
     Ok((delta_commitment + old_commitment).to_bytes_uncompressed())
 }
 
-/// This is used for deserializing the input for `update_commitment_sparse`.
-pub fn deserialize_update_commitment_sparse(
-    input: Vec<u8>,
-) -> (
+// TODO: Find a better name for this
+pub type DeserializedSparseCommitmentItem = (
     CommitmentBytes,
     Vec<usize>,
     Vec<ScalarBytes>,
     Vec<ScalarBytes>,
-) {
+);
+
+/// This is used for deserializing the input for `update_commitment_sparse`.
+pub fn deserialize_update_commitment_sparse(
+    input: Vec<u8>,
+) -> Result<DeserializedSparseCommitmentItem, Error> {
     // First 64 bytes is the commitment
     let commitment_bytes = CommitmentBytes::try_from(&input[0..64]).unwrap();
 
@@ -189,8 +203,11 @@ pub fn deserialize_update_commitment_sparse(
     let input_without_commitment_bytes = &input[64..];
 
     if input_without_commitment_bytes.len() % CHUNK_SIZE != 0 {
-        // TODO: change this to an error
-        panic!("Input length must be a multiple of {}  + 64 bytes at the beginning for the commitment.", CHUNK_SIZE);
+        return Err(Error::LengthIsNotAnExpectedMultiple {
+            item_descriptor: "input for update commitment",
+            expected_multiple: CHUNK_SIZE as u64,
+            actual_size: input_without_commitment_bytes.len() as u64,
+        });
     }
 
     let update_commitment_bytes = input_without_commitment_bytes.chunks_exact(CHUNK_SIZE);
@@ -215,7 +232,7 @@ pub fn deserialize_update_commitment_sparse(
         let index: &usize = &update_commitment_bytes[64].into();
         indexes.push(*index);
     }
-    (commitment_bytes, indexes, old_scalars, new_scalars)
+    Ok((commitment_bytes, indexes, old_scalars, new_scalars))
 }
 
 /// Update commitment for sparse vector.
@@ -594,7 +611,7 @@ mod tests {
         concatenated.push(index2);
 
         let (_old_commitment, commitment_index_vec, old_scalar_bytes_vec, new_scalar_bytes_vec) =
-            deserialize_update_commitment_sparse(concatenated);
+            deserialize_update_commitment_sparse(concatenated).unwrap();
 
         let context = Context::default();
         let committer = &context.committer;
