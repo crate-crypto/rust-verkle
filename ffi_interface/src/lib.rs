@@ -72,6 +72,8 @@ pub enum Error {
     ProofVerificationFailed,
 }
 
+#[allow(deprecated)]
+#[deprecated(note = "moving forward one should implement this method on the caller side")]
 /// Compute the key prefix used in the `get_tree_key` method
 ///
 /// Returns a 32 byte slice representing the first 31 bytes of the `key` to be used in `get_tree_key`
@@ -88,6 +90,8 @@ pub fn get_tree_key_hash(
 
     get_tree_key_hash_flat_input(context, input)
 }
+
+#[deprecated(note = "moving forward one should implement this method on the caller side")]
 /// Same method as `get_tree_key_hash` but takes a 64 byte input instead of two 32 byte inputs
 ///
 /// This is kept for backwards compatibility and because we have not yet checked if its better
@@ -97,6 +101,9 @@ pub fn get_tree_key_hash(
 pub fn get_tree_key_hash_flat_input(context: &Context, input: [u8; 64]) -> [u8; 32] {
     verkle_spec::hash64(&context.committer, input).to_fixed_bytes()
 }
+
+#[allow(deprecated)]
+#[deprecated(note = "moving forward one should implement this method on the caller side")]
 pub fn get_tree_key(
     context: &Context,
     address: [u8; 32],
@@ -110,6 +117,8 @@ pub fn get_tree_key(
     hash
 }
 
+#[allow(deprecated)]
+#[deprecated(note = "moving forward one should implement this method on the caller side")]
 /// This is exactly the same as `get_tree_key_hash` method.
 /// Use get_tree_key_hash instead.
 ///
@@ -647,7 +656,7 @@ fn check_identity_constant() {
     let identity_bytes = identity.to_bytes_uncompressed();
     assert_eq!(identity_bytes, ZERO_POINT);
 }
-
+#[allow(deprecated)]
 #[cfg(test)]
 mod pedersen_hash_tests {
 
