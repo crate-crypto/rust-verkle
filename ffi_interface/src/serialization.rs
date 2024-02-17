@@ -8,15 +8,18 @@ use ipa_multipoint::{
 use crate::{CommitmentBytes, Error, ScalarBytes};
 
 // TODO: Find a better name for this
-pub(crate) type DeserializedSparseCommitmentItem = (
+pub type DeserializedSparseCommitmentItem = (
     CommitmentBytes,
     Vec<usize>,
     Vec<ScalarBytes>,
     Vec<ScalarBytes>,
 );
 
+/// TODO: This method should not be exported. Leave it exported for now, so that its not
+/// a breaking change.
+///
 /// This is used for deserializing the input for `update_commitment_sparse`.
-pub(crate) fn deserialize_update_commitment_sparse(
+pub fn deserialize_update_commitment_sparse(
     input: Vec<u8>,
 ) -> Result<DeserializedSparseCommitmentItem, Error> {
     // First 64 bytes is the commitment
@@ -62,7 +65,7 @@ pub(crate) fn deserialize_update_commitment_sparse(
 
 /// This is kept so that commitRoot in the java implementation can be swapped out
 /// Note: I believe we should not need to expose this method.
-pub(crate) fn deprecated_serialize_commitment(commitment: CommitmentBytes) -> [u8; 32] {
+pub fn deprecated_serialize_commitment(commitment: CommitmentBytes) -> [u8; 32] {
     Element::from_bytes_unchecked_uncompressed(commitment).to_bytes()
 }
 
