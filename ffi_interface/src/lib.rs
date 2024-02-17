@@ -153,8 +153,6 @@ fn _commit_to_scalars(context: &Context, scalars: &[u8]) -> Result<Element, Erro
         return Err(Error::MoreThan256Scalars { len: num_scalars });
     }
 
-    // We want to ensure interoperability with the Java-EVM for now, so we interpret the scalars as
-    // big endian bytes
     let mut inputs = Vec::with_capacity(num_scalars);
     for chunk in scalars.chunks_exact(32) {
         inputs.push(fr_from_le_bytes(chunk)?);
