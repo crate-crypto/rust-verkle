@@ -316,7 +316,7 @@ pub fn create_proof(context: &Context, input: Vec<u8>) -> Result<Vec<u8>, Error>
 /// Proof is verified or not.
 /// TODO: Add more tests.
 #[allow(dead_code)]
-pub fn verify_proof(input: Vec<u8>) -> Result<(), Error> {
+pub fn verify_proof(context: &Context, input: Vec<u8>) -> Result<(), Error> {
     // Proof bytes are 576 bytes
     // First 32 bytes is the g_x_comm_bytes
     // Next 544 bytes are part of IPA proof. Domain size is always 256. Explanation is in IPAProof::from_bytes().
@@ -349,8 +349,6 @@ pub fn verify_proof(input: Vec<u8>) -> Result<(), Error> {
         let verifier_query = deserialize_verifier_query(verifier_query_bytes);
         verifier_queries.push(verifier_query);
     }
-
-    let context = Context::new();
 
     let mut transcript = Transcript::new(b"verkle");
 
@@ -568,7 +566,7 @@ mod prover_verifier_test {
         verifier_call_bytes.extend_from_slice(&proof_bytes);
         verifier_call_bytes.extend_from_slice(&create_verifier_bytes);
 
-        let verified = verify_proof(verifier_call_bytes).is_ok();
+        let verified = verify_proof(&context, verifier_call_bytes).is_ok();
 
         assert!(verified);
     }
@@ -623,7 +621,7 @@ mod prover_verifier_test {
         verifier_call_bytes.extend_from_slice(&proof_bytes);
         verifier_call_bytes.extend_from_slice(&create_verifier_bytes);
 
-        let verified = verify_proof(verifier_call_bytes).is_ok();
+        let verified = verify_proof(&context, verifier_call_bytes).is_ok();
 
         assert!(verified);
     }
