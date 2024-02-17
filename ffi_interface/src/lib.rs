@@ -1,10 +1,3 @@
-// This is just a simple interop file that we will delete later. Its only use is to
-// ensure that the ffi_interface crate has not changed any behaviour from the
-// java jni crate.
-//
-// Once the java jni crate uses the below implementation, we will remove this file.
-pub mod interop;
-
 use banderwagon::Fr;
 use banderwagon::{trait_defs::*, Element};
 use ipa_multipoint::committer::{Committer, DefaultCommitter};
