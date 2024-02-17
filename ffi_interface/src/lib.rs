@@ -1,5 +1,11 @@
 mod serialization;
 
+// TODO: These are re-exported to not break the java code
+// TODO: we ideally don't want to export these.
+// - deprecated_serialize_commitment will be deprecated
+// - deserialize_update_commitment_sparse should not be exported and is an abstraction leak
+pub use serialization::{deprecated_serialize_commitment, deserialize_update_commitment_sparse};
+
 use banderwagon::Element;
 use banderwagon::Fr;
 use ipa_multipoint::committer::{Committer, DefaultCommitter};
@@ -315,7 +321,6 @@ pub fn create_proof(context: &Context, input: Vec<u8>) -> Result<Vec<u8>, Error>
 /// Returns true of false.
 /// Proof is verified or not.
 /// TODO: Add more tests.
-#[allow(dead_code)]
 pub fn verify_proof(context: &Context, input: Vec<u8>) -> Result<(), Error> {
     // Proof bytes are 576 bytes
     // First 32 bytes is the g_x_comm_bytes
