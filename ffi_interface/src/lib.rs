@@ -148,7 +148,7 @@ pub fn commit_to_scalars(context: &Context, scalars: &[u8]) -> Result<Commitment
 ///
 /// Returns the updated commitment
 pub fn update_commitment(
-    committer: &DefaultCommitter,
+    context: &Context,
     old_commitment_bytes: CommitmentBytes,
     // There can only be at most 256 elements in a verkle branch
     commitment_index: u8,
@@ -163,7 +163,9 @@ pub fn update_commitment(
     let delta = new_scalar - old_scalar;
 
     // (w-v)G
-    let delta_commitment = committer.scalar_mul(delta, commitment_index as usize);
+    let delta_commitment = context
+        .committer
+        .scalar_mul(delta, commitment_index as usize);
 
     // vG + (w-v)G
     Ok((delta_commitment + old_commitment).to_bytes_uncompressed())
@@ -218,7 +220,7 @@ pub fn deserialize_update_commitment_sparse(
 
 /// Update commitment for sparse vector.
 pub fn update_commitment_sparse(
-    committer: &DefaultCommitter,
+    context: &Context,
     old_commitment_bytes: CommitmentBytes,
     // There can only be at most 256 elements in a verkle branch
     commitment_index_vec: Vec<usize>,
@@ -238,7 +240,7 @@ pub fn update_commitment_sparse(
         delta_values.push(tuple);
     }
 
-    let delta_commitment = committer.commit_sparse(delta_values);
+    let delta_commitment = context.committer.commit_sparse(delta_values);
 
     Ok((delta_commitment + old_commitment).to_bytes_uncompressed())
 }
@@ -470,18 +472,16 @@ fn take_scalar(bytes: &[u8]) -> (Fr, &[u8]) {
 mod tests {
     use crate::deserialize_update_commitment_sparse;
     use crate::update_commitment_sparse;
+    use crate::Context;
     use crate::ZERO_POINT;
     use banderwagon::Fr;
-    use ipa_multipoint::{
-        committer::{Committer, DefaultCommitter},
-        crs::CRS,
-    };
+    use ipa_multipoint::committer::Committer;
 
     use crate::{fr_from_le_bytes, fr_to_le_bytes};
     #[test]
     fn commitment_update() {
-        let crs = CRS::default();
-        let committer = DefaultCommitter::new(&crs.G);
+        let context = Context::default();
+        let committer = &context.committer;
 
         let a_0 = banderwagon::Fr::from(123u128);
         let a_1 = banderwagon::Fr::from(123u128);
@@ -502,7 +502,7 @@ mod tests {
 
         // Now lets do it using the update_commitment method
         let updated_commitment = super::update_commitment(
-            &committer,
+            &context,
             commitment.to_bytes_uncompressed(),
             0,
             fr_to_le_bytes(a_0),
@@ -515,8 +515,8 @@ mod tests {
 
     #[test]
     fn commitment_exists_sparse_update() {
-        let crs = CRS::default();
-        let committer = DefaultCommitter::new(&crs.G);
+        let context = Context::default();
+        let committer = &context.committer;
 
         let a_0 = banderwagon::Fr::from(123u128);
         let a_1 = banderwagon::Fr::from(123u128);
@@ -542,7 +542,7 @@ mod tests {
 
         // Now lets do it using the update_commitment_sparse method
         let updated_commitment = super::update_commitment_sparse(
-            &committer,
+            &context,
             commitment.to_bytes_uncompressed(),
             commitment_index_vec,
             old_scalar_bytes_vec,
@@ -596,11 +596,11 @@ mod tests {
         let (_old_commitment, commitment_index_vec, old_scalar_bytes_vec, new_scalar_bytes_vec) =
             deserialize_update_commitment_sparse(concatenated);
 
-        let crs = CRS::default();
-        let committer = DefaultCommitter::new(&crs.G);
+        let context = Context::default();
+        let committer = &context.committer;
 
         let new_commitment = update_commitment_sparse(
-            &committer,
+            &context,
             old_commitment_bytes,
             commitment_index_vec,
             old_scalar_bytes_vec,
