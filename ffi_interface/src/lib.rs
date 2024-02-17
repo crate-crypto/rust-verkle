@@ -2,9 +2,8 @@ mod serialization;
 
 // TODO: These are re-exported to not break the java code
 // TODO: we ideally don't want to export these.
-// - deprecated_serialize_commitment will be deprecated
 // - deserialize_update_commitment_sparse should not be exported and is an abstraction leak
-pub use serialization::{deprecated_serialize_commitment, deserialize_update_commitment_sparse};
+pub use serialization::deserialize_update_commitment_sparse;
 
 use banderwagon::Element;
 use banderwagon::Fr;
