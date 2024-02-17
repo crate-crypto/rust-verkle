@@ -311,7 +311,7 @@ fn fr_from_le_bytes(bytes: &[u8]) -> Result<banderwagon::Fr, Error> {
 /// Returns a proof serialized as bytes
 ///
 /// This function assumes that the domain is always 256 values and commitment is 32bytes.
-pub fn create_proof(input: Vec<u8>) -> Vec<u8> {
+pub fn create_proof(context: &Context, input: Vec<u8>) -> Vec<u8> {
     // - Checks for the serialized proof queries
     ///
     // Define the chunk size (8257 bytes)
@@ -343,14 +343,16 @@ pub fn create_proof(input: Vec<u8>) -> Vec<u8> {
 
     // - Create proofs
     //
-    // TODO: This should be passed in as a pointer
-    let precomp = PrecomputedWeights::new(256);
 
-    let crs = CRS::default();
     let mut transcript = Transcript::new(b"verkle");
-    // TODO: This should not need to clone the CRS, but instead take a reference
 
-    let proof = MultiPoint::open(crs.clone(), &precomp, &mut transcript, prover_queries);
+    let proof = MultiPoint::open(
+        // TODO: This should not need to clone the CRS, but instead take a reference
+        context.crs.clone(),
+        &context.precomputed_weights,
+        &mut transcript,
+        prover_queries,
+    );
     proof.to_bytes().expect("cannot serialize proof")
 }
 
@@ -731,7 +733,7 @@ mod prover_verifier_test {
         create_prover_bytes.extend_from_slice(&point_bytes);
         create_prover_bytes.extend_from_slice(&result_bytes);
 
-        let proof_bytes = super::create_proof(create_prover_bytes);
+        let proof_bytes = super::create_proof(&context, create_prover_bytes);
 
         let mut create_verifier_bytes: Vec<u8> = Vec::new();
         create_verifier_bytes.extend_from_slice(&commitment_bytes);
@@ -791,7 +793,7 @@ mod prover_verifier_test {
             create_verifier_bytes.extend_from_slice(&point_bytes);
             create_verifier_bytes.extend_from_slice(&result_bytes);
         }
-        let proof_bytes = super::create_proof(create_prover_bytes);
+        let proof_bytes = super::create_proof(&context, create_prover_bytes);
 
         let mut verifier_call_bytes: Vec<u8> = Vec::new();
 
