@@ -475,7 +475,7 @@ mod pedersen_hash_tests {
         let address = [0u8; 32];
         let tree_index = [0u8; 32];
 
-        let expected = "bf101a6e1c8e83c11bd203a582c7981b91097ec55cbd344ce09005c1f26d1922";
+        let expected = "1a100684fd68185060405f3f160e4bb6e034194336b547bdae323f888d533207";
         let got_hash_bytes = get_tree_key_hash(&context, address, tree_index);
         let got_hash_hex = hex::encode(got_hash_bytes);
         assert_eq!(expected, got_hash_hex)
@@ -501,7 +501,7 @@ mod pedersen_hash_tests {
 
         let got_hash_bytes = get_tree_key(&context, address, tree_index, 0);
 
-        let expected_hash = "76a014d14e338c57342cda5187775c6b75e7f0ef292e81b176c7a5a700273700";
+        let expected_hash = "ff7e3916badeb510dfcdad458726273319280742e553d8d229bd676428147300";
         let got_hash_hex = hex::encode(got_hash_bytes);
         assert_eq!(expected_hash, got_hash_hex);
     }

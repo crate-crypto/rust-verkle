@@ -10,3 +10,8 @@ ethereum-types = "0.14.1"
 verkle-trie = { path = "../verkle-trie" }
 hex = "*"
 ipa-multipoint = { path = "../ipa-multipoint" }
+
+# This is needed for serialization in get_tree_key_hash
+# TODO: we may need to put `fr_to_le_bytes` and then ffi_interface
+# TODO: and this crate will use the same method
+banderwagon = { path = "../banderwagon" }

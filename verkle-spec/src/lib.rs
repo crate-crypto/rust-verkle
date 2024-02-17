@@ -41,9 +41,13 @@ pub fn hash64(committer: &DefaultCommitter, bytes64: [u8; 64]) -> H256 {
     let inputs = crate::util::chunk64(bytes64).map(verkle_trie::Fr::from);
     let result = committer.commit_lagrange(&inputs);
 
-    // Reverse the endian of the byte array
-    let mut output = result.to_bytes();
-    output.reverse();
+    let hashed_point = result.map_to_scalar_field();
+    use banderwagon::trait_defs::*;
+
+    let mut output = [0u8; 32];
+    hashed_point
+        .serialize_compressed(&mut output[..])
+        .expect("Failed to serialize scalar to bytes");
 
     H256::from(output)
 }
@@ -70,13 +74,13 @@ fn smoke_test_hash64() {
     let all_zeroes = [0u8; 64];
     let hash = hash64(&committer, all_zeroes);
     let expected =
-        hex::decode("bf101a6e1c8e83c11bd203a582c7981b91097ec55cbd344ce09005c1f26d1922").unwrap();
+        hex::decode("1a100684fd68185060405f3f160e4bb6e034194336b547bdae323f888d533207").unwrap();
     assert_eq!(hash, H256::from_slice(&expected));
 
     // Hash of all ones
     let all_ones = [1u8; 64];
     let hash = hash64(&committer, all_ones);
     let expected =
-        hex::decode("54427497ffbee0d2511e14ddaf3497e9b5e8438ff17974d06918e0e8ebe8b61a").unwrap();
+        hex::decode("3afb8486ed3053ac55f62864da803c074844509d253260d870337c20fd73eb11").unwrap();
     assert_eq!(hash, H256::from_slice(&expected));
 }
