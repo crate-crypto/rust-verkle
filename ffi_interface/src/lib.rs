@@ -73,7 +73,7 @@ pub enum Error {
 ///
 // TODO: We could probably make this use `map_to_field` instead of `.to_bytes`
 pub fn get_tree_key_hash(
-    committer: &DefaultCommitter,
+    context: &Context,
     address: [u8; 32],
     tree_index_le: [u8; 32],
 ) -> [u8; 32] {
@@ -81,7 +81,7 @@ pub fn get_tree_key_hash(
     input[..32].copy_from_slice(&address);
     input[32..].copy_from_slice(&tree_index_le);
 
-    get_tree_key_hash_flat_input(committer, input)
+    get_tree_key_hash_flat_input(context, input)
 }
 /// Same method as `get_tree_key_hash` but takes a 64 byte input instead of two 32 byte inputs
 ///
@@ -89,16 +89,16 @@ pub fn get_tree_key_hash(
 /// for Java to pass in two 32 bytes or one 64 byte input.
 ///
 /// The former probably requires two allocations, while the latter is less type safe.
-pub fn get_tree_key_hash_flat_input(committer: &DefaultCommitter, input: [u8; 64]) -> [u8; 32] {
-    verkle_spec::hash64(committer, input).to_fixed_bytes()
+pub fn get_tree_key_hash_flat_input(context: &Context, input: [u8; 64]) -> [u8; 32] {
+    verkle_spec::hash64(&context.committer, input).to_fixed_bytes()
 }
 pub fn get_tree_key(
-    committer: &DefaultCommitter,
+    context: &Context,
     address: [u8; 32],
     tree_index_le: [u8; 32],
     sub_index: u8,
 ) -> [u8; 32] {
-    let mut hash = get_tree_key_hash(committer, address, tree_index_le);
+    let mut hash = get_tree_key_hash(context, address, tree_index_le);
 
     hash[31] = sub_index;
 
@@ -109,15 +109,11 @@ pub fn get_tree_key(
 /// Use get_tree_key_hash instead.
 ///
 /// Moving to rename this as it causes confusion. For now, I'll call this `get_tree_key_hash`
-pub fn pedersen_hash(
-    committer: &DefaultCommitter,
-    address: [u8; 32],
-    tree_index_le: [u8; 32],
-) -> [u8; 32] {
-    get_tree_key_hash(committer, address, tree_index_le)
+pub fn pedersen_hash(context: &Context, address: [u8; 32], tree_index_le: [u8; 32]) -> [u8; 32] {
+    get_tree_key_hash(context, address, tree_index_le)
 }
 
-fn _commit_to_scalars(committer: &DefaultCommitter, scalars: &[u8]) -> Result<Element, Error> {
+fn _commit_to_scalars(context: &Context, scalars: &[u8]) -> Result<Element, Error> {
     let scalars_len = scalars.len();
     // scalars when serialized are 32 bytes
     // check that the length of scalars is a multiple of 32
@@ -139,17 +135,14 @@ fn _commit_to_scalars(committer: &DefaultCommitter, scalars: &[u8]) -> Result<El
         inputs.push(fr_from_le_bytes(chunk)?);
     }
 
-    Ok(committer.commit_lagrange(&inputs))
+    Ok(context.committer.commit_lagrange(&inputs))
 }
 
 /// Commits to at most 256 scalars
 ///
 /// Returns the commitment to those scalars
-pub fn commit_to_scalars(
-    committer: &DefaultCommitter,
-    scalars: &[u8],
-) -> Result<CommitmentBytes, Error> {
-    let commitment = _commit_to_scalars(committer, scalars)?;
+pub fn commit_to_scalars(context: &Context, scalars: &[u8]) -> Result<CommitmentBytes, Error> {
+    let commitment = _commit_to_scalars(context, scalars)?;
     Ok(commitment.to_bytes_uncompressed())
 }
 
@@ -639,28 +632,24 @@ fn check_identity_constant() {
 
 #[cfg(test)]
 mod pedersen_hash_tests {
-    use ipa_multipoint::{committer::DefaultCommitter, crs::CRS};
 
-    use crate::{get_tree_key, get_tree_key_hash};
+    use crate::{get_tree_key, get_tree_key_hash, Context};
 
     #[test]
     fn smoke_test_address_zero() {
-        let crs = CRS::default();
-        let committer = DefaultCommitter::new(&crs.G);
-
+        let context = Context::default();
         let address = [0u8; 32];
         let tree_index = [0u8; 32];
 
         let expected = "bf101a6e1c8e83c11bd203a582c7981b91097ec55cbd344ce09005c1f26d1922";
-        let got_hash_bytes = get_tree_key_hash(&committer, address, tree_index);
+        let got_hash_bytes = get_tree_key_hash(&context, address, tree_index);
         let got_hash_hex = hex::encode(got_hash_bytes);
         assert_eq!(expected, got_hash_hex)
     }
 
     #[test]
     fn smoke_test_input() {
-        let crs = CRS::default();
-        let committer = DefaultCommitter::new(&crs.G);
+        let context = Context::default();
         let input = [
             1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24,
             25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46,
@@ -676,7 +665,7 @@ mod pedersen_hash_tests {
         tree_index.copy_from_slice(&input[32..64]);
         tree_index.reverse();
 
-        let got_hash_bytes = get_tree_key(&committer, address, tree_index, 0);
+        let got_hash_bytes = get_tree_key(&context, address, tree_index, 0);
 
         let expected_hash = "76a014d14e338c57342cda5187775c6b75e7f0ef292e81b176c7a5a700273700";
         let got_hash_hex = hex::encode(got_hash_bytes);
