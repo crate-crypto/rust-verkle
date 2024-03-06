@@ -54,6 +54,12 @@ impl Element {
         bytes
     }
 
+    // Do not compare the results of this function.
+    //
+    // This is because if (x, -y) is on the curve, then (x,y) is also on the curve.
+    // This method will return two different byte arrays for each of these.
+    //
+    // TODO: perhaps change this so that it chooses a representative, ie respecting the equivalence class
     pub fn to_bytes_uncompressed(&self) -> [u8; 64] {
         let mut bytes = [0u8; 64];
         self.0
