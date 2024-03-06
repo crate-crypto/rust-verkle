@@ -63,6 +63,12 @@ pub fn deserialize_update_commitment_sparse(
     Ok((commitment_bytes, indexes, old_scalars, new_scalars))
 }
 
+/// This is kept so that commitRoot in the java implementation can be swapped out
+/// Note: I believe we should not need to expose this method.
+pub fn deprecated_serialize_commitment(commitment: CommitmentBytes) -> [u8; 32] {
+    Element::from_bytes_unchecked_uncompressed(commitment).to_bytes()
+}
+
 #[must_use]
 pub(crate) fn deserialize_proof_query(bytes: &[u8]) -> ProverQuery {
     // Commitment

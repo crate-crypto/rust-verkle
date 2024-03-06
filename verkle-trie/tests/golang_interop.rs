@@ -60,9 +60,9 @@ fn golang_rust_interop() {
 
     trie.insert(key_vals);
 
-    let root = trie.root_hash();
+    let root = trie.root_commitment();
 
-    let expected = "4caf7631af042c1615845a0116e789de0beea3e07f4b947377101aa822964614";
+    let expected = "10ed89d89047bb168baa4e69b8607e260049e928ddbcb2fdd23ea0f4182b1f8a";
 
     use banderwagon::trait_defs::*;
     let mut root_bytes = [0u8; 32];
