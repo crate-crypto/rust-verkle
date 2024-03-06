@@ -70,8 +70,9 @@ pub enum Error {
     LengthOfScalarsNotMultipleOf32 {
         len: usize,
     },
-    MoreThan256Scalars {
-        len: usize,
+    TooManyScalars {
+        expected: usize,
+        got: usize,
     },
     FailedToDeserializeScalar {
         bytes: Vec<u8>,
@@ -154,7 +155,10 @@ fn _commit_to_scalars(context: &Context, scalars: &[u8]) -> Result<Element, Erro
     // to more than 256 scalars.
     let num_scalars = scalars_len / 32;
     if num_scalars > 256 {
-        return Err(Error::MoreThan256Scalars { len: num_scalars });
+        return Err(Error::TooManyScalars {
+            got: num_scalars,
+            expected: context.crs.max_number_of_elements(),
+        });
     }
 
     let mut inputs = Vec::with_capacity(num_scalars);
