@@ -63,10 +63,22 @@ pub fn deserialize_update_commitment_sparse(
     Ok((commitment_bytes, indexes, old_scalars, new_scalars))
 }
 
-/// This is kept so that commitRoot in the java implementation can be swapped out
-/// Note: I believe we should not need to expose this method.
-pub fn deprecated_serialize_commitment(commitment: CommitmentBytes) -> [u8; 32] {
+/// Serializes a commitment to a byte array
+///
+/// Note: This is used so that we can serialize the root node.
+pub fn serialize_commitment(commitment: CommitmentBytes) -> [u8; 32] {
     Element::from_bytes_unchecked_uncompressed(commitment).to_bytes()
+}
+/// Deserialize a serialized commitment
+///
+/// Note: This is used so that we can deserialize the root node.
+pub fn deserialize_commitment(serialized_commitment: [u8; 32]) -> Result<CommitmentBytes, Error> {
+    let element = Element::from_bytes(&serialized_commitment).ok_or_else(|| {
+        Error::CouldNotDeserializeCommitment {
+            bytes: serialized_commitment.to_vec(),
+        }
+    })?;
+    Ok(element.to_bytes_uncompressed())
 }
 
 #[must_use]
@@ -153,13 +165,15 @@ pub(crate) fn fr_from_le_bytes(bytes: &[u8]) -> Result<banderwagon::Fr, Error> {
 
 #[cfg(test)]
 mod tests {
-    use banderwagon::Fr;
+    use banderwagon::{Element, Fr};
     use ipa_multipoint::committer::Committer;
 
     use crate::{
-        serialization::deserialize_update_commitment_sparse, update_commitment_sparse, Context,
-        ZERO_POINT,
+        serialization::deserialize_update_commitment_sparse, serialize_commitment,
+        update_commitment_sparse, Context, ZERO_POINT,
     };
+
+    use super::deserialize_commitment;
 
     #[test]
     fn test_byte_array_input_update_commitment_sparse() {
@@ -214,5 +228,24 @@ mod tests {
         let test_comm = committer.commit_sparse(val_indices);
 
         assert_eq!(test_comm.to_bytes_uncompressed(), new_commitment);
+    }
+
+    #[test]
+    fn serialize_commitment_roundtrip() {
+        let gen = Element::zero();
+
+        // Serialize the commitment
+        let gen_uncompressed_bytes = gen.to_bytes_uncompressed();
+        let serialized_commitment = serialize_commitment(gen_uncompressed_bytes);
+
+        let got_commitment_bytes = deserialize_commitment(serialized_commitment).unwrap();
+        let got_commitment = Element::from_bytes_unchecked_uncompressed(got_commitment_bytes);
+
+        // Note that we do not compare the raw uncompressed_bytes.
+        //
+        // See the note on `to_bytes_uncompressed` -- that method does not guarantee uniqueness
+        // of the decoding with respects to the quotient group.
+
+        assert_eq!(gen, got_commitment);
     }
 }
