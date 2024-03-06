@@ -2,9 +2,10 @@ mod serialization;
 
 // TODO: These are re-exported to not break the java code
 // TODO: we ideally don't want to export these.
-// - deprecated_serialize_commitment will be deprecated
 // - deserialize_update_commitment_sparse should not be exported and is an abstraction leak
-pub use serialization::{deprecated_serialize_commitment, deserialize_update_commitment_sparse};
+pub use serialization::{
+    deserialize_commitment, deserialize_update_commitment_sparse, serialize_commitment,
+};
 
 use banderwagon::Element;
 use banderwagon::Fr;
@@ -79,6 +80,9 @@ pub enum Error {
         item_descriptor: &'static str,
         expected_multiple: u64,
         actual_size: u64,
+    },
+    CouldNotDeserializeCommitment {
+        bytes: Vec<u8>,
     },
     ProofVerificationFailed,
 }
