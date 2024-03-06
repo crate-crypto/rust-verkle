@@ -29,6 +29,11 @@ impl CRS {
         CRS { n, G, Q }
     }
 
+    /// Returns the maximum number of elements that can be committed to
+    pub fn max_number_of_elements(&self) -> usize {
+        self.n
+    }
+
     #[allow(non_snake_case)]
     // The last element is implied to be `Q`
     pub fn from_bytes(bytes: &[[u8; 64]]) -> CRS {
