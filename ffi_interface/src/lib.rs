@@ -29,8 +29,8 @@ use crate::serialization::{deserialize_proof_query, deserialize_verifier_query};
 pub struct Context {
     pub crs: CRS,
     pub committer: DefaultCommitter,
-
     pub precomputed_weights: PrecomputedWeights,
+    pub transcript_string: String,
 }
 
 impl Default for Context {
@@ -44,12 +44,19 @@ impl Context {
         let crs = CRS::default();
         let committer = DefaultCommitter::new(&crs.G);
         let precomputed_weights = PrecomputedWeights::new(256);
+        let transcript_string = "verkle".to_string();
 
         Self {
             crs,
             committer,
             precomputed_weights,
+            transcript_string,
         }
+    }
+
+    pub fn with_transcript(mut self, transcript_string: String) -> Self {
+        self.transcript_string = transcript_string;
+        self
     }
 }
 
@@ -297,7 +304,6 @@ pub fn create_proof(context: &Context, input: Vec<u8>) -> Result<Vec<u8>, Error>
     );
 
     // - Deserialize proof queries
-    //
     let mut prover_queries: Vec<ProverQuery> = Vec::with_capacity(num_openings);
 
     for proof_bytes in proofs_bytes {
@@ -305,10 +311,11 @@ pub fn create_proof(context: &Context, input: Vec<u8>) -> Result<Vec<u8>, Error>
         prover_queries.push(prover_query);
     }
 
-    // - Create proofs
-    //
+    let transcript_string = context.transcript_string.clone();
+    // This is a dirty fix due to static lifetimes in transcript.rs file.
+    let static_ref: &'static [u8] = Box::leak(transcript_string.into_bytes().into_boxed_slice());
 
-    let mut transcript = Transcript::new(b"verkle");
+    let mut transcript = Transcript::new(static_ref);
 
     let proof = MultiPoint::open(
         // TODO: This should not need to clone the CRS, but instead take a reference
@@ -361,7 +368,11 @@ pub fn verify_proof(context: &Context, input: Vec<u8>) -> Result<(), Error> {
         verifier_queries.push(verifier_query);
     }
 
-    let mut transcript = Transcript::new(b"verkle");
+    let transcript_string = context.transcript_string.clone();
+    // This is a dirty fix due to static lifetimes in transcript.rs file.
+    let static_ref: &'static [u8] = Box::leak(transcript_string.into_bytes().into_boxed_slice());
+
+    let mut transcript = Transcript::new(static_ref);
 
     if proof.check(
         &context.crs,
@@ -635,5 +646,42 @@ mod prover_verifier_test {
         let verified = verify_proof(&context, verifier_call_bytes).is_ok();
 
         assert!(verified);
+    }
+
+    #[test]
+    fn test_verify_proof_vector_example() {
+
+        let context = Context::new().with_transcript("multiproof".to_string());
+
+        let a_0 = banderwagon::Fr::from(8);
+
+        let mut point_bytes = hex::decode("5532395cf72b9d6b2252d968cf7fd8923262d3d17fce836a93144a1dc1b59e31").unwrap();
+
+
+        let eval_point = 9 as u8;
+
+        let a_0_bytes = fr_to_le_bytes(a_0).to_vec();
+
+
+        // let mut input: Vec<u8> = point_bytes;
+
+        point_bytes.push(eval_point);
+
+        point_bytes.extend(a_0_bytes);
+
+
+        // eval_result.
+
+        let mut input = hex::decode("61f191c5ad8217b10318ad49f6c43b08a78f4f2788738b5c0fe11eac1878868667750c4fecfbf562628deed76a86982a5bbc3884b92017f71352e976fc5724502513b175a9d55787d58a18e8d21b3f7f7f41f7a0773bf81c957377c5a1de261635d11fe5ff83e8cca5d15aec75683fa1140755066b3972e0d9145e18a4bca26d3490dd54ae955df0caa17e93a788a42cb653ecb5a04c766328c457fe473e5365362dfff36827ced93127cd489364e6884dfc8a8f9ce9e15e27de49ac0827c00e6999c18d4b6966951eec028dc8d74b9a0057e51e97535cd43368f714b2c284c22c3ee5fc99d2ea22115444e0ee543283fbab1e6da03bc3ec7fe1a3dc4cd05d5c515cf783163a9a9ede3878d8f21187cbd2935b75893a2e5611a47ba11b5c69a417c24319b7ccbe43c71c12db43400816b22c749b48d5df0e9fd599801aa515277039062d9987d6ad2e91f96fd261b5f6bf6abf1e1905eb414ad91d17a234809750646e029b2e3ead9c22bd859fb9087ee77d37f3db6663136e81ef971782b99f30a05daa505542ce074b9ba1772b41b3c789a454f726455b95b8fb21af14e4da1262a48536037c0f7b8e9320f83d4cf144b22329e463ceaaf234c51f469965c54463f51dbce440583deca338451b981e9f4534da4e4f417a5844d71be57fa89748440255d9a76a2350cde4f454a8325d348522e81649e9980a204a2435ad0de5566ed7afd2aa250bf5ee0dc56e416a6a84876d979aa52753d9eec97137482113c9e5e42ee6365896f671e6932b1e5bf66b70001f1fef440d730a2844071b8b14").unwrap();
+
+        // 61f191c5ad8217b10318ad49f6c43b08a78f4f2788738b5c0fe11eac1878868667750c4fecfbf562628deed76a86982a5bbc3884b92017f71352e976fc5724502513b175a9d55787d58a18e8d21b3f7f7f41f7a0773bf81c957377c5a1de261635d11fe5ff83e8cca5d15aec75683fa1140755066b3972e0d9145e18a4bca26d3490dd54ae955df0caa17e93a788a42cb653ecb5a04c766328c457fe473e5365362dfff36827ced93127cd489364e6884dfc8a8f9ce9e15e27de49ac0827c00e6999c18d4b6966951eec028dc8d74b9a0057e51e97535cd43368f714b2c284c22c3ee5fc99d2ea22115444e0ee543283fbab1e6da03bc3ec7fe1a3dc4cd05d5c515cf783163a9a9ede3878d8f21187cbd2935b75893a2e5611a47ba11b5c69a417c24319b7ccbe43c71c12db43400816b22c749b48d5df0e9fd599801aa515277039062d9987d6ad2e91f96fd261b5f6bf6abf1e1905eb414ad91d17a234809750646e029b2e3ead9c22bd859fb9087ee77d37f3db6663136e81ef971782b99f30a05daa505542ce074b9ba1772b41b3c789a454f726455b95b8fb21af14e4da1262a48536037c0f7b8e9320f83d4cf144b22329e463ceaaf234c51f469965c54463f51dbce440583deca338451b981e9f4534da4e4f417a5844d71be57fa89748440255d9a76a2350cde4f454a8325d348522e81649e9980a204a2435ad0de5566ed7afd2aa250bf5ee0dc56e416a6a84876d979aa52753d9eec97137482113c9e5e42ee6365896f671e6932b1e5bf66b70001f1fef440d730a2844071b8b145532395cf72b9d6b2252d968cf7fd8923262d3d17fce836a93144a1dc1b59e31090800000000000000000000000000000000000000000000000000000000000000
+        // 61f191c5ad8217b10318ad49f6c43b08a78f4f2788738b5c0fe11eac1878868667750c4fecfbf562628deed76a86982a5bbc3884b92017f71352e976fc5724502513b175a9d55787d58a18e8d21b3f7f7f41f7a0773bf81c957377c5a1de261635d11fe5ff83e8cca5d15aec75683fa1140755066b3972e0d9145e18a4bca26d3490dd54ae955df0caa17e93a788a42cb653ecb5a04c766328c457fe473e5365362dfff36827ced93127cd489364e6884dfc8a8f9ce9e15e27de49ac0827c00e6999c18d4b6966951eec028dc8d74b9a0057e51e97535cd43368f714b2c284c22c3ee5fc99d2ea22115444e0ee543283fbab1e6da03bc3ec7fe1a3dc4cd05d5c515cf783163a9a9ede3878d8f21187cbd2935b75893a2e5611a47ba11b5c69a417c24319b7ccbe43c71c12db43400816b22c749b48d5df0e9fd599801aa515277039062d9987d6ad2e91f96fd261b5f6bf6abf1e1905eb414ad91d17a234809750646e029b2e3ead9c22bd859fb9087ee77d37f3db6663136e81ef971782b99f30a05daa505542ce074b9ba1772b41b3c789a454f726455b95b8fb21af14e4da1262a48536037c0f7b8e9320f83d4cf144b22329e463ceaaf234c51f469965c54463f51dbce440583deca338451b981e9f4534da4e4f417a5844d71be57fa89748440255d9a76a2350cde4f454a8325d348522e81649e9980a204a2435ad0de5566ed7afd2aa250bf5ee0dc56e416a6a84876d979aa52753d9eec97137482113c9e5e42ee6365896f671e6932b1e5bf66b70001f1fef440d730a2844071b8b14
+        input.extend(point_bytes);
+
+        let printic = hex::encode(input.clone());
+
+        println!("input is: {:?}", printic);
+
+        let result = verify_proof(&context, input).unwrap();
     }
 }
