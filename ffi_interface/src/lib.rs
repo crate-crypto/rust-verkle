@@ -15,6 +15,7 @@ use ipa_multipoint::lagrange_basis::PrecomputedWeights;
 use ipa_multipoint::multiproof::{MultiPoint, MultiPointProof, ProverQuery, VerifierQuery};
 use ipa_multipoint::transcript::Transcript;
 use serialization::{fr_from_le_bytes, fr_to_le_bytes};
+use verkle_trie::proof::golang_proof_format::{bytes32_to_element, hex_to_bytes32, VerkleProofGo};
 
 use crate::serialization::{deserialize_proof_query, deserialize_verifier_query};
 
@@ -375,13 +376,37 @@ pub fn verify_proof(context: &Context, input: Vec<u8>) -> Result<(), Error> {
     }
 }
 
+#[deprecated(
+    note = "Parsing of the execution witness and preprocessing its input should be done by clients in the future"
+)]
+/// Verifies an execution witness as specified in the EIP and on Kaustinen.
+///
+/// For an example of the format, see: https://github.com/ethereumjs/ethereumjs-monorepo/blob/master/packages/statemanager/test/testdata/verkleKaustinenBlock.json#L1-L2626
+pub fn verify_execution_witness(root: &str, execution_witness_json_str: &str) -> bool {
+    let (verkle_proof, keys_values) = VerkleProofGo::from_json_str(execution_witness_json_str)
+        .from_verkle_proof_go_to_verkle_proof();
+
+    let root = bytes32_to_element(hex_to_bytes32(root));
+
+    let (ok, _) = verkle_proof.check(keys_values.keys, keys_values.current_values, root);
+    ok
+}
+
 #[cfg(test)]
 mod tests {
-    use crate::Context;
+    use crate::{verify_execution_witness, Context};
     use banderwagon::Fr;
     use ipa_multipoint::committer::Committer;
+    use verkle_trie::proof::golang_proof_format::{EXECUTION_WITNESS_JSON, PREVIOUS_STATE_ROOT};
 
     use crate::{fr_from_le_bytes, fr_to_le_bytes};
+
+    #[test]
+    fn exec_witness_works() {
+        let result = verify_execution_witness(PREVIOUS_STATE_ROOT, EXECUTION_WITNESS_JSON);
+        assert!(result);
+    }
+
     #[test]
     fn commitment_update() {
         let context = Context::default();
