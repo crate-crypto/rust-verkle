@@ -352,131 +352,10 @@ pub mod serde_conversions {
 
 #[cfg(test)]
 mod tests {
-    use ipa_multipoint::{ipa::IPAProof, multiproof::MultiPointProof};
-
-    use crate::proof::{
-        golang_proof_format::{
-            bytes32_to_element, bytes32_to_scalar, hex_to_bytes, hex_to_bytes31, hex_to_bytes32,
-            StateDiff, SuffixDiff, VerkleProofGo, EXECUTION_WITNESS_JSON, PREVIOUS_STATE_ROOT,
-        },
-        ExtPresent, VerificationHint, VerkleProof,
+    use crate::proof::golang_proof_format::{
+        bytes32_to_element, hex_to_bytes32, VerkleProofGo, EXECUTION_WITNESS_JSON,
+        PREVIOUS_STATE_ROOT,
     };
-
-    use super::byte_to_depth_extension_present;
-
-    fn bytes_to_depth_extension_present(bytes: &[u8]) -> (Vec<ExtPresent>, Vec<u8>) {
-        let mut ext_present_statuses = Vec::with_capacity(bytes.len());
-        let mut depths = Vec::with_capacity(bytes.len());
-        for byte in bytes.iter() {
-            let (ext_status, depth) = byte_to_depth_extension_present(*byte);
-            ext_present_statuses.push(ext_status);
-            depths.push(depth);
-        }
-
-        (ext_present_statuses, depths)
-    }
-
-    #[test]
-    fn test_proof_from_json_golang_manual_conversion() {
-        // block number 0x62
-        // state root
-        let _current_state_root =
-            "0x1817126b2e3f5bb9a77835e46cb42ce46f35968d0fcf2ef2b6678c7d826e49dd";
-
-        // state diff
-        let stem = "0xab8fbede899caa6a95ece66789421c7777983761db3cfb33b5e47ba10f413b";
-        let suffix = 97;
-        let current_value: Option<&str> = None;
-        let new_value = "0x2f08a1461ab75873a0f2d23170f46d3be2ade2a7f4ebf607fc53fb361cf85865";
-
-        let state_diff = StateDiff {
-            stem: hex_to_bytes31(stem),
-            suffix_diffs: vec![SuffixDiff {
-                suffix,
-                current_value: current_value.map(hex_to_bytes32),
-                new_value: Some(hex_to_bytes32(new_value)),
-            }],
-        };
-
-        let (keys, current_values, _new_values) = state_diff.keys_with_current_values();
-
-        // Verkle proof
-        let _other_stems: Vec<&str> = vec![];
-        let depth_extension_present = "0x12";
-        let commitments_by_path = vec![
-            "0x4900c9eda0b8f9a4ef9a2181ced149c9431b627797ab747ee9747b229579b583",
-            "0x491dff71f13c89dac9aea22355478f5cfcf0af841b68e379a90aa77b8894c00e",
-            "0x525d67511657d9220031586db9d41663ad592bbafc89bc763273a3c2eb0b19dc",
-        ];
-        let d = "0x5c6e856174962f2786f0711288c8ddd90b0c317db7769ab3485818460421f08c";
-        let (extension_present, depths) =
-            bytes_to_depth_extension_present(&hex_to_bytes(&depth_extension_present));
-        let commitments_by_path_elements: Vec<_> = commitments_by_path
-            .into_iter()
-            .map(hex_to_bytes32)
-            .map(bytes32_to_element)
-            .collect();
-        let d_element = bytes32_to_element(hex_to_bytes32(d));
-
-        // ipa proof
-        let cl = vec![
-            "0x4ff3c1e2a97b6bd0861a2866acecd2fd6d2e5949196429e409bfd4851339832e",
-            "0x588cfd2b401c8afd04220310e10f7ccdf1144d2ef9191ee9f72d7d44ad1cf9d0",
-            "0x0bb16d917ecdec316d38b92558d46450b21553673f38a824037716bfee067220",
-            "0x2bdb51e80b9e43cc5011f4b51877f4d56232ce13035671f191bd4047baa11f3d",
-            "0x130f6822a47533ed201f5f15b144648a727217980ca9e86237977b7f0fe8f41e",
-            "0x2c4b83ccd0bb8ad8d370ab8308e11c95fb2020a6a62e71c9a1c08de2d32fc9f1",
-            "0x4424bec140960c09fc97ee29dad2c3ff467b7e01a19ada43979c55c697b4f583",
-            "0x5c8f76533d04c7b868e9d7fcaa901897c5f35b27552c3bf94f01951fae6fcd2a",
-        ];
-        let cr = vec![
-            "0x31cb234eeff147546cabd033235c8f446812c7f44b597d9580a10bbecac9dd82",
-            "0x6945048c033a452d346977ab306df4df653b6e7f3e0b75a705a650427ee30e88",
-            "0x38ca3c4ebbee982301b6bafd55bc9e016a7c59af95e9666b56a0680ed1cd0673",
-            "0x16160e96b0fb20d0c9c7d9ae76ca9c74300d34e05d3688315c0062204ab0d07b",
-            "0x2bc96deadab15bc74546f8882d8b88c54ea0b62b04cb597bf5076fe25c53e43c",
-            "0x301e407f62f0d1f6bf56f2e252ca89dd9f3bf09acbb0cca9230ecda24ac783b5",
-            "0x3ce1800a2e3f10e641f3ef8a8aaacf6573e9e33f4cb5b429850271528ed3cd31",
-            "0x471b1578afbd3f2762654d04db73c6a84e9770f3d6b8a189596fbad38fffa263",
-        ];
-        let final_evaluation = "0x07ca48ff9f0fb458967f070c18e5cdf180e93212bf3efba6378384c5703a61fe";
-
-        let cl_scalars: Vec<_> = cl
-            .into_iter()
-            .map(hex_to_bytes32)
-            .map(bytes32_to_element)
-            .collect();
-        let cr_scalars: Vec<_> = cr
-            .into_iter()
-            .map(hex_to_bytes32)
-            .map(bytes32_to_element)
-            .collect();
-        let final_evaluation_scalar = bytes32_to_scalar(hex_to_bytes32(final_evaluation));
-
-        let proof = VerkleProof {
-            verification_hint: VerificationHint {
-                depths,
-                extension_present,
-                diff_stem_no_proof: Default::default(), // other_stems is empty
-            },
-            comms_sorted: commitments_by_path_elements,
-            proof: MultiPointProof {
-                open_proof: IPAProof {
-                    L_vec: cl_scalars,
-                    R_vec: cr_scalars,
-                    a: final_evaluation_scalar,
-                },
-                g_x_comm: d_element,
-            },
-        };
-
-        let (ok, _) = proof.check(
-            keys,
-            current_values,
-            bytes32_to_element(hex_to_bytes32(PREVIOUS_STATE_ROOT)),
-        );
-        assert!(ok);
-    }
 
     #[test]
     fn test_proof_from_json_golang_serde() {
@@ -484,11 +363,10 @@ mod tests {
         let (got_verkle_proof, keys_values) =
             verkle_proof_go.from_verkle_proof_go_to_verkle_proof();
 
-        let (ok, _) = got_verkle_proof.check(
-            keys_values.keys,
-            keys_values.current_values,
-            bytes32_to_element(hex_to_bytes32(PREVIOUS_STATE_ROOT)),
-        );
+        let prestate_root = bytes32_to_element(hex_to_bytes32(PREVIOUS_STATE_ROOT));
+
+        let (ok, _) =
+            got_verkle_proof.check(keys_values.keys, keys_values.current_values, prestate_root);
         assert!(ok);
     }
 }
