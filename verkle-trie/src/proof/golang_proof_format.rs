@@ -18,6 +18,8 @@ struct StateDiff {
 }
 
 impl StateDiff {
+    #[allow(clippy::type_complexity)]
+    /// Returns the keys, their old values and their new values
     pub fn keys_with_current_values(
         &self,
     ) -> (Vec<[u8; 32]>, Vec<Option<[u8; 32]>>, Vec<Option<[u8; 32]>>) {
@@ -198,12 +200,12 @@ struct MultiPointProofGo {
 }
 
 pub fn hex_to_bytes32(hex: &str) -> [u8; 32] {
-    hex_to_bytesN(hex)
+    hex_to_fixed_size_array(hex)
 }
 fn hex_to_bytes31(hex: &str) -> [u8; 31] {
-    hex_to_bytesN(hex)
+    hex_to_fixed_size_array(hex)
 }
-fn hex_to_bytesN<const N: usize>(hex: &str) -> [u8; N] {
+fn hex_to_fixed_size_array<const N: usize>(hex: &str) -> [u8; N] {
     let hex = hex.trim_start_matches("0x");
     let bytes = hex::decode(hex).unwrap();
     let mut bytes_n = [0u8; N];
@@ -235,18 +237,6 @@ fn byte_to_depth_extension_present(value: u8) -> (ExtPresent, u8) {
     };
     let depth = value >> 3;
     (ext_status, depth)
-}
-
-fn bytes_to_depth_extension_present(bytes: &[u8]) -> (Vec<ExtPresent>, Vec<u8>) {
-    let mut ext_present_statuses = Vec::with_capacity(bytes.len());
-    let mut depths = Vec::with_capacity(bytes.len());
-    for byte in bytes.into_iter() {
-        let (ext_status, depth) = byte_to_depth_extension_present(*byte);
-        ext_present_statuses.push(ext_status);
-        depths.push(depth);
-    }
-
-    (ext_present_statuses, depths)
 }
 
 // Taken from https://github.com/ethereumjs/ethereumjs-monorepo/blob/master/packages/statemanager/test/testdata/verkleKaustinenBlock.json#L1-L2626
@@ -308,8 +298,6 @@ pub mod serde_conversions {
 
     use serde::{Deserialize, Serialize};
 
-    use super::EXECUTION_WITNESS_JSON;
-
     #[derive(Serialize, Deserialize, Debug)]
     pub struct ExecutionWitness {
         #[serde(rename = "stateDiff")]
@@ -357,6 +345,7 @@ pub mod serde_conversions {
 
     #[test]
     fn test_serde_works() {
+        use super::EXECUTION_WITNESS_JSON;
         let _: ExecutionWitness = serde_json::from_str(EXECUTION_WITNESS_JSON).unwrap();
     }
 }
@@ -367,12 +356,25 @@ mod tests {
 
     use crate::proof::{
         golang_proof_format::{
-            bytes32_to_element, bytes32_to_scalar, bytes_to_depth_extension_present, hex_to_bytes,
-            hex_to_bytes31, hex_to_bytes32, StateDiff, SuffixDiff, VerkleProofGo,
-            EXECUTION_WITNESS_JSON, PREVIOUS_STATE_ROOT,
+            bytes32_to_element, bytes32_to_scalar, hex_to_bytes, hex_to_bytes31, hex_to_bytes32,
+            StateDiff, SuffixDiff, VerkleProofGo, EXECUTION_WITNESS_JSON, PREVIOUS_STATE_ROOT,
         },
-        VerificationHint, VerkleProof,
+        ExtPresent, VerificationHint, VerkleProof,
     };
+
+    use super::byte_to_depth_extension_present;
+
+    fn bytes_to_depth_extension_present(bytes: &[u8]) -> (Vec<ExtPresent>, Vec<u8>) {
+        let mut ext_present_statuses = Vec::with_capacity(bytes.len());
+        let mut depths = Vec::with_capacity(bytes.len());
+        for byte in bytes.iter() {
+            let (ext_status, depth) = byte_to_depth_extension_present(*byte);
+            ext_present_statuses.push(ext_status);
+            depths.push(depth);
+        }
+
+        (ext_present_statuses, depths)
+    }
 
     #[test]
     fn test_proof_from_json_golang_manual_conversion() {

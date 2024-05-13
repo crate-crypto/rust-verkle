@@ -275,7 +275,7 @@ pub fn hash_commitments(commitments: &[CommitmentBytes]) -> Vec<ScalarBytes> {
 /// This function assumes that the domain is always 256 values and commitment is 32bytes.
 pub fn create_proof(context: &Context, input: Vec<u8>) -> Result<Vec<u8>, Error> {
     // - Checks for the serialized proof queries
-    ///
+    //
     // Define the chunk size (8257 bytes)
     // C_i, f_i(X), z_i, y_i
     // 32, 8192, 1, 32
