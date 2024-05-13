@@ -162,8 +162,12 @@ impl MultiPoint {
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MultiPointProof {
-    open_proof: IPAProof,
-    g_x_comm: Element,
+    // TODO: These are now public because the golang code
+    // exposes the proof structure to client devs,
+    // and if we don't expose, then we can't deserialize the json
+    // proof into a MultiPointProof
+    pub open_proof: IPAProof,
+    pub g_x_comm: Element,
 }
 
 impl MultiPointProof {

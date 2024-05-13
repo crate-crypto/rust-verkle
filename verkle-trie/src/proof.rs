@@ -9,6 +9,7 @@ use ipa_multipoint::transcript::Transcript;
 use std::collections::{BTreeMap, BTreeSet};
 use std::io::{Read, Write};
 
+pub mod golang_proof_format;
 mod key_path_finder;
 mod opening_data;
 pub(crate) mod prover;

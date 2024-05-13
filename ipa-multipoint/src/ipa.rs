@@ -12,9 +12,13 @@ use std::iter;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct IPAProof {
-    pub(crate) L_vec: Vec<Element>,
-    pub(crate) R_vec: Vec<Element>,
-    pub(crate) a: Fr,
+    // TODO: These are now public because the golang code
+    // exposes the proof structure to client devs,
+    // and if we don't expose, then we can't deserialize the json
+    // proof into a IPAProof.
+    pub L_vec: Vec<Element>,
+    pub R_vec: Vec<Element>,
+    pub a: Fr,
 }
 
 impl IPAProof {
