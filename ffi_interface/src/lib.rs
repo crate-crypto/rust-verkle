@@ -383,10 +383,17 @@ pub fn verify_proof(context: &Context, input: Vec<u8>) -> Result<(), Error> {
 ///
 /// For an example of the format, see: https://github.com/ethereumjs/ethereumjs-monorepo/blob/master/packages/statemanager/test/testdata/verkleKaustinenBlock.json#L1-L2626
 pub fn verify_execution_witness(root: &str, execution_witness_json_str: &str) -> bool {
-    let (verkle_proof, keys_values) = VerkleProofGo::from_json_str(execution_witness_json_str)
-        .from_verkle_proof_go_to_verkle_proof();
+    let (verkle_proof, keys_values) = match VerkleProofGo::from_json_str(execution_witness_json_str)
+        .from_verkle_proof_go_to_verkle_proof()
+    {
+        Some((verkle_proof, keys_values)) => (verkle_proof, keys_values),
+        None => return false,
+    };
 
-    let root = bytes32_to_element(hex_to_bytes32(root));
+    let root = match bytes32_to_element(hex_to_bytes32(root)) {
+        Some(root) => root,
+        None => return false,
+    };
 
     let (ok, _) = verkle_proof.check(keys_values.keys, keys_values.current_values, root);
     ok

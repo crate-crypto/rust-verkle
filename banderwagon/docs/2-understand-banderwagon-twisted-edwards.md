@@ -28,7 +28,7 @@ $$ E_{a,d} : ax^2 + y^2 = 1 + dx^2y^2$$
 
 We define the addition of two points $(x_1,y_1)$, $(x_2, y_2)$ to be:
 
-$$ (x_1, y_1) + (x_2, y_2) = (\frac{x_1y_2}{1+dx_1y_2y_1y_2},\frac{y_1y_2 - ax_1x_2}{1-dx_1x_2y_1y_2}) = (x_3,y_3)$$
+$$ (x_1, y_1) + (x_2, y_2) = (\frac{x_1y_2+y_1x_2}{1+dx_1y_2y_1y_2},\frac{y_1y_2 - ax_1x_2}{1-dx_1x_2y_1y_2}) = (x_3,y_3)$$
 
 We define the doubling of a point as:
 

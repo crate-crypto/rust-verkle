@@ -60,7 +60,7 @@ pub struct KeysValues {
 }
 
 impl VerkleProofGo {
-    pub fn from_verkle_proof_go_to_verkle_proof(&self) -> (VerkleProof, KeysValues) {
+    pub fn from_verkle_proof_go_to_verkle_proof(&self) -> Option<(VerkleProof, KeysValues)> {
         let mut depths = Vec::new();
         let mut extension_present = Vec::new();
         for byte in &self.depths_extension_present {
@@ -79,34 +79,30 @@ impl VerkleProofGo {
             new_values.extend(state_new_values);
         }
 
-        let comms_sorted = self
-            .commitments_by_path
-            .iter()
-            .copied()
-            .map(bytes32_to_element)
-            .collect();
+        let mut comms_sorted = Vec::with_capacity(self.commitments_by_path.len());
+        for comm_sorted in &self.commitments_by_path {
+            comms_sorted.push(bytes32_to_element(*comm_sorted)?)
+        }
+
+        let mut l_vec = Vec::with_capacity(self.proof.cl.len());
+        for cl in &self.proof.cl {
+            l_vec.push(bytes32_to_element(*cl)?)
+        }
+        let mut r_vec = Vec::with_capacity(self.proof.cr.len());
+        for cr in &self.proof.cr {
+            r_vec.push(bytes32_to_element(*cr)?)
+        }
+
         let proof = MultiPointProof {
             open_proof: IPAProof {
-                L_vec: self
-                    .proof
-                    .cl
-                    .iter()
-                    .copied()
-                    .map(bytes32_to_element)
-                    .collect(),
-                R_vec: self
-                    .proof
-                    .cr
-                    .iter()
-                    .copied()
-                    .map(bytes32_to_element)
-                    .collect(),
+                L_vec: l_vec,
+                R_vec: r_vec,
                 a: bytes32_to_scalar(self.proof.final_evaluation),
             },
-            g_x_comm: bytes32_to_element(self.proof.d),
+            g_x_comm: bytes32_to_element(self.proof.d)?,
         };
 
-        (
+        Some((
             VerkleProof {
                 verification_hint: VerificationHint {
                     depths,
@@ -121,7 +117,7 @@ impl VerkleProofGo {
                 current_values,
                 new_values,
             },
-        )
+        ))
     }
 
     pub fn from_json_str(execution_witness: &str) -> Self {
@@ -219,8 +215,8 @@ fn hex_to_bytes(hex: &str) -> Vec<u8> {
     bytes_vec.copy_from_slice(&bytes);
     bytes_vec
 }
-pub fn bytes32_to_element(bytes: [u8; 32]) -> Element {
-    Element::from_bytes(&bytes).unwrap()
+pub fn bytes32_to_element(bytes: [u8; 32]) -> Option<Element> {
+    Element::from_bytes(&bytes)
 }
 fn bytes32_to_scalar(mut bytes: [u8; 32]) -> Fr {
     bytes.reverse();
@@ -360,10 +356,11 @@ mod tests {
     #[test]
     fn test_proof_from_json_golang_serde() {
         let verkle_proof_go = VerkleProofGo::from_json_str(EXECUTION_WITNESS_JSON);
-        let (got_verkle_proof, keys_values) =
-            verkle_proof_go.from_verkle_proof_go_to_verkle_proof();
+        let (got_verkle_proof, keys_values) = verkle_proof_go
+            .from_verkle_proof_go_to_verkle_proof()
+            .unwrap();
 
-        let prestate_root = bytes32_to_element(hex_to_bytes32(PREVIOUS_STATE_ROOT));
+        let prestate_root = bytes32_to_element(hex_to_bytes32(PREVIOUS_STATE_ROOT)).unwrap();
 
         let (ok, _) =
             got_verkle_proof.check(keys_values.keys, keys_values.current_values, prestate_root);
