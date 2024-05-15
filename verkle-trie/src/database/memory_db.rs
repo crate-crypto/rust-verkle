@@ -57,9 +57,7 @@ impl ReadOnlyHigherDb for MemoryDb {
     }
 
     fn get_leaf(&self, key: [u8; 32]) -> Option<[u8; 32]> {
-        self.leaf_table
-            .get(&key)
-            .map(|val| val.to_vec().try_into().unwrap())
+        self.leaf_table.get(&key).map(|val| *val)
     }
 
     fn get_branch_children(&self, branch_id: &[u8]) -> Vec<(u8, BranchChild)> {
