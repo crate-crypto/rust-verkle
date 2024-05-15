@@ -1,9 +1,6 @@
 use banderwagon::{trait_defs::*, Fr};
 
-use std::{
-    convert::TryFrom,
-    ops::{Add, Mul, Sub},
-};
+use std::ops::{Add, Mul, Sub};
 
 #[derive(Clone, Debug)]
 pub struct LagrangeBasis {

@@ -6,10 +6,7 @@ use crate::{
 };
 use banderwagon::{trait_defs::*, Element, Fr};
 use ipa_multipoint::multiproof::VerifierQuery;
-use std::{
-    collections::{BTreeMap, BTreeSet},
-    convert::TryInto,
-};
+use std::collections::{BTreeMap, BTreeSet};
 
 // TODO Document this better and refactor
 pub fn create_verifier_queries(

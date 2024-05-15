@@ -1,6 +1,6 @@
 use super::{BranchChild, Flush, ReadOnlyHigherDb, WriteOnlyHigherDb};
 use crate::database::{BranchMeta, StemMeta};
-use std::{collections::HashMap, convert::TryInto};
+use std::collections::HashMap;
 
 #[derive(Debug, Clone)]
 pub struct MemoryDb {
@@ -57,7 +57,7 @@ impl ReadOnlyHigherDb for MemoryDb {
     }
 
     fn get_leaf(&self, key: [u8; 32]) -> Option<[u8; 32]> {
-        self.leaf_table.get(&key).map(|val| *val)
+        self.leaf_table.get(&key).copied()
     }
 
     fn get_branch_children(&self, branch_id: &[u8]) -> Vec<(u8, BranchChild)> {
