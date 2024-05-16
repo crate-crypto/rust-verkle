@@ -758,7 +758,7 @@ fn path_difference(key_a: [u8; 31], key_b: [u8; 31]) -> (Vec<u8>, Option<u8>, Op
 fn expand_path<'a>(
     base: &'a [u8],
     relative: &'a [u8],
-) -> impl Iterator<Item = Vec<u8>> + DoubleEndedIterator + 'a {
+) -> impl DoubleEndedIterator<Item = Vec<u8>> + 'a {
     assert!(!relative.is_empty());
 
     (0..relative.len()).map(|idx| Vec::from_iter(base.iter().chain(&relative[0..=idx]).cloned()))
