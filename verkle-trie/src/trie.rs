@@ -373,7 +373,7 @@ impl<Storage: ReadWriteHigherDb, PolyCommit: Committer> Trie<Storage, PolyCommit
 
                     //0. Compute the path for each inner node
                     let mut inner_node_paths =
-                        paths_from_relative(parent_branch_node.clone(), chain_insert_path.clone());
+                        expand_path(&parent_branch_node, &chain_insert_path).rev();
                     //
                     // 1. First check that before modification, the node which starts the chain is a stem
                     // we will later replace it later with an inner node.
@@ -387,7 +387,7 @@ impl<Storage: ReadWriteHigherDb, PolyCommit: Committer> Trie<Storage, PolyCommit
 
                     //2a. Now lets create the inner node which will hold the two stems
                     // Note; it's position will be at the bottom of the chain.
-                    let bottom_inner_node_path = inner_node_paths.pop().unwrap();
+                    let bottom_inner_node_path = inner_node_paths.next().unwrap();
                     let bottom_inode_depth = bottom_inner_node_path.len() as u8;
                     self.storage.insert_branch(
                         bottom_inner_node_path.clone(),
@@ -434,7 +434,7 @@ impl<Storage: ReadWriteHigherDb, PolyCommit: Committer> Trie<Storage, PolyCommit
                     // All nodes except the first node will have an old_value of 0 (Since they are being created now)
                     // This allows us to skip fetching their values from the database. We will just need to manually update the
                     // First node which had an old value equal to the stems value
-                    let shortened_path = inner_node_paths.iter().rev();
+                    let shortened_path = inner_node_paths;
 
                     // We now want to start from the bottom and update each inner node's commitment and hash
 
@@ -743,21 +743,27 @@ fn path_difference(key_a: [u8; 31], key_b: [u8; 31]) -> (Vec<u8>, Option<u8>, Op
 
     (same_path_indices, None, None)
 }
-// Given a parent path such as [0,1,2]
-// and relative paths such as [5,6,7]
-// This method returns the following paths:
-// [0,1,2,5], [0,1,2,5,6], [0,1,2,5,6,7]
+
 // TODO: Is this hurting performance? If so can we rewrite it to be more efficient?
 // TODO Eagerly, we can use SmallVec32
-fn paths_from_relative(parent_path: Vec<u8>, relative_paths: Vec<u8>) -> Vec<Vec<u8>> {
-    assert!(!relative_paths.is_empty());
+/// Expand a base path by the sequential children of relative path.
+///
+/// # Example
+///
+/// Given a base path [0, 1, 2] and relative path [5, 6, 7] the base path
+/// will be expanded to 3 paths:
+/// [0, 1, 2, 5]
+/// [0, 1, 2, 5, 6]
+/// [0, 1, 2, 5, 6, 7]
+fn expand_path<'a>(
+    base: &'a [u8],
+    relative: &'a [u8],
+) -> impl DoubleEndedIterator<Item = Vec<u8>> + 'a {
+    assert!(!relative.is_empty());
 
-    let mut result = vec![parent_path; relative_paths.len()];
-    for (i, curr) in result.iter_mut().enumerate() {
-        curr.extend_from_slice(&relative_paths[0..i + 1])
-    }
-    result
+    (0..relative.len()).map(|idx| Vec::from_iter(base.iter().chain(&relative[0..=idx]).cloned()))
 }
+
 #[cfg(test)]
 mod tests {
 
@@ -1131,7 +1137,7 @@ mod tests {
             vec![0, 1, 2, 5, 6],
             vec![0, 1, 2, 5, 6, 7],
         ];
-        let result = super::paths_from_relative(parent, rel);
+        let result = super::expand_path(&parent, &rel).collect::<Vec<_>>();
 
         assert_eq!(result.len(), expected.len());
         for (got, expected) in result.into_iter().zip(expected) {
