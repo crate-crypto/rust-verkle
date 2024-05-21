@@ -8,10 +8,7 @@ use crate::{
 
 use banderwagon::{trait_defs::*, Fr};
 use ipa_multipoint::{lagrange_basis::LagrangeBasis, multiproof::ProverQuery};
-use std::{
-    collections::{BTreeMap, BTreeSet},
-    convert::TryInto,
-};
+use std::collections::{BTreeMap, BTreeSet};
 
 // Stores opening data that can then be used to form opening queries
 #[derive(Debug, Default)]

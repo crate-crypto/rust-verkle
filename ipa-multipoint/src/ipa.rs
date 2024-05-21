@@ -199,8 +199,6 @@ impl IPAProof {
         let w = transcript.challenge_scalar(b"w");
         let Q = crs.Q * w;
 
-        let num_rounds = self.L_vec.len();
-
         let mut a_comm = a_comm + (Q * output_point);
 
         let challenges = generate_challenges(self, transcript);
