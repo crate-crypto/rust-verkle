@@ -13,7 +13,7 @@ pub struct Code {
 impl Code {
     pub fn new<H: Hasher>(address: Address32, chunk_id: U256) -> Code {
         let index = (CODE_OFFSET + chunk_id) / VERKLE_NODE_WIDTH;
-        let sub_index = CODE_OFFSET + chunk_id % VERKLE_NODE_WIDTH;
+        let sub_index = (CODE_OFFSET + chunk_id) % VERKLE_NODE_WIDTH;
 
         let base_hash = hash_addr_int::<H>(address, index);
         let code_chunk_tree_key = swap_last_byte(base_hash, sub_index);
@@ -72,7 +72,7 @@ pub fn chunkify_code(code: Vec<u8>) -> Vec<Bytes32> {
             }
 
             leftover_push_data -= chunk.len();
-            remaining_pushdata_bytes.push(chunk.len());
+            remaining_pushdata_bytes.push(leftover_push_data);
             continue;
         }
 
@@ -84,7 +84,7 @@ pub fn chunkify_code(code: Vec<u8>) -> Vec<Bytes32> {
         let pc = leftover_push_data;
         let offsetted_chunk = &chunk[pc..];
         leftover_push_data = compute_leftover_push_data(offsetted_chunk) as usize;
-        remaining_pushdata_bytes.push(leftover_push_data);
+        remaining_pushdata_bytes.push(leftover_push_data.min(chunk.len()));
     }
 
     // Merge the remaining push data byte markers with the 31 byte chunks.
@@ -185,7 +185,7 @@ fn leftover_fuzz() {
 }
 
 #[test]
-fn simple_chunkify_test() {
+fn chunkify_simple_test() {
     let push4 = PUSH_OFFSET + 4;
     let push3 = PUSH_OFFSET + 3;
     let push21 = PUSH_OFFSET + 21;
@@ -228,4 +228,46 @@ fn simple_chunkify_test() {
     // The third chunk should have a leading by of 0, since the last push instruction was PUSH7 and we stored all 7 bytes
     // in the second chunk
     assert_eq!(chunk3[0], 0);
+}
+
+#[test]
+fn chunkify_with_push32_at_end_test() {
+    let push21 = PUSH_OFFSET + 21;
+
+    let code: Vec<[u8; 31]> = vec![
+        // First 31 bytes
+        [
+            1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24,
+            25, 26, 27, 28, 29, 30, PUSH32,
+        ],
+        // Second 31 bytes
+        [
+            1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24,
+            25, 26, 27, 28, 29, 30, 31,
+        ],
+        // Third 31 bytes
+        [
+            32, push21, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21,
+            0, 0, 0, 0, 0, 0, 0, 0,
+        ],
+    ];
+    let code = code.into_iter().flatten().collect();
+
+    let chunked_code = chunkify_code(code);
+
+    let num_chunks = chunked_code.len();
+    assert_eq!(num_chunks, 3);
+
+    let chunk1 = chunked_code[0];
+    let chunk2 = chunked_code[1];
+    let chunk3 = chunked_code[2];
+
+    // The first chunk should have a leading byte of 0;
+    assert_eq!(chunk1[0], 0);
+    // The second chunk should have a leading byte of 31, because the last push instruction from chunk1 was PUSH32
+    // and we couldn't store any of 32 bytes in that chunk, but chunk can store only 31 non-leading bytes.
+    assert_eq!(chunk2[0], 31);
+    // The third chunk should have a leading byte of 1, because the last push instruction was PUSH32 in chunk1 that
+    // we didn't finish in chunk2.
+    assert_eq!(chunk3[0], 1);
 }
