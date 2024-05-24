@@ -42,11 +42,11 @@ pub enum ExtPresent {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct VerificationHint {
     // depths and extension present status sorted by stem
-    depths: Vec<u8>,
-    extension_present: Vec<ExtPresent>,
+    pub depths: Vec<u8>,
+    pub extension_present: Vec<ExtPresent>,
     // All of the stems which are in the trie,
     // however, we are not directly proving any of their values
-    diff_stem_no_proof: BTreeSet<[u8; 31]>,
+    pub diff_stem_no_proof: BTreeSet<[u8; 31]>,
 }
 
 impl std::fmt::Display for VerificationHint {
@@ -168,14 +168,16 @@ pub struct UpdateHint {
     other_stems_by_prefix: BTreeMap<Vec<u8>, [u8; 31]>,
 }
 
+// TODO: We make the fields of VerkleProof public due to these being exposed in
+// TODO: the Block/golang code, so for now they need to be public.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct VerkleProof {
-    verification_hint: VerificationHint,
+    pub verification_hint: VerificationHint,
     // Commitments sorted by their paths and then their indices
     // The root is taken out when we serialize, so the verifier does not receive it
-    comms_sorted: Vec<Element>,
+    pub comms_sorted: Vec<Element>,
     //
-    proof: MultiPointProof,
+    pub proof: MultiPointProof,
 }
 
 impl VerkleProof {
