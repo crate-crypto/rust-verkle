@@ -24,7 +24,7 @@ pub(crate) mod verifier;
 // TODO Need to check if this is fine with the Verifier algorithm
 // TODO Note KeyState holds more information
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum ExtPresent {
+pub enum ExtPresent {
     // This means that there is no extensions present at all
     // this corresponds to the case of when the key is not in the trie
     // and the place where we would place it is empty.
