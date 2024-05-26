@@ -82,7 +82,7 @@ pub fn deserialize_commitment(serialized_commitment: [u8; 32]) -> Result<Commitm
 }
 
 #[must_use]
-pub(crate) fn deserialize_proof_query(bytes: &[u8]) -> ProverQuery {
+pub fn deserialize_proof_query(bytes: &[u8]) -> ProverQuery {
     // Commitment
     let (commitment, mut bytes) = take_group_element(bytes);
 
@@ -157,7 +157,7 @@ pub(crate) fn fr_to_le_bytes(fr: banderwagon::Fr) -> [u8; 32] {
         .expect("Failed to serialize scalar to bytes");
     bytes
 }
-pub(crate) fn fr_from_le_bytes(bytes: &[u8]) -> Result<banderwagon::Fr, Error> {
+pub fn fr_from_le_bytes(bytes: &[u8]) -> Result<banderwagon::Fr, Error> {
     banderwagon::Fr::deserialize_uncompressed(bytes).map_err(|_| Error::FailedToDeserializeScalar {
         bytes: bytes.to_vec(),
     })

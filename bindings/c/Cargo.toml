@@ -1,0 +1,20 @@
+[package]
+name = "c_verkle"
+version = "0.1.0"
+edition = "2021"
+
+
+[lib]
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[dependencies]
+libc = "0.2.2"
+hex = "*"
+banderwagon = { path = "../../banderwagon" }
+ipa-multipoint = { path = "../../ipa-multipoint" }
+verkle-spec = { path = "../../verkle-spec" }
+verkle-trie = { path = "../../verkle-trie" }
+ffi_interface = { path = "../../ffi_interface" }
+
+[build-dependencies]
+cbindgen = "0.26.0"

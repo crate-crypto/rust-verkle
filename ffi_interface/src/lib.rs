@@ -1,4 +1,4 @@
-mod serialization;
+pub mod serialization;
 
 // TODO: These are re-exported to not break the java code
 // TODO: we ideally don't want to export these.
