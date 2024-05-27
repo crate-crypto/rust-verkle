@@ -112,7 +112,7 @@ pub fn deserialize_proof_query(bytes: &[u8]) -> ProverQuery {
 }
 
 #[must_use]
-pub(crate) fn deserialize_verifier_query(bytes: &[u8]) -> VerifierQuery {
+pub fn deserialize_verifier_query(bytes: &[u8]) -> VerifierQuery {
     // Commitment
     let (commitment, bytes) = take_group_element(bytes);
 
@@ -151,7 +151,7 @@ pub(crate) fn take_scalar(bytes: &[u8]) -> (Fr, &[u8]) {
     (y_i, &bytes[32..])
 }
 
-pub(crate) fn fr_to_le_bytes(fr: banderwagon::Fr) -> [u8; 32] {
+pub fn fr_to_le_bytes(fr: banderwagon::Fr) -> [u8; 32] {
     let mut bytes = [0u8; 32];
     fr.serialize_compressed(&mut bytes[..])
         .expect("Failed to serialize scalar to bytes");
