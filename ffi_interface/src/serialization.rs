@@ -112,6 +112,36 @@ pub fn deserialize_proof_query(bytes: &[u8]) -> ProverQuery {
 }
 
 #[must_use]
+pub fn deserialize_proof_query_uncompressed(bytes: &[u8]) -> ProverQuery {
+    // Commitment
+    let (commitment, mut bytes) = take_uncompressed_group_element(bytes);
+
+    // f_x is a polynomial of degree 255, so we have 256 Fr elements
+    const NUMBER_OF_EVALUATIONS: usize = 256;
+    let mut collect_lagrange_basis: Vec<Fr> = Vec::with_capacity(NUMBER_OF_EVALUATIONS);
+    for _ in 0..NUMBER_OF_EVALUATIONS {
+        let (scalar, offsetted_bytes) = take_scalar(bytes);
+        collect_lagrange_basis.push(scalar);
+        bytes = offsetted_bytes;
+    }
+
+    // The input point is a single byte
+    let (z_i, bytes) = take_byte(bytes);
+
+    // The evaluation is a single scalar
+    let (y_i, bytes) = take_scalar(bytes);
+
+    assert!(bytes.is_empty(), "we should have consumed all the bytes");
+
+    ProverQuery {
+        commitment,
+        poly: LagrangeBasis::new(collect_lagrange_basis),
+        point: z_i,
+        result: y_i,
+    }
+}
+
+#[must_use]
 pub fn deserialize_verifier_query(bytes: &[u8]) -> VerifierQuery {
     // Commitment
     let (commitment, bytes) = take_group_element(bytes);
@@ -129,6 +159,16 @@ pub fn deserialize_verifier_query(bytes: &[u8]) -> VerifierQuery {
         point: Fr::from(z_i as u128),
         result: y_i,
     }
+}
+
+#[must_use]
+pub(crate) fn take_uncompressed_group_element(bytes: &[u8]) -> (Element, &[u8]) {
+    let byte_array: [u8; 64] = bytes[..64]
+        .try_into()
+        .expect("Expected a slice of exactly 64 bytes");
+    let element = Element::from_bytes_unchecked_uncompressed(byte_array);
+    // Increment the slice by 64 bytes
+    (element, &bytes[64..])
 }
 
 #[must_use]
