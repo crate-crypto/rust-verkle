@@ -17,7 +17,9 @@ use ipa_multipoint::transcript::Transcript;
 pub use serialization::{fr_from_le_bytes, fr_to_le_bytes};
 use verkle_trie::proof::golang_proof_format::{bytes32_to_element, hex_to_bytes32, VerkleProofGo};
 
-pub use crate::serialization::{deserialize_proof_query, deserialize_verifier_query};
+pub use crate::serialization::{
+    deserialize_proof_query, deserialize_proof_query_uncompressed, deserialize_verifier_query,
+};
 
 /// Context holds all of the necessary components needed for cryptographic operations
 /// in the Verkle Trie. This includes:
