@@ -162,6 +162,26 @@ pub fn deserialize_verifier_query(bytes: &[u8]) -> VerifierQuery {
 }
 
 #[must_use]
+pub fn deserialize_verifier_query_uncompressed(bytes: &[u8]) -> VerifierQuery {
+    // Commitment
+    let (commitment, bytes) = take_uncompressed_group_element(bytes);
+
+    // The input point is a single byte
+    let (z_i, bytes) = take_byte(bytes);
+
+    // The evaluation is a single scalar
+    let (y_i, bytes) = take_scalar(bytes);
+
+    assert!(bytes.is_empty(), "we should have consumed all the bytes");
+
+    VerifierQuery {
+        commitment,
+        point: Fr::from(z_i as u128),
+        result: y_i,
+    }
+}
+
+#[must_use]
 pub(crate) fn take_uncompressed_group_element(bytes: &[u8]) -> (Element, &[u8]) {
     let mut commitment: CommitmentBytes = bytes[..64]
         .try_into()

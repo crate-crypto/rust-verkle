@@ -19,6 +19,7 @@ use verkle_trie::proof::golang_proof_format::{bytes32_to_element, hex_to_bytes32
 
 pub use crate::serialization::{
     deserialize_proof_query, deserialize_proof_query_uncompressed, deserialize_verifier_query,
+    deserialize_verifier_query_uncompressed,
 };
 
 /// Context holds all of the necessary components needed for cryptographic operations

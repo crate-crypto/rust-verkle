@@ -1,6 +1,6 @@
 use ffi_interface::{
     deserialize_proof_query, deserialize_proof_query_uncompressed, deserialize_verifier_query,
-    fr_from_le_bytes, get_tree_key_hash, Context,
+    deserialize_verifier_query_uncompressed, fr_from_le_bytes, get_tree_key_hash, Context,
 };
 use ipa_multipoint::committer::{Committer, DefaultCommitter};
 use ipa_multipoint::crs::CRS;
@@ -219,6 +219,62 @@ pub extern "C" fn verify_proof(ctx: *mut Context, input: *const u8, len: usize) 
 
     for verifier_query_bytes in verifier_queries_bytes {
         let verifier_query = deserialize_verifier_query(verifier_query_bytes);
+        verifier_queries.push(verifier_query);
+    }
+
+    // - Check proof
+    //
+
+    let proof = MultiPointProof::from_bytes(proof_slice, 256).unwrap();
+
+    let mut transcript = Transcript::new(b"verkle");
+
+    // TODO: This should not need to clone the CRS, but instead take a reference
+    let is_valid = MultiPointProof::check(
+        &proof,
+        &context.crs.clone(),
+        &context.precomputed_weights,
+        &verifier_queries,
+        &mut transcript,
+    );
+
+    return is_valid;
+}
+
+pub extern "C" fn verify_proof_uncompressed(
+    ctx: *mut Context,
+    input: *const u8,
+    len: usize,
+) -> bool {
+    // Chunk is now 65 + 32 = 97 because first commitment is uncompressed as 64 bytes
+    const CHUNK_SIZE: usize = 97; // TODO: get this from ipa-multipoint
+    const PROOF_SIZE: usize = 576; // TODO: get this from ipa-multipoint
+
+    let (proof_slice, verifier_queries_slices, context) = unsafe {
+        let input_slice = std::slice::from_raw_parts(input, len);
+
+        let (proof_slice, verifier_queries_slices) = input_slice.split_at(PROOF_SIZE);
+
+        let ctx_ref = &*ctx;
+
+        (proof_slice, verifier_queries_slices, ctx_ref)
+    };
+
+    let verifier_queries_bytes = verifier_queries_slices.chunks_exact(CHUNK_SIZE);
+    assert!(
+        verifier_queries_bytes.remainder().is_empty(),
+        "There should be no left over bytes when chunking the verifier queries"
+    );
+
+    let num_openings = verifier_queries_bytes.len() / CHUNK_SIZE;
+
+    // - Deserialize verifier queries
+    //
+
+    let mut verifier_queries: Vec<VerifierQuery> = Vec::with_capacity(num_openings);
+
+    for verifier_query_bytes in verifier_queries_bytes {
+        let verifier_query = deserialize_verifier_query_uncompressed(verifier_query_bytes);
         verifier_queries.push(verifier_query);
     }
 
