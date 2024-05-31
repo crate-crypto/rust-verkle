@@ -163,10 +163,10 @@ pub fn deserialize_verifier_query(bytes: &[u8]) -> VerifierQuery {
 
 #[must_use]
 pub(crate) fn take_uncompressed_group_element(bytes: &[u8]) -> (Element, &[u8]) {
-    let byte_array: [u8; 64] = bytes[..64]
+    let commitment: CommitmentBytes = bytes[..64]
         .try_into()
         .expect("Expected a slice of exactly 64 bytes");
-    let element = Element::from_bytes_unchecked_uncompressed(byte_array);
+    let element = Element::from_bytes_unchecked_uncompressed(commitment);
     // Increment the slice by 64 bytes
     (element, &bytes[64..])
 }
