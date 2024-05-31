@@ -241,6 +241,7 @@ pub extern "C" fn verify_proof(ctx: *mut Context, input: *const u8, len: usize) 
     return is_valid;
 }
 
+#[no_mangle]
 pub extern "C" fn verify_proof_uncompressed(
     ctx: *mut Context,
     input: *const u8,
