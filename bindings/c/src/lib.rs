@@ -2,9 +2,7 @@ use ffi_interface::{
     deserialize_proof_query, deserialize_proof_query_uncompressed, deserialize_verifier_query,
     deserialize_verifier_query_uncompressed, fr_from_le_bytes, get_tree_key_hash, Context,
 };
-use ipa_multipoint::committer::{Committer, DefaultCommitter};
-use ipa_multipoint::crs::CRS;
-use ipa_multipoint::lagrange_basis::PrecomputedWeights;
+use ipa_multipoint::committer::Committer;
 use ipa_multipoint::multiproof::{MultiPoint, MultiPointProof, ProverQuery, VerifierQuery};
 use ipa_multipoint::transcript::Transcript;
 
