@@ -141,7 +141,7 @@ pub extern "C" fn create_proof_uncompressed(
 ) {
     // 8257 + 32 because first commitment is uncompressed as 64 bytes
     const CHUNK_SIZE: usize = 8289; // TODO: get this from ipa-multipoint
-    const PROOF_SIZE: usize = 576; // TODO: get this from ipa-multipoint
+    const PROOF_SIZE: usize = 1120; // TODO: get this from ipa-multipoint
 
     let (scalar_slice, context) = unsafe {
         let scalar = std::slice::from_raw_parts(input, len);
@@ -247,7 +247,7 @@ pub extern "C" fn verify_proof_uncompressed(
 ) -> bool {
     // Chunk is now 65 + 32 = 97 because first commitment is uncompressed as 64 bytes
     const CHUNK_SIZE: usize = 97; // TODO: get this from ipa-multipoint
-    const PROOF_SIZE: usize = 576; // TODO: get this from ipa-multipoint
+    const PROOF_SIZE: usize = 1120; // TODO: get this from ipa-multipoint
 
     let (proof_slice, verifier_queries_slices, context) = unsafe {
         let input_slice = std::slice::from_raw_parts(input, len);
