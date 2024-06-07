@@ -180,7 +180,9 @@ pub extern "C" fn create_proof_uncompressed(
         prover_queries,
     );
 
-    let hash = proof.to_bytes().expect("cannot serialize proof");
+    let hash = proof
+        .to_bytes_uncompressed()
+        .expect("cannot serialize proof");
     unsafe {
         let commitment_data_slice = std::slice::from_raw_parts_mut(out, PROOF_SIZE);
         commitment_data_slice.copy_from_slice(&hash);
@@ -280,7 +282,7 @@ pub extern "C" fn verify_proof_uncompressed(
     // - Check proof
     //
 
-    let proof = MultiPointProof::from_bytes(proof_slice, 256).unwrap();
+    let proof = MultiPointProof::from_bytes_unchecked_uncompressed(proof_slice, 256).unwrap();
 
     let mut transcript = Transcript::new(b"verkle");
 
