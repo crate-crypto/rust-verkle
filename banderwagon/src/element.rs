@@ -207,7 +207,90 @@ pub fn multi_scalar_mul(bases: &[Element], scalars: &[Fr]) -> Element {
 mod tests {
     use super::*;
 
-    use ark_serialize::CanonicalSerialize;
+    #[test]
+    fn mamy_bug() {
+        //         s0 = Fr(int('0x1a06b1d9fec247121f09d6328b709165929132278d9947104e73c7b92410cbce', 16))
+        // s1 = Fr(int('0x0585f67816f43446bf63b37701e4d5cc4e7485a3bcfbf08291071766d9cf122d', 16))
+
+        // g0 = BandersnatchAffinePoint(
+        //     Fp(int('0x6477213e3cb2c61aba8d5f5249aa83587e48c0f5cf0d1ad8c1d09cc9bd54daba', 16)),
+        //     Fp(int('0x3084f65ca387e938ff146ae62a299f1d921ec2c0a7e82662e401d6c2f29dab8f', 16))
+        // )
+        // g1 = BandersnatchAffinePoint(
+        //     Fp(int('0x7001836a933960deeb0c9a0014276ee42a42b802b8a64acee236fcffac2a045a', 16)),
+        //     Fp(int('0x38045b6a248d6f9bbb789cf86504ec70d2dde0b5467e13d795c55129d4cdf1d4', 16))
+        // )
+        // a = Fr(int('0x0cfe04d11eada0fb11085a64613291830a60c6b7f4f1341e9b59f9867bd1bad5', 16))
+
+        fn hex_to_fq(hex_str: &str) -> Fq {
+            let bytes = hex::decode(hex_str).unwrap();
+            Fq::from_be_bytes_mod_order(&bytes)
+        }
+        fn hex_to_fr(hex_str: &str) -> Fr {
+            let bytes = hex::decode(hex_str).unwrap();
+            Fr::from_be_bytes_mod_order(&bytes)
+        }
+
+        use ark_ff::PrimeField;
+
+        let s0 = hex_to_fr("1a06b1d9fec247121f09d6328b709165929132278d9947104e73c7b92410cbce");
+        let s1 = hex_to_fr("0585f67816f43446bf63b37701e4d5cc4e7485a3bcfbf08291071766d9cf122d");
+        // let s1 = hex_to_fr("14a5522ff207c747b0384f25f78041e57a1e9c24ff2d19494dad7aada7aef517");
+
+        let g0 = EdwardsAffine::new_unchecked(
+            hex_to_fq("6477213e3cb2c61aba8d5f5249aa83587e48c0f5cf0d1ad8c1d09cc9bd54daba"),
+            hex_to_fq("3084f65ca387e938ff146ae62a299f1d921ec2c0a7e82662e401d6c2f29dab8f"),
+        );
+        let g1 = EdwardsAffine::new_unchecked(
+            hex_to_fq("7001836a933960deeb0c9a0014276ee42a42b802b8a64acee236fcffac2a045a"),
+            hex_to_fq("38045b6a248d6f9bbb789cf86504ec70d2dde0b5467e13d795c55129d4cdf1d4"),
+        );
+
+        let a = hex_to_fr("0cfe04d11eada0fb11085a64613291830a60c6b7f4f1341e9b59f9867bd1bad5");
+
+        // def test1():
+        //     t0 = g0 * s0
+        //     t1 = g1 * s1
+
+        //     t0 += t1
+        //     t0 *= a
+        //     print(f'test 1: {to_hex_ec(t0)}')
+        //     return t0
+
+        // def test2():
+        //     v0 = a * s0
+        //     v1 = a * s1
+        //     t0 = g0 * v0
+        //     t1 = g1 * v1
+        //     t0 += t1
+        //     print(f'test 2: {to_hex_ec(t0)}')
+        //     return t0
+
+        // u = test1()
+        // v = test2()
+
+        // test 1
+        let lhs = {
+            let mut t0 = g0 * s0;
+            let t1 = g1 * s1;
+
+            t0 += t1;
+            t0 *= a;
+            t0
+        };
+
+        // test 2
+        let rhs = {
+            let v0 = a * s0;
+            let v1 = a * s1;
+            let mut t0 = g0 * v0;
+            let t1 = g1 * v1;
+            t0 += t1;
+            t0
+        };
+        assert_eq!(lhs, rhs)
+    }
+
     #[test]
     fn consistent_group_to_field() {
         // In python this is called commitment_to_field
@@ -255,6 +338,7 @@ mod tests {
 #[cfg(test)]
 mod test {
     use super::*;
+
     // Two torsion point, *not*  point at infinity {0,-1,0,1}
     fn two_torsion() -> EdwardsProjective {
         EdwardsProjective::new_unchecked(Fq::zero(), -Fq::one(), Fq::zero(), Fq::one())
