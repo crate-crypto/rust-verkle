@@ -248,6 +248,12 @@ mod tests {
 
         // Do the banderwagon subgroup checks
         {
+            assert!(g0.is_on_curve());
+            assert!(g1.is_on_curve());
+
+            // assert!(g0.is_in_correct_subgroup_assuming_on_curve());
+            // assert!(g1.is_in_correct_subgroup_assuming_on_curve());
+
             let g0 = Element(g0.into());
             let g1 = Element(g1.into());
             if !g0.subgroup_check() {
@@ -286,6 +292,8 @@ mod tests {
 
         // test 1
         let lhs = {
+            let g0 = g0 * Fr::from(4u64);
+            let g1 = g1 * Fr::from(4u64);
             let mut t0 = g0 * s0;
             let t1 = g1 * s1;
 
@@ -296,6 +304,8 @@ mod tests {
 
         // test 2
         let rhs = {
+            let g0 = g0 * Fr::from(4u64);
+            let g1 = g1 * Fr::from(4u64);
             let v0 = a * s0;
             let v1 = a * s1;
             let mut t0 = g0 * v0;
@@ -303,7 +313,7 @@ mod tests {
             t0 += t1;
             t0
         };
-        assert_eq!(lhs, rhs)
+        assert_eq!(lhs, rhs);
     }
 
     #[test]
