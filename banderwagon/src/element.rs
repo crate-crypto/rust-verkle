@@ -246,6 +246,18 @@ mod tests {
             hex_to_fq("38045b6a248d6f9bbb789cf86504ec70d2dde0b5467e13d795c55129d4cdf1d4"),
         );
 
+        // Do the banderwagon subgroup checks
+        {
+            let g0 = Element(g0.into());
+            let g1 = Element(g1.into());
+            if !g0.subgroup_check() {
+                panic!("g0 element not in the right subgroup");
+            }
+            if !g1.subgroup_check() {
+                panic!("g1 element not in the right subgroup");
+            }
+        }
+
         let a = hex_to_fr("0cfe04d11eada0fb11085a64613291830a60c6b7f4f1341e9b59f9867bd1bad5");
 
         // def test1():
