@@ -234,16 +234,16 @@ mod tests {
         use ark_ff::PrimeField;
 
         let s0 = hex_to_fr("1a06b1d9fec247121f09d6328b709165929132278d9947104e73c7b92410cbce");
-        let s1 = hex_to_fr("0585f67816f43446bf63b37701e4d5cc4e7485a3bcfbf08291071766d9cf122d");
-        // let s1 = hex_to_fr("14a5522ff207c747b0384f25f78041e57a1e9c24ff2d19494dad7aada7aef517");
+        // let s1 = hex_to_fr("0585f67816f43446bf63b37701e4d5cc4e7485a3bcfbf08291071766d9cf122d");
+        let s1 = hex_to_fr("14a5522ff207c747b0384f25f78041e57a1e9c24ff2d19494dad7aada7aef517");
 
         let g0 = EdwardsAffine::new_unchecked(
-            hex_to_fq("6477213e3cb2c61aba8d5f5249aa83587e48c0f5cf0d1ad8c1d09cc9bd54daba"),
-            hex_to_fq("3084f65ca387e938ff146ae62a299f1d921ec2c0a7e82662e401d6c2f29dab8f"),
+            hex_to_fq("01587ad1336675eb912550ec2a28eb8923b824b490dd2ba82e48f14590a298a0"),
+            hex_to_fq("4c5c0482ac202cf6740bba9148fc310f8cce6e00de71efd9cf67ea4e2f3fc483"),
         );
         let g1 = EdwardsAffine::new_unchecked(
-            hex_to_fq("7001836a933960deeb0c9a0014276ee42a42b802b8a64acee236fcffac2a045a"),
-            hex_to_fq("38045b6a248d6f9bbb789cf86504ec70d2dde0b5467e13d795c55129d4cdf1d4"),
+            hex_to_fq("326be3bebfd97ed9d0d4ca1b8bc47e036a24b129f1488110b71c2cae1463db8f"),
+            hex_to_fq("55fcf7aa180c4b35aaf97376dc5f819e8b280836bec7028bfe98af1e939b7e16"),
         );
 
         // Do the banderwagon subgroup checks
@@ -256,6 +256,9 @@ mod tests {
             if !g1.subgroup_check() {
                 panic!("g1 element not in the right subgroup");
             }
+
+            println!("g0 : {}", hex::encode(g0.to_bytes()));
+            println!("g1 : {}", hex::encode(g1.to_bytes()));
         }
 
         let a = hex_to_fr("0cfe04d11eada0fb11085a64613291830a60c6b7f4f1341e9b59f9867bd1bad5");
