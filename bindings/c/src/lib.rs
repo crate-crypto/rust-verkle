@@ -6,12 +6,14 @@ use ipa_multipoint::committer::Committer;
 use ipa_multipoint::multiproof::{MultiPoint, MultiPointProof, ProverQuery, VerifierQuery};
 use ipa_multipoint::transcript::Transcript;
 
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
 pub extern "C" fn context_new() -> *mut Context {
     let ctx = Box::new(Context::default());
     Box::into_raw(ctx)
 }
 
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
 pub extern "C" fn context_free(ctx: *mut Context) {
     if ctx.is_null() {
@@ -22,6 +24,7 @@ pub extern "C" fn context_free(ctx: *mut Context) {
     }
 }
 
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
 pub extern "C" fn pedersen_hash(
     ctx: *mut Context,
@@ -55,6 +58,7 @@ pub extern "C" fn pedersen_hash(
     }
 }
 
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
 pub extern "C" fn multi_scalar_mul(
     ctx: *mut Context,
@@ -83,6 +87,7 @@ pub extern "C" fn multi_scalar_mul(
     }
 }
 
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
 pub extern "C" fn create_proof(ctx: *mut Context, input: *const u8, len: usize, out: *mut u8) {
     const CHUNK_SIZE: usize = 8257; // TODO: get this from ipa-multipoint
@@ -132,6 +137,7 @@ pub extern "C" fn create_proof(ctx: *mut Context, input: *const u8, len: usize, 
     }
 }
 
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
 pub extern "C" fn create_proof_uncompressed(
     ctx: *mut Context,
@@ -189,6 +195,7 @@ pub extern "C" fn create_proof_uncompressed(
     }
 }
 
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
 pub extern "C" fn verify_proof(ctx: *mut Context, input: *const u8, len: usize) -> bool {
     const CHUNK_SIZE: usize = 65; // TODO: get this from ipa-multipoint
@@ -230,17 +237,17 @@ pub extern "C" fn verify_proof(ctx: *mut Context, input: *const u8, len: usize) 
     let mut transcript = Transcript::new(b"verkle");
 
     // TODO: This should not need to clone the CRS, but instead take a reference
-    let is_valid = MultiPointProof::check(
+
+    MultiPointProof::check(
         &proof,
         &context.crs.clone(),
         &context.precomputed_weights,
         &verifier_queries,
         &mut transcript,
-    );
-
-    return is_valid;
+    )
 }
 
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
 pub extern "C" fn verify_proof_uncompressed(
     ctx: *mut Context,
@@ -287,13 +294,12 @@ pub extern "C" fn verify_proof_uncompressed(
     let mut transcript = Transcript::new(b"verkle");
 
     // TODO: This should not need to clone the CRS, but instead take a reference
-    let is_valid = MultiPointProof::check(
+
+    MultiPointProof::check(
         &proof,
         &context.crs.clone(),
         &context.precomputed_weights,
         &verifier_queries,
         &mut transcript,
-    );
-
-    return is_valid;
+    )
 }
