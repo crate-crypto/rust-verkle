@@ -1,10 +1,13 @@
 use ffi_interface::{
     deserialize_proof_query, deserialize_proof_query_uncompressed, deserialize_verifier_query,
-    deserialize_verifier_query_uncompressed, fr_from_le_bytes, get_tree_key_hash, Context,
+    deserialize_verifier_query_uncompressed, fr_from_le_bytes, Context,
 };
 use ipa_multipoint::committer::Committer;
 use ipa_multipoint::multiproof::{MultiPoint, MultiPointProof, ProverQuery, VerifierQuery};
 use ipa_multipoint::transcript::Transcript;
+
+#[allow(deprecated)]
+use ffi_interface::get_tree_key_hash;
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
@@ -24,6 +27,7 @@ pub extern "C" fn context_free(ctx: *mut Context) {
     }
 }
 
+#[allow(deprecated)]
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
 pub extern "C" fn pedersen_hash(

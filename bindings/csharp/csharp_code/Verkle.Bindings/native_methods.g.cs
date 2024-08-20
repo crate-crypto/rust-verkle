@@ -44,11 +44,6 @@ namespace Verkle
 
 
     }
-    
-    [StructLayout(LayoutKind.Sequential)]
-    internal unsafe partial struct Context
-    {
-    }
 
 
 
