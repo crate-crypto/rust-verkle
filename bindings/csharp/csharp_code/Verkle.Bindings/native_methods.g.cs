@@ -8,7 +8,7 @@ using System;
 using System.Runtime.InteropServices;
 
 
-namespace Verkle
+namespace Verkle.Bindings
 {
     internal static unsafe partial class NativeMethods
     {

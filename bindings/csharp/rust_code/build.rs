@@ -20,7 +20,7 @@ fn main() {
 
     csbindgen::Builder::default()
         .input_extern_file(path_to_c_crates_lib_file)
-        .csharp_namespace("Verkle")
+        .csharp_namespace("Verkle.Bindings")
         .csharp_dll_name(package_name_of_c_crate)
         .csharp_class_name("NativeMethods")
         .csharp_use_nint_types(false)
