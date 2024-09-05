@@ -25,6 +25,10 @@ impl IPAProof {
     pub(crate) fn serialized_size(&self) -> usize {
         (self.L_vec.len() * 2 + 1) * 32
     }
+    // might be : self.L_vec.len() * 2 * 64 + 32 or something similar
+    pub(crate) fn uncompressed_size(&self) -> usize {
+        (self.L_vec.len() * 2 * 64) + 32
+    }
     pub fn from_bytes(bytes: &[u8], poly_degree: usize) -> IOResult<IPAProof> {
         // Given the polynomial degree, we will have log2 * 2 points
         let num_points = log2(poly_degree);
@@ -58,6 +62,43 @@ impl IPAProof {
 
         Ok(IPAProof { L_vec, R_vec, a })
     }
+    pub fn from_bytes_unchecked_uncompressed(
+        bytes: &[u8],
+        poly_degree: usize,
+    ) -> IOResult<IPAProof> {
+        // Given the polynomial degree, we will have log2 * 2 points
+        let num_points = log2(poly_degree);
+        let mut L_vec = Vec::with_capacity(num_points as usize);
+        let mut R_vec = Vec::with_capacity(num_points as usize);
+
+        assert_eq!(((num_points * 2) * 64) + 32, bytes.len() as u32);
+
+        let (points_bytes, a_bytes) = bytes.split_at(bytes.len() - 32);
+
+        assert!(a_bytes.len() == 32);
+
+        // Chunk the byte slice into 64 bytes
+        let mut chunks = points_bytes.chunks_exact(64);
+
+        for _ in 0..num_points {
+            let chunk = chunks.next().unwrap();
+            let L_bytes: [u8; 64] = chunk.try_into().unwrap();
+            let point: Element = Element::from_bytes_unchecked_uncompressed(L_bytes);
+            L_vec.push(point)
+        }
+
+        for _ in 0..num_points {
+            let chunk = chunks.next().unwrap();
+            let R_bytes: [u8; 64] = chunk.try_into().unwrap();
+            let point: Element = Element::from_bytes_unchecked_uncompressed(R_bytes);
+            R_vec.push(point)
+        }
+
+        let a: Fr = CanonicalDeserialize::deserialize_compressed(a_bytes)
+            .map_err(|_| IOError::from(IOErrorKind::InvalidData))?;
+
+        Ok(IPAProof { L_vec, R_vec, a })
+    }
     pub fn to_bytes(&self) -> IOResult<Vec<u8>> {
         // We do not serialize the length. We assume that the deserializer knows this.
         let mut bytes = Vec::with_capacity(self.serialized_size());
@@ -72,6 +113,22 @@ impl IPAProof {
 
         self.a
             .serialize_compressed(&mut bytes)
+            .map_err(|_| IOError::from(IOErrorKind::InvalidData))?;
+        Ok(bytes)
+    }
+    pub fn to_bytes_uncompressed(&self) -> IOResult<Vec<u8>> {
+        let mut bytes = Vec::with_capacity(self.uncompressed_size());
+
+        for L in &self.L_vec {
+            bytes.extend(L.to_bytes_uncompressed());
+        }
+
+        for R in &self.R_vec {
+            bytes.extend(R.to_bytes_uncompressed());
+        }
+
+        self.a
+            .serialize_uncompressed(&mut bytes)
             .map_err(|_| IOError::from(IOErrorKind::InvalidData))?;
         Ok(bytes)
     }

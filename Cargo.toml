@@ -5,7 +5,10 @@ members = [
     "verkle-trie",
     "verkle-spec",
     "ipa-multipoint",
-    "banderwagon", "ffi_interface",
+    "banderwagon",
+    "ffi_interface",
+    "bindings/c",
+    "bindings/csharp/rust_code",
 ]
 resolver = "2"
 

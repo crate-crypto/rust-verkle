@@ -1,3 +1,11 @@
 /target
 Cargo.lock
 .DS_Store
+
+# jetbrains ide files
+.idea
+
+# c# build files
+bin
+obj
+

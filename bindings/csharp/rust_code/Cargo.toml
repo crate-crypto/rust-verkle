@@ -1,0 +1,10 @@
+[package]
+name = "csharp_verkle"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+
+[build-dependencies]
+csbindgen = "1.9.3"
+toml = "0.8.19"

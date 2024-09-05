@@ -186,11 +186,36 @@ impl MultiPointProof {
             g_x_comm,
         })
     }
+
+    pub fn from_bytes_unchecked_uncompressed(
+        bytes: &[u8],
+        poly_degree: usize,
+    ) -> crate::IOResult<MultiPointProof> {
+        let g_x_comm_bytes: [u8; 64] = bytes[..64]
+            .try_into()
+            .expect("Expected a slice of exactly 64 bytes");
+        let ipa_bytes = &bytes[64..]; // TODO: we should return a Result here incase the user gives us bad bytes
+
+        let g_x_comm = Element::from_bytes_unchecked_uncompressed(g_x_comm_bytes);
+
+        let open_proof = IPAProof::from_bytes_unchecked_uncompressed(ipa_bytes, poly_degree)?;
+        Ok(MultiPointProof {
+            open_proof,
+            g_x_comm,
+        })
+    }
     pub fn to_bytes(&self) -> crate::IOResult<Vec<u8>> {
         let mut bytes = Vec::with_capacity(self.open_proof.serialized_size() + 32);
         bytes.extend(self.g_x_comm.to_bytes());
 
         bytes.extend(self.open_proof.to_bytes()?);
+        Ok(bytes)
+    }
+    pub fn to_bytes_uncompressed(&self) -> crate::IOResult<Vec<u8>> {
+        let mut bytes = Vec::with_capacity(self.open_proof.uncompressed_size() + 64);
+        bytes.extend(self.g_x_comm.to_bytes_uncompressed());
+
+        bytes.extend(self.open_proof.to_bytes_uncompressed()?);
         Ok(bytes)
     }
 }
