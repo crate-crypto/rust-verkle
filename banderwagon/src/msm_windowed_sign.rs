@@ -74,7 +74,7 @@ impl MSMPrecompWindowSigned {
             })
             .collect();
 
-        let mut points_to_add = Vec::new();
+        let mut points_to_add = Vec::with_capacity(self.num_windows);
 
         for window_idx in 0..self.num_windows {
             for (scalar_idx, scalar_bytes) in scalars_bytes.iter().enumerate() {
