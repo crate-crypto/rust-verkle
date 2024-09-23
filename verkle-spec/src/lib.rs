@@ -34,6 +34,10 @@ pub trait Hasher {
     }
 }
 
+pub fn chunk64(bytes64: [u8; 64]) -> [u128; 5] {
+    crate::util::chunk64(bytes64)
+}
+
 // This is the default implementation for `pedersen_hash`
 // in the EIP. Since the EIP hashes 64 bytes (address32 + tree_index),
 // we just special case the method here to hash 64 bytes.

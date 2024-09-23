@@ -181,6 +181,13 @@ pub fn commit_to_scalars(context: &Context, scalars: &[u8]) -> Result<Commitment
     Ok(commitment.to_bytes_uncompressed())
 }
 
+/// Adds two commitments together
+pub fn add_commitment(lhs: CommitmentBytes, rhs: CommitmentBytes) -> CommitmentBytes {
+    let lhs = Element::from_bytes_unchecked_uncompressed(lhs);
+    let rhs = Element::from_bytes_unchecked_uncompressed(rhs);
+    (lhs + rhs).to_bytes_uncompressed()
+}
+
 /// Updates a commitment from vG to wG
 ///
 /// Since the commitment is homomorphic, wG = vG - vG + wG = vG + (w-v)G
@@ -269,6 +276,7 @@ pub fn hash_commitments(commitments: &[CommitmentBytes]) -> Vec<ScalarBytes> {
 }
 
 /// Receives a tuple (C_i, f_i(X), z_i, y_i)
+///
 /// Where C_i is a commitment to f_i(X) serialized as 32 bytes
 /// f_i(X) is the polynomial serialized as 8192 bytes since we have 256 Fr elements each serialized as 32 bytes
 /// z_i is index of the point in the polynomial: 1 byte (number from 1 to 256)
@@ -325,6 +333,7 @@ pub fn create_proof(context: &Context, input: Vec<u8>) -> Result<Vec<u8>, Error>
 }
 
 /// Receives a proof and a tuple (C_i, z_i, y_i)
+///
 /// Where C_i is a commitment to f_i(X) serialized as 64 bytes (uncompressed commitment)
 /// z_i is index of the point in the polynomial: 1 byte (number from 1 to 256)
 /// y_i is the evaluation of the polynomial at z_i i.e value we are opening: 32 bytes or Fr (scalar field element)
@@ -511,7 +520,13 @@ fn check_identity_constant() {
 #[cfg(test)]
 mod pedersen_hash_tests {
 
-    use crate::{get_tree_key, get_tree_key_hash, Context};
+    use banderwagon::Fr;
+    use ipa_multipoint::committer::Committer;
+
+    use crate::{
+        add_commitment, commit_to_scalars, get_tree_key, get_tree_key_hash, hash_commitment,
+        Context,
+    };
 
     #[test]
     fn smoke_test_address_zero() {
@@ -548,6 +563,49 @@ mod pedersen_hash_tests {
         let expected_hash = "ff7e3916badeb510dfcdad458726273319280742e553d8d229bd676428147300";
         let got_hash_hex = hex::encode(got_hash_bytes);
         assert_eq!(expected_hash, got_hash_hex);
+
+        // Now compute the get_tree_key_hash using the ffi_interface
+        //
+        let input: Vec<_> = address.into_iter().chain(tree_index).collect();
+        // This method is expected to be in the caller.
+        // Note: this method adds the verkle specific marker as the first u128 integer
+        let chunked_input = verkle_spec::chunk64(input.try_into().unwrap());
+
+        let marker = u128_to_32bytes(chunked_input[0]);
+        let address_low = u128_to_32bytes(chunked_input[1]);
+        let address_high = u128_to_32bytes(chunked_input[2]);
+
+        let tree_index_low = u128_to_32bytes(chunked_input[3]);
+        let tree_index_high = u128_to_32bytes(chunked_input[4]);
+
+        let address_point_scalars: Vec<_> = vec![marker, address_low, address_high]
+            .into_iter()
+            .flatten()
+            .collect();
+        let address_point_cache = commit_to_scalars(&context, &address_point_scalars).unwrap();
+
+        let tree_index_scalars: Vec<_> = vec![
+            [0u8; 32],
+            [0u8; 32],
+            [0u8; 32],
+            tree_index_low,
+            tree_index_high,
+        ]
+        .into_iter()
+        .flatten()
+        .collect();
+        let tree_index_commit = commit_to_scalars(&context, &tree_index_scalars).unwrap();
+
+        let committed_point = add_commitment(address_point_cache, tree_index_commit);
+        let mut key = hash_commitment(committed_point);
+        key[31] = 0; // modify the last byte since get_tree_key above uses sub_index=0
+        assert_eq!(hex::encode(&key), expected_hash)
+    }
+
+    fn u128_to_32bytes(integer: u128) -> [u8; 32] {
+        let mut bytes = integer.to_le_bytes().to_vec();
+        bytes.extend(vec![0u8; 16]);
+        bytes.try_into().unwrap()
     }
 }
 
