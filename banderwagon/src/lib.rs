@@ -1,4 +1,5 @@
 pub mod msm;
+pub mod msm_windowed_sign;
 pub mod trait_impls;
 
 mod element;
