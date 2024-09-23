@@ -1,8 +1,4 @@
-use banderwagon::{
-    msm::MSMPrecompWnaf,
-    msm_strauss::{MSMPrecomp, MSMPrecomp16Bit},
-    Element, Fr,
-};
+use banderwagon::{msm::MSMPrecompWnaf, msm_windowed_sign::MSMPrecompWindowSigned, Element, Fr};
 use criterion::{criterion_group, criterion_main, Criterion};
 use rand::RngCore;
 
@@ -18,12 +14,7 @@ pub fn msm_wnaf(c: &mut Criterion) {
         b.iter(|| precomp.mul(&scalars))
     });
 
-    let precomp = MSMPrecomp::new(&bases, 16);
-    c.bench_function(&format!("msm strauss: {}", NUM_ELEMENTS), |b| {
-        b.iter(|| precomp.mul(&scalars))
-    });
-
-    let precomp = MSMPrecomp16Bit::new(&bases, 16);
+    let precomp = MSMPrecompWindowSigned::new(&bases, 16);
     c.bench_function(&format!("msm precomp 16: {}", NUM_ELEMENTS), |b| {
         b.iter(|| precomp.mul(&scalars))
     });
