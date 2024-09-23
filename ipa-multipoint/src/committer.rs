@@ -47,7 +47,7 @@ impl DefaultCommitter {
 impl Committer for DefaultCommitter {
     fn commit_lagrange(&self, evaluations: &[Fr]) -> Element {
         if evaluations.len() <= 5 {
-            return self.precomp_first_five.mul(&evaluations);
+            return self.precomp_first_five.mul(evaluations);
         }
         // Preliminary benchmarks indicate that the parallel version is faster
         // for vectors of length 64 or more
