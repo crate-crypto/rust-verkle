@@ -5,6 +5,7 @@ use ark_ff::Zero;
 use ark_ff::{BigInteger, BigInteger256};
 use std::ops::Neg;
 
+#[derive(Debug, Clone)]
 pub struct MSMPrecompWindowSigned {
     tables: Vec<Vec<EdwardsAffine>>,
     num_windows: usize,

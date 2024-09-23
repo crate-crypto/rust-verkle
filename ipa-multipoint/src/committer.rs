@@ -1,4 +1,4 @@
-use banderwagon::{msm::MSMPrecompWnaf, Element, Fr};
+use banderwagon::{msm::MSMPrecompWnaf, msm_windowed_sign::MSMPrecompWindowSigned, Element, Fr};
 
 // This is the functionality that commits to the branch nodes and computes the delta optimization
 // For consistency with the Pcs, ensure that this component uses the same CRS as the Pcs
@@ -24,19 +24,31 @@ pub trait Committer {
 
 #[derive(Clone, Debug)]
 pub struct DefaultCommitter {
+    precomp_first_five: MSMPrecompWindowSigned,
     precomp: MSMPrecompWnaf,
 }
 
 impl DefaultCommitter {
     pub fn new(points: &[Element]) -> Self {
+        // Take the first five elements and use a more aggressive optimization strategy
+        // since they are used for computing storage keys.
+
+        let (points_five, _) = points.split_at(5);
+        let precomp_first_five = MSMPrecompWindowSigned::new(points_five, 16);
         let precomp = MSMPrecompWnaf::new(points, 12);
 
-        Self { precomp }
+        Self {
+            precomp,
+            precomp_first_five,
+        }
     }
 }
 
 impl Committer for DefaultCommitter {
     fn commit_lagrange(&self, evaluations: &[Fr]) -> Element {
+        if evaluations.len() <= 5 {
+            return self.precomp_first_five.mul(&evaluations);
+        }
         // Preliminary benchmarks indicate that the parallel version is faster
         // for vectors of length 64 or more
         if evaluations.len() >= 64 {
@@ -47,6 +59,12 @@ impl Committer for DefaultCommitter {
     }
 
     fn scalar_mul(&self, value: Fr, lagrange_index: usize) -> Element {
-        self.precomp.mul_index(value, lagrange_index)
+        if lagrange_index < 5 {
+            let mut arr = [Fr::from(0u64); 5];
+            arr[lagrange_index] = value;
+            self.precomp_first_five.mul(&arr)
+        } else {
+            self.precomp.mul_index(value, lagrange_index)
+        }
     }
 }
