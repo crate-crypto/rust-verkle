@@ -19,7 +19,7 @@ impl MSMPrecompWindowSigned {
         let number_of_windows = Fr::MODULUS_BIT_SIZE as usize / window_size + 1;
 
         let precomputed_points: Vec<_> = bases
-            .into_iter()
+            .iter()
             .map(|point| {
                 Self::precompute_points(
                     window_size,
@@ -49,7 +49,7 @@ impl MSMPrecompWindowSigned {
         let all_tables: Vec<_> = (0..number_of_windows)
             .into_par_iter()
             .flat_map(|window_index| {
-                let window_scalar = window_size_scalar.pow(&[window_index as u64]);
+                let window_scalar = window_size_scalar.pow([window_index as u64]);
                 let mut lookup_table = Vec::with_capacity(1 << (window_size - 1));
                 let point = EdwardsProjective::from(point) * window_scalar;
                 let mut current = point;
