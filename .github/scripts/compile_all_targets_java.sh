@@ -4,7 +4,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 OUT_DIR="$PROJECT_ROOT/bindings/java/java_code/src/main/resources"
 LIB_TYPE="dynamic"
-LIB_NAME="java_eth_kzg"
+LIB_NAME="java_verkle_cryptography"
 
 # Check if a target is provided
 if [ $# -eq 0 ]; then
