@@ -1,0 +1,54 @@
+{
+  "header": {
+    "blockNumber": "0x1",
+    "parentHash": "0x3fe165c03e7a77d1e3759362ebeeb16fd964cb411ce11fbe35c7032fab5b9a8a",
+    "stateRoot": "0x5a65582e323fb83ed40438a0c33fa6ebfbc7f45e4c29d112b0142cfeb63f82af"
+  },
+  "executionWitness": {
+    "stateDiff": [
+      {
+        "stem": "0x5b5fdfedd6a0e932da408ac7d772a36513d1eee9b9926e52620c43a433aad7",
+        "suffixDiffs": [
+          {
+            "suffix": 64,
+            "currentValue": null,
+            "newValue": "0x3fe165c03e7a77d1e3759362ebeeb16fd964cb411ce11fbe35c7032fab5b9a8a"
+          }
+        ]
+      }
+    ],
+    "verkleProof": {
+      "otherStems": [
+        "0x5bdf12f5e17d2911dac2d2b0fc9e64a3ddc1d1ea4fc2568fe7e741ff2daa18"
+      ],
+      "depthExtensionPresent": "0x09",
+      "commitmentsByPath": [
+        "0x26715ff22c071fdd9d9c2c6b5f5bf9bb0d83a2087e1366deabcecdf2a1d3f82e"
+      ],
+      "d": "0x5af46ab3e8676b9d4de8ae0be9670c45e9afd43cc11524c7946728268652028a",
+      "ipaProof": {
+        "cl": [
+          "0x6e3104792843f10a7236b6648f0d32d9ede087d55a3c8705038ed5358e073904",
+          "0x5eceadbf8532a2c626366356e9dd870a9e83bc0393ea088a32a8dc7452291cc3",
+          "0x13bf721c1aa1cdf84ea69161114bbe0eda90f51173ac00dabdfc4e6aeed301a4",
+          "0x21a7dfe85100ed2e0c6b1f07ff07ad9660711d25ff7ffdd7a7a02b3363089df9",
+          "0x0abe44837167a603c0ab167071c7d01fab67d0b81b0f8c2c195445f6a0063301",
+          "0x3f4e616c904c91bc4211dfb14f33528f498fe76c1acc85491ef253afd4ce2cbb",
+          "0x08631ce02176c4dcf83dbd04c68adf17d70090f2a2d367085b35a733baadf991",
+          "0x44b4f57ed5ea4fdb1cd97901aab184b9a3d743bc3732e3e9c3b1e29370eb24d8"
+        ],
+        "cr": [
+          "0x6206979e2aa815bff1c76c521d025229e5867ba2d67422bd54d993a471aebbf8",
+          "0x11bbacadfad4a06e85a7509ac601693646d1dc6416fb06c14f0745276579d548",
+          "0x6b34ee89647bf02642546d0c2438fc34f350dae628ba033efbce2d9efe5c714b",
+          "0x2eaf5b365d0071a04b0bf880df7cc4fefb88bb7e42693fedff0b94f4a4faab18",
+          "0x3506e34c2e7686856cd0f4485f51f965aa926f235ee2b4c632b2239ffd0c9ff1",
+          "0x18fbb94e59a02d289cf2d886f365cce91b89416d43e0a44d548cc6fd790b8d06",
+          "0x31e28a78851612861fede858f62f7bbbfa12d02a302fea0272e03e668f0cb5a9",
+          "0x48585ea2484b2b902f38297e14491311d8c74002f3eaeca9ac43bf03cfc090b5"
+        ],
+        "finalEvaluation": "0x08a3079093df751fc850f3805e10cc898314688111df75aa20511c32198a93e3"
+      }
+    }
+  }
+}

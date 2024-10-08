@@ -1,0 +1,152 @@
+name: Java Bindings
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'The reference (branch/tag/commit) to checkout'
+        required: false
+      release-type:
+        type: choice
+        required: false
+        default: 'none'
+        description: 'Indicates whether we want to make a release and if which one'
+        options:
+          - release
+          - none
+
+env:
+  CARGO_TERM_COLOR: always
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'workflow_dispatch' && 'manual' || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build - ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+          - target: aarch64-unknown-linux-gnu
+            os: ubuntu-latest
+          - target: aarch64-apple-darwin
+            os: ubuntu-latest
+          - target: x86_64-apple-darwin
+            os: ubuntu-latest
+          - target: x86_64-pc-windows-gnu
+            os: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.80.0
+          targets: ${{ matrix.target }}
+      - name: Install cargo-binstall
+        uses: taiki-e/install-action@cargo-binstall
+      - name: Install Zig
+        uses: goto-bus-stop/setup-zig@v2
+        with:
+          version: 0.10.1
+      - name: Install cargo-zigbuild
+        run: cargo binstall --no-confirm cargo-zigbuild
+      - name: Run compile script
+        run: |
+          chmod +x .github/scripts/compile_all_targets_java.sh
+          .github/scripts/compile_all_targets_java.sh ${{ matrix.target }}
+        shell: bash
+      - name: Upload dynamic libs
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.target }}
+          path: bindings/java/java_code/src/main/resources/${{ matrix.target }}
+
+  test:
+    name: Test - ${{ matrix.target }}
+    needs: build
+    strategy:
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+          - target: aarch64-unknown-linux-gnu
+            os: linux-arm64
+          - target: x86_64-apple-darwin
+            os: macos-13
+          - target: aarch64-apple-darwin
+            os: macos-14
+          - target: x86_64-pc-windows-gnu
+            os: windows-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ matrix.target }}
+          path: bindings/java/java_code/src/main/resources/${{ matrix.target }}
+      - name: Set up JDK
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '11'
+      - name: Build with Gradle (no tests)
+        run: ./gradlew build -x test
+        working-directory: bindings/java/java_code
+      - name: Run Gradle tests
+        run: ./gradlew test --info --stacktrace --scan
+        working-directory: bindings/java/java_code
+
+  publish:
+    name: Publish
+    if: ${{ inputs.release-type != 'none' && github.event_name == 'workflow_dispatch' }}
+    needs: [build, test]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: bindings/java/java_code/src/main/resources
+
+      - name: Import GPG key
+        uses: crazy-max/ghaction-import-gpg@v6
+        with:
+          gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY_JAVA_PUBLISHING }}
+          passphrase: ${{ secrets.GPG_PASSPHRASE_JAVA_PUBLISHING }}
+
+      - name: Publish Java package to Maven Central
+        working-directory: bindings/java/java_code
+        env:
+          JRELEASER_MAVENCENTRAL_USERNAME: ${{ secrets.CENTRAL_PORTAL_TOKEN_USERNAME }}
+          JRELEASER_MAVENCENTRAL_TOKEN: ${{ secrets.CENTRAL_PORTAL_TOKEN_PASSWORD }}
+          JRELEASER_GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE_JAVA_PUBLISHING }}
+          JRELEASER_GPG_SECRET_KEY: ${{ secrets.GPG_PRIVATE_KEY_JAVA_PUBLISHING }}
+          JRELEASER_GPG_PUBLIC_KEY: ${{ secrets.GPG_PUBLIC_KEY_JAVA_PUBLISHING }}
+          JRELEASER_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ./gradlew clean createJReleaserOutputDir jreleaserConfig build publish jreleaserFullRelease --stacktrace --info
+    
+      - name: JReleaser output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jreleaser-logs
+          path: |
+            bindings/java/java_code/build/jreleaser/trace.log
+            bindings/java/java_code/build/jreleaser/output.properties
