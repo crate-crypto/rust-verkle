@@ -27,8 +27,8 @@ jobs:
 
     - name: Create dummy project and initialize Gradle
       run: |
-        mkdir -p src/main/java/org/peerdas/kzg
-        echo "package org.peerdas.kzg;
+        mkdir -p src/main/java/org/rust/verkle
+        echo "package org.rust.verkle;
 
         /**
          * DummyClass is a simple class for testing the build and deployment process.
@@ -43,7 +43,7 @@ jobs:
             public static void main(String[] args) {
                 System.out.println(\"Hello from Verkle trie\");
             }
-        }" > src/main/java/org/peerdas/kzg/DummyClass.java
+        }" > src/main/java/org/rust/verkle/DummyClass.java
         
         echo "plugins {
           id 'java-library'
@@ -51,7 +51,7 @@ jobs:
           id 'org.jreleaser' version '1.12.0'
         }
         
-        group = 'io.github.kevaundray.dummy'
+        group = 'io.github.kevaundray.rust-verkle-poc'
         version = '0.0.5'
         
         java {
@@ -82,9 +82,9 @@ jobs:
                   }
                 }
                 scm {
-                  connection = 'scm:git:git://github.com/crate-crypto/verkle-trie.git'
-                  developerConnection = 'scm:git:ssh://github.com:crate-crypto/verkle-trie.git'
-                  url = 'https://github.com/crate-crypto/verkle-trie'
+                  connection = 'scm:git:git://github.com/crate-crypto/rust-verkle.git'
+                  developerConnection = 'scm:git:ssh://github.com:crate-crypto/rust-verkle.git'
+                  url = 'https://github.com/crate-crypto/rust-verkle'
                 }
               }
             }
