@@ -39,9 +39,7 @@ public class LibIpaMultipoint {
   private static final Object libraryLock = new Object();
 
   static {
-    System.out.println("Loding");
     ensureLibraryLoaded();
-    System.out.println("Loaded");
   }
 
   /**
@@ -173,8 +171,7 @@ public class LibIpaMultipoint {
         String osName = System.getProperty("os.name").toLowerCase();
         String osArch = getNormalizedArchitecture();
         String libraryResourcePath = null;
-        System.out.println("name: " + osName + " arch:" + osArch + " platform: " + PLATFORM_NATIVE_LIBRARY_NAME);
-        System.out.println(LIBRARY_NAME +" "+ PLATFORM_NATIVE_LIBRARY_NAME + " " + System.mapLibraryName(LIBRARY_NAME));
+
         if (osName.contains("win")) {
             if (osArch.contains("x86_64")) {
                 libraryResourcePath = "/x86_64-pc-windows-gnu/" + PLATFORM_NATIVE_LIBRARY_NAME;
@@ -187,7 +184,6 @@ public class LibIpaMultipoint {
             if (osArch.contains("x86_64")) {
                 libraryResourcePath = "/x86_64-apple-darwin/" + PLATFORM_NATIVE_LIBRARY_NAME;
               } else if (osArch.contains("aarch64")) {
-              System.out.println("MAC OS X found");
                 libraryResourcePath = "/aarch64-apple-darwin/" + PLATFORM_NATIVE_LIBRARY_NAME;
             }
         } else if (osName.contains("linux")) {
@@ -199,9 +195,9 @@ public class LibIpaMultipoint {
         }
 
         if (libraryResourcePath == null) {
-            throw new UnsupportedOperationException("Unsupported OS or architecture: " + osName + ", " + osArch);
+          throw new UnsupportedOperationException("Unsupported OS or architecture: " + osName + ", " + osArch);
         }
-System.out.println(libraryResourcePath);
+
         InputStream libraryResource = LibIpaMultipoint.class.getResourceAsStream(libraryResourcePath);
 
         if (libraryResource == null) {
