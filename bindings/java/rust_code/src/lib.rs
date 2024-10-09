@@ -14,14 +14,14 @@ mod parsers;
 use parsers::{parse_commitment, parse_commitments, parse_indices, parse_scalars};
 
 mod utils;
-use utils::{byte_to_depth_extension_present, bytes32_to_element, bytes32_to_scalar};
+use utils::{
+    byte_to_depth_extension_present, bytes32_to_element, bytes32_to_scalar, jobjectarray_to_vec,
+};
 use utils::{
     convert_byte_array_to_fixed_array, convert_to_btree_set, get_array, get_optional_array,
-    jobjectarray_to_vec,
 };
 
-use jni::objects::JClass;
-use jni::sys::{jbyteArray, jobjectArray};
+use jni::objects::{JByteArray, JClass, JObjectArray};
 use jni::JNIEnv;
 use once_cell::sync::Lazy;
 
@@ -38,17 +38,17 @@ pub static CONFIG: Lazy<ffi_interface::Context> = Lazy::new(ffi_interface::Conte
 /// Scalar is actually the map_to_field(commitment) because we want to reuse the commitment in parent node.
 /// This is ported from rust-verkle.
 #[no_mangle]
-pub extern "system" fn Java_verkle_cryptography_LibIpaMultipoint_commit(
-    env: JNIEnv,
+pub extern "system" fn Java_verkle_cryptography_LibIpaMultipoint_commit<'local>(
+    mut env: JNIEnv<'local>,
     _class: JClass<'_>,
-    values: jbyteArray,
-) -> jbyteArray {
+    values: JByteArray,
+) -> JByteArray<'local> {
     let input = match parse_scalars(&env, values) {
         Ok(v) => v,
         Err(e) => {
             env.throw_new("java/lang/IllegalArgumentException", e)
                 .expect("Failed to throw exception for commit inputs.");
-            return std::ptr::null_mut();
+            return JByteArray::default();
         }
     };
     let commitment = match ffi_interface::commit_to_scalars(&CONFIG, &input) {
@@ -57,7 +57,7 @@ pub extern "system" fn Java_verkle_cryptography_LibIpaMultipoint_commit(
             let error_message = format!("Could not commit to scalars: {:?}", e);
             env.throw_new("java/lang/IllegalArgumentException", &error_message)
                 .expect("Failed to throw exception for commit inputs.");
-            return std::ptr::null_mut();
+            return JByteArray::default();
         }
     };
     let result = match env.byte_array_from_slice(&commitment) {
@@ -66,24 +66,24 @@ pub extern "system" fn Java_verkle_cryptography_LibIpaMultipoint_commit(
             let error_message = format!("Couldn't return commitment.: {:?}", e);
             env.throw_new("java/lang/IllegalArgumentException", &error_message)
                 .expect("Couldn't convert to byte array");
-            return std::ptr::null_mut();
+            return JByteArray::default();
         }
     };
     result
 }
 
 #[no_mangle]
-pub extern "system" fn Java_verkle_cryptography_LibIpaMultipoint_commitAsCompressed(
-    env: JNIEnv,
+pub extern "system" fn Java_verkle_cryptography_LibIpaMultipoint_commitAsCompressed<'local>(
+    mut env: JNIEnv<'local>,
     _class: JClass<'_>,
-    values: jbyteArray,
-) -> jbyteArray {
+    values: JByteArray,
+) -> JByteArray<'local> {
     let input = match parse_scalars(&env, values) {
         Ok(v) => v,
         Err(e) => {
             env.throw_new("java/lang/IllegalArgumentException", e)
                 .expect("Failed to throw exception for commit inputs.");
-            return std::ptr::null_mut();
+            return JByteArray::default();
         }
     };
     let commitment = match ffi_interface::commit_to_scalars(&CONFIG, &input) {
@@ -91,7 +91,7 @@ pub extern "system" fn Java_verkle_cryptography_LibIpaMultipoint_commitAsCompres
         Err(e) => {
             env.throw_new("java/lang/IllegalArgumentException", format!("{e:?}"))
                 .expect("Failed to throw exception for commit inputs.");
-            return std::ptr::null_mut();
+            return JByteArray::default();
         }
     };
     let compressed = ffi_interface::serialize_commitment(commitment);
@@ -101,27 +101,27 @@ pub extern "system" fn Java_verkle_cryptography_LibIpaMultipoint_commitAsCompres
             let error_message = format!("Couldn't return commitment: {:?}", e);
             env.throw_new("java/lang/IllegalArgumentException", &error_message)
                 .expect("Couldn't convert to byte array");
-            return std::ptr::null_mut();
+            return JByteArray::default();
         }
     };
     result
 }
 
 #[no_mangle]
-pub extern "system" fn Java_verkle_cryptography_LibIpaMultipoint_updateSparse(
-    env: JNIEnv,
+pub extern "system" fn Java_verkle_cryptography_LibIpaMultipoint_updateSparse<'local>(
+    mut env: JNIEnv<'local>,
     _class: JClass<'_>,
-    commitment: jbyteArray,
-    indices: jbyteArray,
-    old_values: jbyteArray,
-    new_values: jbyteArray,
-) -> jbyteArray {
+    commitment: JByteArray,
+    indices: JByteArray,
+    old_values: JByteArray,
+    new_values: JByteArray,
+) -> JByteArray<'local> {
     let commitment = match parse_commitment(&env, commitment) {
         Ok(v) => v,
         Err(e) => {
             env.throw_new("java/lang/IllegalArgumentException", e)
                 .expect("Failed to throw exception for updateSparse commitment input.");
-            return std::ptr::null_mut();
+            return JByteArray::default();
         }
     };
     let pos = match parse_indices(&env, indices) {
@@ -129,7 +129,7 @@ pub extern "system" fn Java_verkle_cryptography_LibIpaMultipoint_updateSparse(
         Err(e) => {
             env.throw_new("java/lang/IllegalArgumentException", e)
                 .expect("Failed to throw exception for commit inputs.");
-            return std::ptr::null_mut();
+            return JByteArray::default();
         }
     };
     let old = match parse_scalars(&env, old_values) {
@@ -137,7 +137,7 @@ pub extern "system" fn Java_verkle_cryptography_LibIpaMultipoint_updateSparse(
         Err(e) => {
             env.throw_new("java/lang/IllegalArgumentException", e)
                 .expect("Failed to throw exception for commit inputs.");
-            return std::ptr::null_mut();
+            return JByteArray::default();
         }
     };
     let old: Vec<ffi_interface::ScalarBytes> = old
@@ -153,7 +153,7 @@ pub extern "system" fn Java_verkle_cryptography_LibIpaMultipoint_updateSparse(
         Err(e) => {
             env.throw_new("java/lang/IllegalArgumentException", e)
                 .expect("Failed to throw exception for commit inputs.");
-            return std::ptr::null_mut();
+            return JByteArray::default();
         }
     };
     let new: Vec<ffi_interface::ScalarBytes> = new
@@ -170,7 +170,7 @@ pub extern "system" fn Java_verkle_cryptography_LibIpaMultipoint_updateSparse(
             Err(e) => {
                 env.throw_new("java/lang/IllegalArgumentException", format!("{e:?}"))
                     .expect("Failed to throw exception for commit inputs.");
-                return std::ptr::null_mut();
+                return JByteArray::default();
             }
         };
     let result = match env.byte_array_from_slice(&commitment) {
@@ -179,24 +179,24 @@ pub extern "system" fn Java_verkle_cryptography_LibIpaMultipoint_updateSparse(
             let error_message = format!("Couldn't return commitment: {:?}", e);
             env.throw_new("java/lang/IllegalArgumentException", &error_message)
                 .expect("Couldn't convert to byte array");
-            return std::ptr::null_mut();
+            return JByteArray::default();
         }
     };
     result
 }
 
 #[no_mangle]
-pub extern "system" fn Java_verkle_cryptography_LibIpaMultipoint_compress(
-    env: JNIEnv,
+pub extern "system" fn Java_verkle_cryptography_LibIpaMultipoint_compress<'local>(
+    mut env: JNIEnv<'local>,
     _class: JClass<'_>,
-    commitment: jbyteArray,
-) -> jbyteArray {
+    commitment: JByteArray,
+) -> JByteArray<'local> {
     let commitment = match parse_commitment(&env, commitment) {
         Ok(v) => v,
         Err(e) => {
             env.throw_new("java/lang/IllegalArgumentException", e)
                 .expect("Failed to throw exception for commit inputs.");
-            return std::ptr::null_mut();
+            return JByteArray::default();
         }
     };
     let compressed = ffi_interface::serialize_commitment(commitment);
@@ -209,24 +209,24 @@ pub extern "system" fn Java_verkle_cryptography_LibIpaMultipoint_compress(
             );
             env.throw_new("java/lang/IllegalArgumentException", &error_message)
                 .expect("Couldn't convert to byte array");
-            return std::ptr::null_mut();
+            return JByteArray::default();
         }
     };
     result
 }
 
 #[no_mangle]
-pub extern "system" fn Java_verkle_cryptography_LibIpaMultipoint_compressMany(
-    env: JNIEnv,
+pub extern "system" fn Java_verkle_cryptography_LibIpaMultipoint_compressMany<'local>(
+    mut env: JNIEnv<'local>,
     _class: JClass<'_>,
-    commitments: jbyteArray,
-) -> jbyteArray {
+    commitments: JByteArray,
+) -> JByteArray<'local> {
     let commitments = match parse_commitments(&env, commitments) {
         Ok(v) => v,
         Err(e) => {
             env.throw_new("java/lang/IllegalArgumentException", e)
                 .expect("Failed to throw exception for commit inputs.");
-            return std::ptr::null_mut();
+            return JByteArray::default();
         }
     };
     let compressed: Vec<u8> = commitments
@@ -242,24 +242,24 @@ pub extern "system" fn Java_verkle_cryptography_LibIpaMultipoint_compressMany(
             );
             env.throw_new("java/lang/IllegalArgumentException", &error_message)
                 .expect("Couldn't convert to byte array");
-            return std::ptr::null_mut();
+            return JByteArray::default();
         }
     };
     result
 }
 
 #[no_mangle]
-pub extern "system" fn Java_verkle_cryptography_LibIpaMultipoint_hash(
-    env: JNIEnv,
+pub extern "system" fn Java_verkle_cryptography_LibIpaMultipoint_hash<'local>(
+    mut env: JNIEnv<'local>,
     _class: JClass<'_>,
-    commitment: jbyteArray,
-) -> jbyteArray {
+    commitment: JByteArray,
+) -> JByteArray<'local> {
     let commitment = match parse_commitment(&env, commitment) {
         Ok(v) => v,
         Err(e) => {
             env.throw_new("java/lang/IllegalArgumentException", e)
                 .expect("Failed to throw exception for commit inputs.");
-            return std::ptr::null_mut();
+            return JByteArray::default();
         }
     };
     let hash = ffi_interface::hash_commitment(commitment);
@@ -271,24 +271,24 @@ pub extern "system" fn Java_verkle_cryptography_LibIpaMultipoint_hash(
                 "Invalid commitment output. Couldn't convert to byte array.",
             )
             .expect("Couldn't convert to byte array");
-            return std::ptr::null_mut();
+            return JByteArray::default();
         }
     };
     result
 }
 
 #[no_mangle]
-pub extern "system" fn Java_verkle_cryptography_LibIpaMultipoint_hashMany(
-    env: JNIEnv,
+pub extern "system" fn Java_verkle_cryptography_LibIpaMultipoint_hashMany<'local>(
+    mut env: JNIEnv<'local>,
     _class: JClass<'_>,
-    commitments: jbyteArray,
-) -> jbyteArray {
+    commitments: JByteArray,
+) -> JByteArray<'local> {
     let input = match parse_commitments(&env, commitments) {
         Ok(v) => v,
         Err(e) => {
             env.throw_new("java/lang/IllegalArgumentException", e)
                 .expect("Failed to throw exception for commit inputs.");
-            return std::ptr::null_mut();
+            return JByteArray::default();
         }
     };
     let input: Vec<ffi_interface::CommitmentBytes> = input
@@ -310,7 +310,7 @@ pub extern "system" fn Java_verkle_cryptography_LibIpaMultipoint_hashMany(
             );
             env.throw_new("java/lang/IllegalArgumentException", &error_message)
                 .expect("Couldn't convert to byte array");
-            return std::ptr::null_mut();
+            return JByteArray::default();
         }
     };
     result
@@ -318,20 +318,20 @@ pub extern "system" fn Java_verkle_cryptography_LibIpaMultipoint_hashMany(
 
 #[no_mangle]
 pub extern "system" fn Java_verkle_cryptography_LibIpaMultipoint_verifyPreStateRoot(
-    env: JNIEnv,
+    mut env: JNIEnv,
     _class: JClass<'_>,
-    stems_keys: jobjectArray,
-    current_values: jobjectArray,
-    commitments_by_path: jobjectArray,
-    cl: jobjectArray,
-    cr: jobjectArray,
-    other_stems: jobjectArray,
-    d: jbyteArray,
-    depths_extension_present_stems: jbyteArray,
-    final_evaluation: jbyteArray,
-    prestate_root: jbyteArray,
+    stems_keys: JObjectArray,
+    current_values: JObjectArray,
+    commitments_by_path: JObjectArray,
+    cl: JObjectArray,
+    cr: JObjectArray,
+    other_stems: JObjectArray,
+    d: JByteArray,
+    depths_extension_present_stems: JByteArray,
+    final_evaluation: JByteArray,
+    prestate_root: JByteArray,
 ) -> bool {
-    let num_keys = match env.get_array_length(stems_keys) {
+    let num_keys = match env.get_array_length(&stems_keys) {
         Ok(len) => len,
         Err(_) => return false,
     };
@@ -340,28 +340,28 @@ pub extern "system" fn Java_verkle_cryptography_LibIpaMultipoint_verifyPreStateR
     let mut formatted_current_values: Vec<Option<[u8; 32]>> = Vec::new();
 
     for i in 0..num_keys {
-        match get_array(&env, stems_keys, i) {
+        match get_array(&mut env, &stems_keys, i) {
             Some(key) => formatted_keys.push(key),
             None => return false,
         }
-        match get_optional_array(&env, current_values, i) {
+        match get_optional_array(&mut env, &current_values, i) {
             Some(value) => formatted_current_values.push(value),
             None => return false,
         }
     }
 
     let formatted_commitments =
-        match jobjectarray_to_vec(&env, commitments_by_path, |b| bytes32_to_element(b)) {
+        match jobjectarray_to_vec(&mut env, &commitments_by_path, |b| bytes32_to_element(b)) {
             Some(vec) => vec,
             None => return false,
         };
 
-    let formatted_cl = match jobjectarray_to_vec(&env, cl, |b| bytes32_to_element(b)) {
+    let formatted_cl = match jobjectarray_to_vec(&mut env, &cl, |b| bytes32_to_element(b)) {
         Some(vec) => vec,
         None => return false,
     };
 
-    let formatted_cr = match jobjectarray_to_vec(&env, cr, |b| bytes32_to_element(b)) {
+    let formatted_cr = match jobjectarray_to_vec(&mut env, &cr, |b| bytes32_to_element(b)) {
         Some(vec) => vec,
         None => return false,
     };
@@ -405,7 +405,7 @@ pub extern "system" fn Java_verkle_cryptography_LibIpaMultipoint_verifyPreStateR
         .map(|&byte| byte_to_depth_extension_present(byte as u8))
         .unzip();
 
-    let formatted_other_stems = match convert_to_btree_set(&env, other_stems) {
+    let formatted_other_stems = match convert_to_btree_set(&mut env, &other_stems) {
         Some(set) => set,
         None => return false,
     };

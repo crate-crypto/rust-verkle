@@ -1,5 +1,5 @@
 use banderwagon::{CanonicalDeserialize, Element, Fr};
-use jni::sys::{jbyteArray, jobjectArray};
+use jni::objects::{JByteArray, JObjectArray};
 use jni::JNIEnv;
 use std::collections::BTreeSet;
 use verkle_trie::proof::ExtPresent;
@@ -86,25 +86,20 @@ pub fn byte_to_depth_extension_present(value: u8) -> (ExtPresent, u8) {
 ///
 /// An `Option<Vec<T>>` which is `Some` containing the converted elements if all conversions
 /// are successful, otherwise `None`.
-pub fn jobjectarray_to_vec<T, F>(
-    env: &JNIEnv,
-    array: jobjectArray,
+pub fn jobjectarray_to_vec<'local, T, F>(
+    env: &mut JNIEnv,
+    array: &JObjectArray<'local>,
     mut converter: F,
 ) -> Option<Vec<T>>
 where
     F: FnMut([u8; 32]) -> Option<T>,
 {
-    let length = env.get_array_length(array).ok()? as i32;
-    let mut result = Vec::with_capacity(length as usize);
-    for i in 0..length {
-        let array_element = get_array(env, array, i)?;
-        if let Some(converted) = converter(array_element) {
-            result.push(converted);
-        } else {
-            return None; // Return None if conversion fails
-        }
-    }
-    Some(result)
+    let vec_vec = jobject_array_to_2d_byte_array(env, array);
+
+    // Convert vector into fixed size 32 byte arrays
+    let vec_arr: Option<Vec<[u8; 32]>> = vec_vec.into_iter().map(|v| v.try_into().ok()).collect();
+
+    vec_arr?.into_iter().map(&mut converter).collect()
 }
 
 /// Converts a `jbyteArray` into a fixed-size `[u8; 32]` array.
@@ -122,7 +117,10 @@ where
 ///
 /// An `Option<[u8; 32]>` which is `Some` containing the converted byte array if successful,
 /// otherwise `None`.
-pub fn convert_byte_array_to_fixed_array(env: &JNIEnv, byte_array: jbyteArray) -> Option<[u8; 32]> {
+pub fn convert_byte_array_to_fixed_array<'local>(
+    env: &JNIEnv,
+    byte_array: JByteArray<'local>,
+) -> Option<[u8; 32]> {
     let bytes = env.convert_byte_array(byte_array).ok()?;
     if bytes.len() != 32 {
         return None;
@@ -147,15 +145,33 @@ pub fn convert_byte_array_to_fixed_array(env: &JNIEnv, byte_array: jbyteArray) -
 /// # Returns
 ///
 /// An `Option<[u8; 32]>` which is `Some` containing the byte array if successful, otherwise `None`.
-pub fn get_array(env: &JNIEnv, array: jobjectArray, index: i32) -> Option<[u8; 32]> {
-    let obj = env.get_object_array_element(array, index).ok()?;
-    let bytes = env.convert_byte_array(obj.into_inner()).ok()?;
+pub fn get_array<'local>(
+    env: &mut JNIEnv,
+    array: &JObjectArray<'local>,
+    index: i32,
+) -> Option<[u8; 32]> {
+    let vec_vec = jobject_array_to_2d_byte_array(env, array);
+    if vec_vec.len() >= index as usize {
+        return None;
+    }
+    let bytes = vec_vec[index as usize].clone();
     if bytes.len() != 32 {
         return None;
     }
-    let mut arr = [0u8; 32];
-    arr.copy_from_slice(&bytes);
-    Some(arr)
+    Some(
+        bytes
+            .try_into()
+            .expect("infallible: expected a 32 byte vector"),
+    )
+
+    // let obj = env.get_object_array_element(array, index).ok()?;
+    // let bytes = env.convert_byte_array(obj.into_inner()).ok()?;
+    // if bytes.len() != 32 {
+    //     return None;
+    // }
+    // let mut arr = [0u8; 32];
+    // arr.copy_from_slice(&bytes);
+    // Some(arr)
 }
 
 /// Retrieves an optional fixed-size `[u8; 32]` array from a `jobjectArray` at a specified index.
@@ -174,23 +190,29 @@ pub fn get_array(env: &JNIEnv, array: jobjectArray, index: i32) -> Option<[u8; 3
 ///
 /// An `Option<Option<[u8; 32]>>` which is `Some(None)` if the element is `null`, `Some(Some([u8; 32]))`
 /// if the element is successfully converted, or `None` if the operation fails.
-pub fn get_optional_array(
-    env: &JNIEnv,
-    array: jobjectArray,
+pub fn get_optional_array<'local>(
+    env: &mut JNIEnv,
+    array: &JObjectArray<'local>,
     index: i32,
 ) -> Option<Option<[u8; 32]>> {
-    let obj_result = env.get_object_array_element(array, index).ok()?;
-    if obj_result.is_null() {
-        return Some(None);
-    }
-    let bytes_result = env.convert_byte_array(obj_result.into_inner()).ok()?;
-    if bytes_result.len() == 32 {
-        let mut arr = [0u8; 32];
-        arr.copy_from_slice(&bytes_result);
-        Some(Some(arr))
-    } else {
-        Some(None)
-    }
+    let vec_of_vec = jobject_array_to_2d_byte_array(env, array);
+    vec_of_vec
+        .get(index as usize)
+        .cloned()
+        .map(|inner_vec| inner_vec.try_into().ok())
+
+    // let obj_result = env.get_object_array_element(array, index).ok()?;
+    // if obj_result.is_null() {
+    //     return Some(None);
+    // }
+    // let bytes_result = env.convert_byte_array(obj_result.into_inner()).ok()?;
+    // if bytes_result.len() == 32 {
+    //     let mut arr = [0u8; 32];
+    //     arr.copy_from_slice(&bytes_result);
+    //     Some(Some(arr))
+    // } else {
+    //     Some(None)
+    // }
 }
 
 /// Converts a `jobjectArray` into a `BTreeSet<[u8; 31]>`.
@@ -208,18 +230,54 @@ pub fn get_optional_array(
 ///
 /// An `Option<BTreeSet<[u8; 31]>>` which is `Some` containing the converted elements as a set
 /// if all conversions are successful, otherwise `None`.
-pub fn convert_to_btree_set(env: &JNIEnv, array: jobjectArray) -> Option<BTreeSet<[u8; 31]>> {
-    let num_element = env.get_array_length(array).ok()? as i32;
+pub fn convert_to_btree_set<'local>(
+    env: &mut JNIEnv,
+    array: &JObjectArray<'local>,
+) -> Option<BTreeSet<[u8; 31]>> {
+    // jobject_array_to_2d_byte_array(env, array)
+    //     .into_iter()
+    //     .map(|arr| arr.try_into().ok())
+    //     .collect()
+    let vec_of_vec = jobject_array_to_2d_byte_array(env, array);
+
     let mut set = BTreeSet::new();
-    for i in 0..num_element {
-        let array_obj = env.get_object_array_element(array, i).ok()?;
-        let array_bytes = env.convert_byte_array(array_obj.into_inner()).ok()?;
-        if array_bytes.len() != 31 {
+    // Check if any of the inner elements are not 31 bytes and return None if so
+    // or add them to BTreeSet if they are
+    for arr in vec_of_vec {
+        if arr.len() != 31 {
             return None;
         }
-        let mut arr = [0u8; 31];
-        arr.copy_from_slice(&array_bytes);
-        set.insert(arr);
+        set.insert(arr.try_into().expect("infallible: array is 31 bytes"));
     }
     Some(set)
+}
+
+pub(crate) fn jobject_array_to_2d_byte_array(
+    env: &mut JNIEnv,
+    array: &JObjectArray,
+) -> Vec<Vec<u8>> {
+    // Get the length of the outer array
+    let outer_len = env.get_array_length(array).unwrap();
+
+    let mut result = Vec::with_capacity(outer_len as usize);
+
+    for i in 0..outer_len {
+        // Get each inner array (JByteArray)
+        let inner_array_obj = env.get_object_array_element(&array, i).unwrap();
+        let inner_array: JByteArray = JByteArray::from(inner_array_obj);
+
+        // Get the length of the inner array
+        let inner_len = env.get_array_length(&inner_array).unwrap();
+
+        // Get the elements of the inner array
+        let mut buf = vec![0; inner_len as usize];
+        env.get_byte_array_region(inner_array, 0, &mut buf).unwrap();
+
+        // Convert i8 to u8
+        let buf = buf.into_iter().map(|x| x as u8).collect();
+
+        result.push(buf);
+    }
+
+    result
 }

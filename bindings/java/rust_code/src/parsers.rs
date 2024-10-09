@@ -1,67 +1,49 @@
-use jni::objects::ReleaseMode;
-use jni::sys::jbyteArray;
-use jni::JNIEnv;
-
+use ffi_interface::CommitmentBytes;
+use jni::{objects::JByteArray, JNIEnv};
 use std::convert::TryFrom;
 
-use ffi_interface::CommitmentBytes;
+pub fn parse_scalars<'a>(env: &'a JNIEnv<'a>, values: JByteArray<'a>) -> Result<Vec<u8>, String> {
+    let input_elements = env
+        .convert_byte_array(values)
+        .map_err(|_| "cannot convert byte array to vector")?;
 
-pub fn parse_scalars<'a>(env: &'a JNIEnv<'a>, values: jbyteArray) -> Result<&'a [u8], String> {
-    let input_len = env
-        .get_array_length(values)
-        .map_err(|_| "Cannot get array lenght".to_string())? as usize;
-    if input_len % 32 != 0 {
-        return Err("Wrong input size: should be a mulitple of 32 bytes".to_string());
+    if input_elements.len() % 32 != 0 {
+        return Err("Wrong input size: should be a multiple of 32 bytes".to_string());
     };
-    let input_elements = env
-        .get_primitive_array_critical(values, ReleaseMode::NoCopyBack)
-        .map_err(|_| "Cannot get array elements".to_string())?;
-    let input_slice =
-        unsafe { std::slice::from_raw_parts(input_elements.as_ptr() as *const u8, input_len) };
-    Ok(input_slice)
+    Ok(input_elements)
 }
 
-pub fn parse_indices(env: &JNIEnv, values: jbyteArray) -> Result<Vec<usize>, String> {
-    let input_len = env
-        .get_array_length(values)
-        .map_err(|_| "Cannot get array lenght".to_string())? as usize;
+pub fn parse_indices<'a>(env: &JNIEnv, values: JByteArray<'a>) -> Result<Vec<usize>, String> {
     let input_elements = env
-        .get_primitive_array_critical(values, ReleaseMode::NoCopyBack)
-        .map_err(|_| "Cannot get array elements".to_string())?;
-    let input_slice =
-        unsafe { std::slice::from_raw_parts(input_elements.as_ptr() as *const u8, input_len) };
-    let result: Vec<usize> = input_slice.iter().map(|&x| x as usize).collect();
-    Ok(result)
+        .convert_byte_array(values)
+        .map_err(|_| "could not convert byte array to vector".to_string())?;
+    Ok(input_elements.into_iter().map(|x| x as usize).collect())
 }
 
-pub fn parse_commitment(env: &JNIEnv, commitment: jbyteArray) -> Result<CommitmentBytes, String> {
-    let input_len = env
-        .get_array_length(commitment)
-        .map_err(|_| "Cannot get commitment lenght".to_string())? as usize;
-    let input_elements = env
-        .get_primitive_array_critical(commitment, ReleaseMode::NoCopyBack)
-        .map_err(|_| "Cannot get array elements".to_string())?;
-    let input_slice =
-        unsafe { std::slice::from_raw_parts(input_elements.as_ptr() as *const u8, input_len) };
-    let result: CommitmentBytes = CommitmentBytes::try_from(input_slice)
+pub fn parse_commitment<'a>(
+    env: &JNIEnv,
+    commitment: JByteArray<'a>,
+) -> Result<CommitmentBytes, String> {
+    let commitment_bytes = env
+        .convert_byte_array(commitment)
+        .map_err(|_| "cannot convert byte vector to vector")?;
+
+    let result: CommitmentBytes = CommitmentBytes::try_from(commitment_bytes)
         .map_err(|_| "Wrong commitment size: should be 64 bytes".to_string())?;
     Ok(result)
 }
 
 pub fn parse_commitments<'a>(
-    env: &'a JNIEnv<'a>,
-    commitment: jbyteArray,
-) -> Result<&'a [u8], String> {
-    let input_len = env
-        .get_array_length(commitment)
-        .map_err(|_| "Cannot get commitment lenght".to_string())? as usize;
-    if input_len % 64 != 0 {
-        return Err("Wrong input size: should be a mulitple of 64 bytes".to_string());
+    env: &JNIEnv<'a>,
+    commitment: JByteArray<'a>,
+) -> Result<Vec<u8>, String> {
+    let commitment_bytes = env
+        .convert_byte_array(commitment)
+        .map_err(|_| "cannot convert byte vector to vector")?;
+
+    if commitment_bytes.len() % 64 != 0 {
+        return Err("Wrong input size: should be a multiple of 64 bytes".to_string());
     };
-    let input_elements = env
-        .get_primitive_array_critical(commitment, ReleaseMode::NoCopyBack)
-        .map_err(|_| "Cannot get array elements".to_string())?;
-    let input_slice =
-        unsafe { std::slice::from_raw_parts(input_elements.as_ptr() as *const u8, input_len) };
-    Ok(input_slice)
+
+    Ok(commitment_bytes)
 }
