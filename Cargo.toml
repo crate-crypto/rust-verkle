@@ -8,9 +8,18 @@ members = [
     "banderwagon",
     "ffi_interface",
     "bindings/c",
+    "bindings/java/rust_code",
     "bindings/csharp/rust_code",
 ]
 resolver = "2"
+
+[workspace.package]
+authors = ["Kevaundray Wedderburn <kev@the.dev>"]
+edition = "2021"
+license = "MIT"
+version = "0.0.1"
+rust-version = "1.70"
+repository = "https://github.com/crate-crypto/rust-verkle"
 
 [profile.bench]
 debug = true
