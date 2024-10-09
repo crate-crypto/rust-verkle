@@ -151,10 +151,7 @@ pub fn get_array<'local>(
     index: i32,
 ) -> Option<[u8; 32]> {
     let vec_vec = jobject_array_to_2d_byte_array(env, array);
-    if vec_vec.len() >= index as usize {
-        return None;
-    }
-    let bytes = vec_vec[index as usize].clone();
+    let bytes = vec_vec.get(index as usize).cloned()?;
     if bytes.len() != 32 {
         return None;
     }
