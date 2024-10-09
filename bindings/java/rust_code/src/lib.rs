@@ -35,8 +35,9 @@ use verkle_trie::proof::{ExtPresent, VerificationHint, VerkleProof};
 pub static CONFIG: Lazy<ffi_interface::Context> = Lazy::new(ffi_interface::Context::default);
 
 /// Commit receives a list of 32 byte scalars and returns a 32 byte scalar
-/// Scalar is actually the map_to_field(commitment) because we want to reuse the commitment in parent node.
-/// This is ported from rust-verkle.
+///
+/// Scalar is actually the map_to_field(commitment) because we want to
+/// reuse the commitment in parent node. This is ported from rust-verkle.
 #[no_mangle]
 pub extern "system" fn Java_verkle_cryptography_LibIpaMultipoint_commit<'local>(
     mut env: JNIEnv<'local>,
@@ -351,17 +352,17 @@ pub extern "system" fn Java_verkle_cryptography_LibIpaMultipoint_verifyPreStateR
     }
 
     let formatted_commitments =
-        match jobjectarray_to_vec(&mut env, &commitments_by_path, |b| bytes32_to_element(b)) {
+        match jobjectarray_to_vec(&mut env, &commitments_by_path, bytes32_to_element) {
             Some(vec) => vec,
             None => return false,
         };
 
-    let formatted_cl = match jobjectarray_to_vec(&mut env, &cl, |b| bytes32_to_element(b)) {
+    let formatted_cl = match jobjectarray_to_vec(&mut env, &cl, bytes32_to_element) {
         Some(vec) => vec,
         None => return false,
     };
 
-    let formatted_cr = match jobjectarray_to_vec(&mut env, &cr, |b| bytes32_to_element(b)) {
+    let formatted_cr = match jobjectarray_to_vec(&mut env, &cr, bytes32_to_element) {
         Some(vec) => vec,
         None => return false,
     };
@@ -393,7 +394,7 @@ pub extern "system" fn Java_verkle_cryptography_LibIpaMultipoint_verifyPreStateR
             R_vec: formatted_cr,
             a: scalar_final_evaluation,
         },
-        g_x_comm: g_x_comm,
+        g_x_comm,
     };
 
     let depths_bytes = match env.convert_byte_array(depths_extension_present_stems) {
@@ -402,7 +403,7 @@ pub extern "system" fn Java_verkle_cryptography_LibIpaMultipoint_verifyPreStateR
     };
     let (formatted_extension_present, depths): (Vec<ExtPresent>, Vec<u8>) = depths_bytes
         .iter()
-        .map(|&byte| byte_to_depth_extension_present(byte as u8))
+        .map(|&byte| byte_to_depth_extension_present(byte))
         .unzip();
 
     let formatted_other_stems = match convert_to_btree_set(&mut env, &other_stems) {
@@ -412,7 +413,7 @@ pub extern "system" fn Java_verkle_cryptography_LibIpaMultipoint_verifyPreStateR
 
     let verkle_proof = VerkleProof {
         verification_hint: VerificationHint {
-            depths: depths,
+            depths,
             extension_present: formatted_extension_present,
             diff_stem_no_proof: formatted_other_stems,
         },
@@ -420,12 +421,11 @@ pub extern "system" fn Java_verkle_cryptography_LibIpaMultipoint_verifyPreStateR
         proof,
     };
 
-    let prestate_root_bytes = match convert_byte_array_to_fixed_array(&env, prestate_root)
-        .and_then(|bytes| bytes32_to_element(bytes))
-    {
-        Some(element) => element,
-        None => return false,
-    };
+    let prestate_root_bytes =
+        match convert_byte_array_to_fixed_array(&env, prestate_root).and_then(bytes32_to_element) {
+            Some(element) => element,
+            None => return false,
+        };
 
     let (bool, _update_hint) = verkle_proof.check(
         formatted_keys,

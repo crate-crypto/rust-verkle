@@ -86,9 +86,9 @@ pub fn byte_to_depth_extension_present(value: u8) -> (ExtPresent, u8) {
 ///
 /// An `Option<Vec<T>>` which is `Some` containing the converted elements if all conversions
 /// are successful, otherwise `None`.
-pub fn jobjectarray_to_vec<'local, T, F>(
+pub fn jobjectarray_to_vec<T, F>(
     env: &mut JNIEnv,
-    array: &JObjectArray<'local>,
+    array: &JObjectArray<'_>,
     mut converter: F,
 ) -> Option<Vec<T>>
 where
@@ -117,9 +117,9 @@ where
 ///
 /// An `Option<[u8; 32]>` which is `Some` containing the converted byte array if successful,
 /// otherwise `None`.
-pub fn convert_byte_array_to_fixed_array<'local>(
+pub fn convert_byte_array_to_fixed_array(
     env: &JNIEnv,
-    byte_array: JByteArray<'local>,
+    byte_array: JByteArray<'_>,
 ) -> Option<[u8; 32]> {
     let bytes = env.convert_byte_array(byte_array).ok()?;
     if bytes.len() != 32 {
@@ -145,11 +145,7 @@ pub fn convert_byte_array_to_fixed_array<'local>(
 /// # Returns
 ///
 /// An `Option<[u8; 32]>` which is `Some` containing the byte array if successful, otherwise `None`.
-pub fn get_array<'local>(
-    env: &mut JNIEnv,
-    array: &JObjectArray<'local>,
-    index: i32,
-) -> Option<[u8; 32]> {
+pub fn get_array(env: &mut JNIEnv, array: &JObjectArray<'_>, index: i32) -> Option<[u8; 32]> {
     let vec_vec = jobject_array_to_2d_byte_array(env, array);
     let bytes = vec_vec.get(index as usize).cloned()?;
     if bytes.len() != 32 {
@@ -187,9 +183,9 @@ pub fn get_array<'local>(
 ///
 /// An `Option<Option<[u8; 32]>>` which is `Some(None)` if the element is `null`, `Some(Some([u8; 32]))`
 /// if the element is successfully converted, or `None` if the operation fails.
-pub fn get_optional_array<'local>(
+pub fn get_optional_array(
     env: &mut JNIEnv,
-    array: &JObjectArray<'local>,
+    array: &JObjectArray<'_>,
     index: i32,
 ) -> Option<Option<[u8; 32]>> {
     let vec_of_vec = jobject_array_to_2d_byte_array(env, array);
@@ -227,9 +223,9 @@ pub fn get_optional_array<'local>(
 ///
 /// An `Option<BTreeSet<[u8; 31]>>` which is `Some` containing the converted elements as a set
 /// if all conversions are successful, otherwise `None`.
-pub fn convert_to_btree_set<'local>(
+pub fn convert_to_btree_set(
     env: &mut JNIEnv,
-    array: &JObjectArray<'local>,
+    array: &JObjectArray<'_>,
 ) -> Option<BTreeSet<[u8; 31]>> {
     // jobject_array_to_2d_byte_array(env, array)
     //     .into_iter()
@@ -260,7 +256,7 @@ pub(crate) fn jobject_array_to_2d_byte_array(
 
     for i in 0..outer_len {
         // Get each inner array (JByteArray)
-        let inner_array_obj = env.get_object_array_element(&array, i).unwrap();
+        let inner_array_obj = env.get_object_array_element(array, i).unwrap();
         let inner_array: JByteArray = JByteArray::from(inner_array_obj);
 
         // Get the length of the inner array

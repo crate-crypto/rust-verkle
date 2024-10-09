@@ -13,16 +13,16 @@ pub fn parse_scalars<'a>(env: &'a JNIEnv<'a>, values: JByteArray<'a>) -> Result<
     Ok(input_elements)
 }
 
-pub fn parse_indices<'a>(env: &JNIEnv, values: JByteArray<'a>) -> Result<Vec<usize>, String> {
+pub fn parse_indices(env: &JNIEnv, values: JByteArray<'_>) -> Result<Vec<usize>, String> {
     let input_elements = env
         .convert_byte_array(values)
         .map_err(|_| "could not convert byte array to vector".to_string())?;
     Ok(input_elements.into_iter().map(|x| x as usize).collect())
 }
 
-pub fn parse_commitment<'a>(
+pub fn parse_commitment(
     env: &JNIEnv,
-    commitment: JByteArray<'a>,
+    commitment: JByteArray<'_>,
 ) -> Result<CommitmentBytes, String> {
     let commitment_bytes = env
         .convert_byte_array(commitment)
