@@ -1,129 +1,147 @@
 plugins {
-    id 'java-library'
-    id "java-test-fixtures"
-    id "me.champeau.jmh" version "0.7.0"
-    id "com.diffplug.spotless" version "6.17.0"
-    id 'maven-publish'
-    id 'org.jreleaser' version '1.12.0'
+	id 'java-library'
+	id "java-test-fixtures"
+	id "me.champeau.jmh" version "0.7.0"
+	id "com.diffplug.spotless" version "6.17.0"
+	id 'maven-publish'
+	id 'org.jreleaser' version '1.12.0'
 }
 
 group = 'io.github.crate-crypto'
 version = '0.0.3'
 
+// Add Spotless configuration
+spotless {
+	java {
+		// Apply Google's Java formatting style
+		googleJavaFormat()
+
+		// Remove unused imports
+		importOrder()
+		removeUnusedImports()
+
+		// Add license header if needed
+		// licenseHeader '/*\n * Copyright $YEAR Crate Crypto\n */'
+
+		// Enforce Unix line endings
+		endWithNewline()
+		indentWithSpaces(4)
+		trimTrailingWhitespace()
+	}
+
+	// Format Gradle files
+	groovyGradle {
+		target '*.gradle'
+		greclipse()
+	}
+}
 
 java {
-  withJavadocJar()
-  withSourcesJar()
+	withJavadocJar()
+	withSourcesJar()
 }
 
 repositories {
-    mavenCentral()
+	mavenCentral()
 }
 
 if (hasProperty('buildScan')) {
-    buildScan {
-        termsOfServiceUrl = 'https://gradle.com/terms-of-service'
-        termsOfServiceAgree = 'yes'
-    }
+	buildScan {
+		termsOfServiceUrl = 'https://gradle.com/terms-of-service'
+		termsOfServiceAgree = 'yes'
+	}
 }
 
 dependencies {
-    testImplementation platform('org.junit:junit-bom:5.10.0')
-    testImplementation 'org.junit.jupiter:junit-jupiter'
-
-    implementation 'net.java.dev.jna:jna:5.12.1'
-    testImplementation 'io.tmio:tuweni-bytes:2.4.2'
-    testImplementation 'org.junit.jupiter:junit-jupiter-params:5.7.2'
-    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.7.2'
-    testImplementation 'com.fasterxml.jackson.core:jackson-databind:2.12.5'
-    testImplementation 'org.assertj:assertj-core:3.22.0'
-    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.7.2'
-
-    def jacksonVersion = "2.14.2"
-
-    testFixturesImplementation("org.apache.tuweni:tuweni-units:2.3.1")
-    testFixturesImplementation("com.fasterxml.jackson.core:jackson-databind:${jacksonVersion}")
-    testFixturesImplementation("com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:${jacksonVersion}")
+	testImplementation platform('org.junit:junit-bom:5.10.0')
+	testImplementation 'org.junit.jupiter:junit-jupiter'
+	implementation 'net.java.dev.jna:jna:5.12.1'
+	testImplementation 'io.tmio:tuweni-bytes:2.4.2'
+	testImplementation 'org.junit.jupiter:junit-jupiter-params:5.7.2'
+	testImplementation 'org.junit.jupiter:junit-jupiter-api:5.7.2'
+	testImplementation 'com.fasterxml.jackson.core:jackson-databind:2.12.5'
+	testImplementation 'org.assertj:assertj-core:3.22.0'
+	testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.7.2'
+	def jacksonVersion = "2.14.2"
+	testFixturesImplementation("org.apache.tuweni:tuweni-units:2.3.1")
+	testFixturesImplementation("com.fasterxml.jackson.core:jackson-databind:${jacksonVersion}")
+	testFixturesImplementation("com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:${jacksonVersion}")
 }
 
 test {
-    useJUnitPlatform()
-    dependsOn cleanTest
-    testLogging.showStandardStreams = true
+	useJUnitPlatform()
+	dependsOn cleanTest
+	testLogging.showStandardStreams = true
 }
-        
+
 publishing {
-  publications {
-    maven(MavenPublication) {
-      from components.java
-
-      pom {
-        name = 'Verkle Cryptography Library'
-        description = 'A library for working with Cryptography used in verkle trie'
-        url = 'https://github.com/crate-crypto/rust-verkle'
-        licenses {
-          license {
-            name = 'The Apache License, Version 2.0'
-            url = 'http://www.apache.org/licenses/LICENSE-2.0.txt'
-          }
-        }
-        developers {
-          developer {
-            id = 'kevthedev'
-            name = 'Kevaundray Wedderburn'
-            email = 'kev@the.dev'
-          }
-        }
-        scm {
-          connection = 'scm:git:git://github.com/crate-crypto/rust-verkle.git'
-          developerConnection = 'scm:git:ssh://github.com:crate-crypto/rust-verkle.git'
-          url = 'https://github.com/crate-crypto/rust-verkle'
-        }
-      }
-    }
-  }
-
-  repositories {
-    maven {
-      url = layout.buildDirectory.dir('staging-deploy')
-    }
-  }
+	publications {
+		maven(MavenPublication) {
+			from components.java
+			pom {
+				name = 'Verkle Cryptography Library'
+				description = 'A library for working with Cryptography used in verkle trie'
+				url = 'https://github.com/crate-crypto/rust-verkle'
+				licenses {
+					license {
+						name = 'The Apache License, Version 2.0'
+						url = 'http://www.apache.org/licenses/LICENSE-2.0.txt'
+					}
+				}
+				developers {
+					developer {
+						id = 'kevthedev'
+						name = 'Kevaundray Wedderburn'
+						email = 'kev@the.dev'
+					}
+				}
+				scm {
+					connection = 'scm:git:git://github.com/crate-crypto/rust-verkle.git'
+					developerConnection = 'scm:git:ssh://github.com:crate-crypto/rust-verkle.git'
+					url = 'https://github.com/crate-crypto/rust-verkle'
+				}
+			}
+		}
+	}
+	repositories {
+		maven {
+			url = layout.buildDirectory.dir('staging-deploy')
+		}
+	}
 }
-        
+
 jreleaser {
-  // Jreleaser will look for .git and its at the top level repository
-  gitRootSearch = true
-  release {
-    // Skip releases as this is handled by release-please
-    github {
-      skipRelease = true
-    }
-  }
-  signing {
-    active = 'ALWAYS'
-    armored = true
-  }
-  deploy {
-    maven {
-      mavenCentral {
-        sonatype {
-          active = 'ALWAYS'
-          url = 'https://central.sonatype.com/api/v1/publisher'
-          stagingRepository('build/staging-deploy')
-        }
-      }
-    }
-  }
+	gitRootSearch = true
+	release {
+		github {
+			skipRelease = true
+		}
+	}
+	signing {
+		active = 'ALWAYS'
+		armored = true
+	}
+	deploy {
+		maven {
+			mavenCentral {
+				sonatype {
+					active = 'ALWAYS'
+					url = 'https://central.sonatype.com/api/v1/publisher'
+					stagingRepository('build/staging-deploy')
+				}
+			}
+		}
+	}
 }
 
-// JReleaser does not create this directory, so we manually create it 
+// JReleaser does not create this directory, so we manually create it
 // ourselves.
 tasks.register('createJReleaserOutputDir') {
-  doLast {
-    mkdir 'build/jreleaser'
-  }
+	doLast {
+		mkdir 'build/jreleaser'
+	}
 }
 
 tasks.named('jreleaserFullRelease') {
-  dependsOn 'createJReleaserOutputDir'
+	dependsOn 'createJReleaserOutputDir'
 }
