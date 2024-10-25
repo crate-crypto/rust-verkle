@@ -9,10 +9,12 @@ repository = { workspace = true }
 
 
 [dependencies]
-ffi_interface = { git = "https://github.com/crate-crypto/rust-verkle", rev = "442174edeb69f7827047132306d302345df12b83" }
-verkle-trie = { git = "https://github.com/crate-crypto/rust-verkle", rev = "442174edeb69f7827047132306d302345df12b83" }
-ipa-multipoint = { git = "https://github.com/crate-crypto/rust-verkle", rev = "442174edeb69f7827047132306d302345df12b83" }
-banderwagon = { git = "https://github.com/crate-crypto/rust-verkle", rev = "442174edeb69f7827047132306d302345df12b83" }
+banderwagon = { path = "../../../banderwagon" }
+ipa-multipoint = { path = "../../../ipa-multipoint" }
+verkle-spec = { path = "../../../verkle-spec" }
+verkle-trie = { path = "../../../verkle-trie" }
+ffi_interface = { path = "../../../ffi_interface" }
+
 jni = { version = "0.21.1", features = [
     "invocation",
 ] } # We use invocation in tests.

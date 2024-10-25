@@ -49,6 +49,15 @@ public class LibIpaMultipoint {
    * @return uncompressed serialised commitment.
    */
   public static native byte[] commit(byte[] values);
+  
+  /**
+   * Adds two commitments together.
+   *
+   * @param lhs first commitment to add in uncompressed format.
+   * @param rhs second commitment to add in uncompressed format.
+   * @return sum of lhs and rhs returned in uncompressed format.
+   */
+  public static native byte[] addCommitment(byte[] lhs, byte[] rhs);
 
   /**
    * Commit to a vector of values and compress commitment.

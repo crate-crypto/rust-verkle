@@ -95,7 +95,8 @@ public class LibIpaMultipointTest {
     @Test
     public void testUpdateCommitmentSparseNonIdentityCommitment() {
         // These values are taken from: https://github.com/crate-crypto/rust-verkle/blob/bb5af2f2fe9788d49d2896b9614a3125f8227818/ffi_interface/src/lib.rs#L494
-        Bytes oldCommitment = Bytes.fromHexString("c2a169fe13aab966d6642801727c8534e40b355372890e18a9880f66b88e143a37fe18000aaf81d4536b64ec3266678c56baf81645d4cfd5133a908247ab8445");
+        Bytes oldCommitment = Bytes.fromHexString(
+                "c2a169fe13aab966d6642801727c8534e40b355372890e18a9880f66b88e143a37fe18000aaf81d4536b64ec3266678c56baf81645d4cfd5133a908247ab8445");
         Bytes oldScalar1 = Bytes.fromHexString("0x0400000000000000000000000000000000000000000000000000000000000000");
         Bytes newScalar1 = Bytes.fromHexString("0x7f00000000000000000000000000000000000000000000000000000000000000");
         Bytes index1 = Bytes.fromHexString("0x01");
@@ -104,15 +105,29 @@ public class LibIpaMultipointTest {
         Bytes newScalar2 = Bytes.fromHexString("0xff00000000000000000000000000000000000000000000000000000000000000");
         Bytes index2 = Bytes.fromHexString("0x02");
 
-	Bytes indices = Bytes.concatenate(index1, index2);
+        Bytes indices = Bytes.concatenate(index1, index2);
         Bytes oldScalars = Bytes.concatenate(oldScalar1, oldScalar2);
-	Bytes newScalars = Bytes.concatenate(newScalar1, newScalar2);
+        Bytes newScalars = Bytes.concatenate(newScalar1, newScalar2);
 
         Bytes result = Bytes.of(LibIpaMultipoint.updateSparse(
-		oldCommitment.toArray(), indices.toArray(),
-		oldScalars.toArray(), newScalars.toArray()
- 	));
-        assertThat(result).isEqualTo(Bytes.fromHexString("2dd3bb69da79ecd91a74b188bfddc74827a995dec07e5308f8215f08d69e77330b11628c6d3313a7781b74850e64cb6ac706290da79e56ff311a10214d14dc36"));
+                oldCommitment.toArray(), indices.toArray(),
+                oldScalars.toArray(), newScalars.toArray()));
+        assertThat(result).isEqualTo(Bytes.fromHexString(
+                "2dd3bb69da79ecd91a74b188bfddc74827a995dec07e5308f8215f08d69e77330b11628c6d3313a7781b74850e64cb6ac706290da79e56ff311a10214d14dc36"));
 
+    }
+    
+    @Test
+    public void testAddCommitment() {
+        // Taken from `smoke_test_add_commitment_fixed` in ffi_interface
+
+        Bytes lhs = Bytes.fromHexString("0x0ff070a99e9f38e4f1ec1db91795ef4942fcd188152562c2773d9125236a50444687ab68507977d6276428d7d570a3c95efa406427f6641ba1e247133d17e030");
+        Bytes rhs = Bytes.fromHexString("0x333e05d05e6533e993f519c23dbce6205fb9e0b78f38b3336d9c4296f144cb0204c389bb5e6925157ce16eda2ebf45640956be98e2be2df77a86f0bca135da21");
+        Bytes expected = Bytes.fromHexString(
+                "0x8b5feb2eb0cc73a8ca2f24ae7b2c61e88ff0b019dea9b881d1b5f7815280b6393834cb80ab2c09984c5b9f70be680206a6e12c8bbb169fe5ab672f45c5d51e20");
+        
+        Bytes result = Bytes.of(LibIpaMultipoint.addCommitment(lhs.toArray(), rhs.toArray()));
+
+        assertThat(result).isEqualTo(expected);
     }
 }
