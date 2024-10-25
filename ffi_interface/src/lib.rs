@@ -602,6 +602,22 @@ mod pedersen_hash_tests {
         assert_eq!(hex::encode(&key), expected_hash)
     }
 
+    #[test]
+    fn smoke_test_add_commitment_fixed() {
+        // A test to check that add commitment does not change
+        let lhs = "0ff070a99e9f38e4f1ec1db91795ef4942fcd188152562c2773d9125236a50444687ab68507977d6276428d7d570a3c95efa406427f6641ba1e247133d17e030";
+        let rhs = "333e05d05e6533e993f519c23dbce6205fb9e0b78f38b3336d9c4296f144cb0204c389bb5e6925157ce16eda2ebf45640956be98e2be2df77a86f0bca135da21";
+        let output = "8b5feb2eb0cc73a8ca2f24ae7b2c61e88ff0b019dea9b881d1b5f7815280b6393834cb80ab2c09984c5b9f70be680206a6e12c8bbb169fe5ab672f45c5d51e20";
+
+        let lhs_bytes = hex::decode(lhs).unwrap();
+        let rhs_bytes = hex::decode(rhs).unwrap();
+        let output_bytes = hex::decode(output).unwrap();
+
+        let got = add_commitment(lhs_bytes.try_into().unwrap(), rhs_bytes.try_into().unwrap());
+
+        assert_eq!(&got, &output_bytes[..])
+    }
+
     fn u128_to_32bytes(integer: u128) -> [u8; 32] {
         let mut bytes = integer.to_le_bytes().to_vec();
         bytes.extend(vec![0u8; 16]);

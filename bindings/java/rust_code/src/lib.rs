@@ -279,6 +279,48 @@ pub extern "system" fn Java_verkle_cryptography_LibIpaMultipoint_hash<'local>(
 }
 
 #[no_mangle]
+pub extern "system" fn Java_verkle_cryptography_LibIpaMultipoint_addCommitment<'local>(
+    mut env: JNIEnv<'local>,
+    _class: JClass<'_>,
+    lhs: JByteArray,
+    rhs: JByteArray,
+) -> JByteArray<'local> {
+    let lhs = match parse_commitment(&env, lhs) {
+        Ok(v) => v,
+        Err(e) => {
+            env.throw_new("java/lang/IllegalArgumentException", e)
+                .expect("Failed to throw exception for add commitment.");
+            return JByteArray::default();
+        }
+    };
+
+    let rhs = match parse_commitment(&env, rhs) {
+        Ok(v) => v,
+        Err(e) => {
+            env.throw_new("java/lang/IllegalArgumentException", e)
+                .expect("Failed to throw exception for add commitment.");
+            return JByteArray::default();
+        }
+    };
+
+    let output = ffi_interface::add_commitment(lhs, rhs);
+
+    let result = match env.byte_array_from_slice(&output) {
+        Ok(s) => s,
+        Err(_e) => {
+            env.throw_new(
+                "java/lang/IllegalArgumentException",
+                "Invalid commitment output. Couldn't convert to byte array.",
+            )
+            .expect("Couldn't convert to byte array");
+            return JByteArray::default();
+        }
+    };
+
+    result
+}
+
+#[no_mangle]
 pub extern "system" fn Java_verkle_cryptography_LibIpaMultipoint_hashMany<'local>(
     mut env: JNIEnv<'local>,
     _class: JClass<'_>,

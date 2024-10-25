@@ -17,6 +17,14 @@ JNIEXPORT jbyteArray JNICALL Java_verkle_cryptography_LibIpaMultipoint_commit
 
 /*
  * Class:     verkle_cryptography_LibIpaMultipoint
+ * Method:    addCommitment
+ * Signature: ([B[B)[B
+ */
+JNIEXPORT jbyteArray JNICALL Java_verkle_cryptography_LibIpaMultipoint_addCommitment
+  (JNIEnv *, jclass, jbyteArray, jbyteArray);
+
+/*
+ * Class:     verkle_cryptography_LibIpaMultipoint
  * Method:    commitAsCompressed
  * Signature: ([B)[B
  */
