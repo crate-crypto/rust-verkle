@@ -16,86 +16,85 @@
 package verkle.cryptography.proof;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-
 import java.util.List;
-
 
 public class ExecutionWitnessData {
 
-    @JsonProperty("header")
-    public Header header;
-    @JsonProperty("executionWitness")
-    public ExecutionWitness executionWitness;
+  @JsonProperty("header")
+  public Header header;
 
+  @JsonProperty("executionWitness")
+  public ExecutionWitness executionWitness;
 
-    static class Header {
+  static class Header {
 
-        @JsonProperty("blockNumber")
-        public String blockNumber;
-        @JsonProperty("parentHash")
-        public String parentHash;
-        @JsonProperty("stateRoot")
-        public String stateRoot;
+    @JsonProperty("blockNumber")
+    public String blockNumber;
 
-    }
+    @JsonProperty("parentHash")
+    public String parentHash;
 
+    @JsonProperty("stateRoot")
+    public String stateRoot;
+  }
 
-    static class ExecutionWitness {
+  static class ExecutionWitness {
 
-        @JsonProperty("stateDiff")
-        public List<StateDiff> stateDiff;
-        @JsonProperty("verkleProof")
-        public VerkleProof verkleProof;
+    @JsonProperty("stateDiff")
+    public List<StateDiff> stateDiff;
 
-    }
+    @JsonProperty("verkleProof")
+    public VerkleProof verkleProof;
+  }
 
+  static class StateDiff {
 
-    static class StateDiff {
+    @JsonProperty("stem")
+    public String stem;
 
-        @JsonProperty("stem")
-        public String stem;
-        @JsonProperty("suffixDiffs")
-        public List<SuffixDiff> suffixDiffs;
+    @JsonProperty("suffixDiffs")
+    public List<SuffixDiff> suffixDiffs;
+  }
 
-    }
+  static class SuffixDiff {
 
+    @JsonProperty("suffix")
+    public int suffix;
 
-    static class SuffixDiff {
+    @JsonProperty("currentValue")
+    public String currentValue;
 
-        @JsonProperty("suffix")
-        public int suffix;
-        @JsonProperty("currentValue")
-        public String currentValue;
-        @JsonProperty("newValue")
-        public String newValue;
+    @JsonProperty("newValue")
+    public String newValue;
+  }
 
-    }
+  static class VerkleProof {
 
+    @JsonProperty("otherStems")
+    public List<String> otherStems;
 
-    static class VerkleProof {
+    @JsonProperty("depthExtensionPresent")
+    public String depthExtensionPresent;
 
-        @JsonProperty("otherStems")
-        public List<String> otherStems;
-        @JsonProperty("depthExtensionPresent")
-        public String depthExtensionPresent;
-        @JsonProperty("commitmentsByPath")
-        public List<String> commitmentsByPath;
-        @JsonProperty("d")
-        public String d;
-        @JsonProperty("ipaProof")
-        public IpaProof ipaProof;
+    @JsonProperty("commitmentsByPath")
+    public List<String> commitmentsByPath;
 
-    }
+    @JsonProperty("d")
+    public String d;
 
+    @JsonProperty("ipaProof")
+    public IpaProof ipaProof;
+  }
 
-    static class IpaProof {
+  static class IpaProof {
 
-        @JsonProperty("cl")
-        public List<String> cl;
-        @JsonProperty("cr")
-        public List<String> cr;
-        @JsonProperty("finalEvaluation")
-        public String finalEvaluation;
+    @JsonProperty("cl")
+    public List<String> cl;
 
-    }
+    @JsonProperty("cr")
+    public List<String> cr;
+
+    @JsonProperty("finalEvaluation")
+    public String finalEvaluation;
+  }
 }

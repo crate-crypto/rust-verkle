@@ -27,6 +27,22 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  format:
+    name: Check Formatting
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+      - name: Set up JDK
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '11'
+      - name: Check formatting
+        run: ./gradlew spotlessCheck
+        working-directory: bindings/java/java_code
+
   build:
     name: Build - ${{ matrix.target }}
     runs-on: ${{ matrix.os }}
