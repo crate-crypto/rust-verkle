@@ -18,6 +18,8 @@ package verkle.cryptography;
 import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.*;
 
+import java.math.BigInteger;
+
 import org.apache.tuweni.bytes.Bytes;
 import org.apache.tuweni.bytes.Bytes32;
 import verkle.cryptography.LibIpaMultipoint;
@@ -129,5 +131,60 @@ public class LibIpaMultipointTest {
         Bytes result = Bytes.of(LibIpaMultipoint.addCommitment(lhs.toArray(), rhs.toArray()));
 
         assertThat(result).isEqualTo(expected);
+    }
+
+    @Test
+    public void testGetTreeKeySubIndex0() {
+        // Taken from "get_tree_key_add_commitment_equivalence" test in rust ffi_interface
+        // code.
+        BigInteger[] chunkedInput = new BigInteger[] {
+                BigInteger.valueOf(16386),
+            new BigInteger("21345817372864405881847059188222722561"),
+            new BigInteger("42696867846335054569745073772176806417"),
+            new BigInteger("65392825175610104412738625059090743104"),
+            new BigInteger("44041774702139455724840610475136659248")
+        };
+
+        Bytes expectedHashForSubIndex0 = Bytes.fromHexString("ff7e3916badeb510dfcdad458726273319280742e553d8d229bd676428147300");
+    
+        Bytes32 marker = toBytes32LE(chunkedInput[0]);
+        Bytes32 addressLow = toBytes32LE(chunkedInput[1]);
+        Bytes32 addressHigh = toBytes32LE(chunkedInput[2]);
+        Bytes32 treeIndexLow = toBytes32LE(chunkedInput[3]);
+        Bytes32 treeIndexHigh = toBytes32LE(chunkedInput[4]);
+
+        Bytes address = Bytes.concatenate(addressLow, addressHigh);
+        Bytes addressWithMarker = Bytes.concatenate(marker, address);
+        Bytes addressCached = Bytes.of(LibIpaMultipoint.commit(addressWithMarker.toArray()));
+        
+        Bytes32 zero = Bytes32.fromHexString("0x0000000000000000000000000000000000000000000000000000000000000000");
+        Bytes32[] treeIndex = new Bytes32[5];
+        treeIndex[0] = zero;
+        treeIndex[1] = zero;
+        treeIndex[2] = zero;
+        treeIndex[3] = treeIndexLow;
+        treeIndex[4] = treeIndexHigh;
+        Bytes input = Bytes.concatenate(treeIndex);
+
+        Bytes treeIndexCommit = Bytes.wrap(LibIpaMultipoint.commit(input.toArray()));
+
+        byte[] committedPoint = LibIpaMultipoint.addCommitment(addressCached.toArray(), treeIndexCommit.toArray());
+
+        byte[] key = LibIpaMultipoint.hash(committedPoint);
+        key[31] = 0; // modify the last byte to simulate get_tree_key using sub_index=0
+
+        assertThat(Bytes.of(key)).isEqualTo(expectedHashForSubIndex0);
+    }
+
+    private static Bytes32 toBytes32LE(BigInteger value) {
+        byte[] bytes = new byte[32];
+        byte[] valueBytes = value.toByteArray();
+        
+        // Copy in reverse order directly into the target array
+        for (int i = 0; i < valueBytes.length; i++) {
+            bytes[i] = valueBytes[valueBytes.length - 1 - i];
+        }
+
+        return Bytes32.wrap(bytes);
     }
 }

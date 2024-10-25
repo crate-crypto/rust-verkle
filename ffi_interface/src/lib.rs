@@ -541,7 +541,7 @@ mod pedersen_hash_tests {
     }
 
     #[test]
-    fn smoke_test_input() {
+    fn get_tree_key_add_commitment_equivalence() {
         let context = Context::default();
         let input = [
             1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24,
