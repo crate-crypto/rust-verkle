@@ -102,6 +102,9 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '11'
+      - name: Formatting
+        run: ./gradlew spotlessCheck
+        working-directory: bindings/java/java_code
       - name: Build with Gradle (no tests)
         run: ./gradlew build -x test
         working-directory: bindings/java/java_code
